@@ -1,0 +1,22 @@
+sudo: required
+
+language: go
+
+services:
+  - docker
+
+go:
+  - 1.11.1
+
+before_install:
+  - go get -u golang.org/x/lint/golint
+
+script:
+  - make
+  - make unit
+  - make lint
+  - make container
+
+after_success:
+  - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - make push && make push-latest

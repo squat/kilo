@@ -1,0 +1,34 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: kilo
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kilo
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kilo
+    spec:
+      hostNetwork: true
+      containers:
+      - name: kilo
+        image: squat/kilo
+        args:
+        - --kubeconfig=/etc/kubernetes/kubeconfig
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: kubeconfig
+          mountPath: /etc/kubernetes/kubeconfig
+          readOnly: true
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      volumes:
+      - name: kubeconfig
+        hostPath:
+          path: /etc/kubernetes/kubeconfig
