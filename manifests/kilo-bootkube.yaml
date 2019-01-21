@@ -1,3 +1,36 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kilo
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kilo
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - patch
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kilo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kilo
+subjects:
+  - kind: ServiceAccount
+    name: kilo
+    namespace: kube-system
+---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
@@ -11,6 +44,7 @@ spec:
       labels:
         app.kubernetes.io/name: kilo
     spec:
+      serviceAccountName: kilo
       hostNetwork: true
       containers:
       - name: kilo
