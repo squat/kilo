@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 )
@@ -36,7 +37,9 @@ func NewIPIP(baseIndex int) (int, error) {
 		cmd := exec.Command("ip", "tunnel", "add", tunnelName, "mode", "ipip")
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
+		// Sometimes creating a tunnel returns the error "File exists,"
+		// in which case the interface exists and we can ignore the error.
+		if err := cmd.Run(); err != nil && !strings.Contains(stderr.String(), "File exists") {
 			return 0, fmt.Errorf("failed to create IPIP tunnel: %s", stderr.String())
 		}
 		link, err = netlink.LinkByName(tunnelName)
