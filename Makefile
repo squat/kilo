@@ -1,3 +1,4 @@
+export GO111MODULE=on
 .PHONY: all push container clean container-name container-latest push-latest fmt lint test unit vendor header
 
 BINS := $(addprefix bin/,kg kgctl)
@@ -21,7 +22,7 @@ SRC := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_FILES ?= $$(find . -name '*.go' -not -path './vendor/*')
 GO_PKGS ?= $$(go list ./... | grep -v "$(PKG)/vendor")
 
-BUILD_IMAGE ?= golang:1.11.1-alpine
+BUILD_IMAGE ?= golang:1.11.5-alpine
 
 all: build
 
@@ -51,7 +52,7 @@ fmt:
 
 lint: header
 	@echo 'go vet $(GO_PKGS)'
-	@vet_res=$$(go vet $(GO_PKGS) 2>&1); if [ -n "$$vet_res" ]; then \
+	@vet_res=$$(GO111MODULE=on go vet -mod=vendor $(GO_PKGS) 2>&1); if [ -n "$$vet_res" ]; then \
 		echo ""; \
 		echo "Go vet found issues. Please check the reported issues"; \
 		echo "and fix them if necessary before submitting the code for review:"; \
@@ -76,7 +77,7 @@ lint: header
 	fi
 
 unit:
-	go test --race ./...
+	go test -mod=vendor --race ./...
 
 test: lint unit
 
