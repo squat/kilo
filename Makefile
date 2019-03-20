@@ -22,7 +22,7 @@ SRC := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_FILES ?= $$(find . -name '*.go' -not -path './vendor/*')
 GO_PKGS ?= $$(go list ./... | grep -v "$(PKG)/vendor")
 
-BUILD_IMAGE ?= golang:1.11.5-alpine
+BUILD_IMAGE ?= golang:1.12.1-alpine
 
 all: build
 
@@ -37,9 +37,8 @@ $(BINS): $(SRC) go.mod
 	    -w /$(PROJECT) \
 	    $(BUILD_IMAGE) \
 	    /bin/sh -c " \
-	        rm -rf ./.cache && \
 	        GOOS=linux \
-	        GOCACHE=./.cache \
+	        GOCACHE=/$(PROJECT)/.cache \
 		CGO_ENABLED=0 \
 		go build -mod=vendor -o $@ \
 		    $(LD_FLAGS) \

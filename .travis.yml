@@ -6,7 +6,7 @@ services:
   - docker
 
 go:
-  - 1.11.5
+  - 1.12.1
 
 before_install:
   - go get -u golang.org/x/lint/golint
