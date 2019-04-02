@@ -20,10 +20,11 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -42,6 +43,7 @@ const (
 	forceExternalIPAnnotationKey = "kilo.squat.ai/force-external-ip"
 	internalIPAnnotationKey      = "kilo.squat.ai/internal-ip"
 	keyAnnotationKey             = "kilo.squat.ai/key"
+	lastSeenAnnotationKey        = "kilo.squat.ai/last-seen"
 	leaderAnnotationKey          = "kilo.squat.ai/leader"
 	locationAnnotationKey        = "kilo.squat.ai/location"
 	regionLabelKey               = "failure-domain.beta.kubernetes.io/region"
@@ -76,6 +78,7 @@ func (b *backend) CleanUp(name string) error {
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(externalIPAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(internalIPAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(keyAnnotationKey, "/", jsonPatchSlash, 1))),
+		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(lastSeenAnnotationKey, "/", jsonPatchSlash, 1))),
 	}, ",") + "]")
 	if _, err := b.client.CoreV1().Nodes().Patch(name, types.JSONPatchType, patch); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
@@ -155,6 +158,7 @@ func (b *backend) Set(name string, node *mesh.Node) error {
 	n.ObjectMeta.Annotations[externalIPAnnotationKey] = node.ExternalIP.String()
 	n.ObjectMeta.Annotations[internalIPAnnotationKey] = node.InternalIP.String()
 	n.ObjectMeta.Annotations[keyAnnotationKey] = string(node.Key)
+	n.ObjectMeta.Annotations[lastSeenAnnotationKey] = strconv.FormatInt(node.LastSeen, 10)
 	oldData, err := json.Marshal(old)
 	if err != nil {
 		return err
@@ -200,6 +204,14 @@ func translateNode(node *v1.Node) *mesh.Node {
 	if !ok {
 		externalIP = node.ObjectMeta.Annotations[externalIPAnnotationKey]
 	}
+	var lastSeen int64
+	if ls, ok := node.ObjectMeta.Annotations[lastSeenAnnotationKey]; !ok {
+		lastSeen = 0
+	} else {
+		if lastSeen, err = strconv.ParseInt(ls, 10, 64); err != nil {
+			lastSeen = 0
+		}
+	}
 	return &mesh.Node{
 		// ExternalIP and InternalIP should only ever fail to parse if the
 		// remote node's mesh has not yet set its IP address;
@@ -208,6 +220,7 @@ func translateNode(node *v1.Node) *mesh.Node {
 		ExternalIP: normalizeIP(externalIP),
 		InternalIP: normalizeIP(node.ObjectMeta.Annotations[internalIPAnnotationKey]),
 		Key:        []byte(node.ObjectMeta.Annotations[keyAnnotationKey]),
+		LastSeen:   lastSeen,
 		Leader:     leader,
 		Location:   location,
 		Name:       node.Name,

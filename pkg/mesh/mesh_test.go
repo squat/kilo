@@ -17,6 +17,7 @@ package mesh
 import (
 	"net"
 	"testing"
+	"time"
 )
 
 func TestNewAllocator(t *testing.T) {
@@ -133,6 +134,7 @@ func TestReady(t *testing.T) {
 				ExternalIP: externalIP,
 				InternalIP: internalIP,
 				Key:        []byte{},
+				LastSeen:   time.Now().Unix(),
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: true,

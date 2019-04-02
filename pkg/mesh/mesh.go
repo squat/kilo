@@ -77,6 +77,9 @@ type Node struct {
 	ExternalIP *net.IPNet
 	Key        []byte
 	InternalIP *net.IPNet
+	// LastSeen is a Unix time for the last time
+	// the node confirmed it was live.
+	LastSeen int64
 	// Leader is a suggestion to Kilo that
 	// the node wants to lead its segment.
 	Leader   bool
@@ -87,7 +90,7 @@ type Node struct {
 
 // Ready indicates whether or not the node is ready.
 func (n *Node) Ready() bool {
-	return n != nil && n.ExternalIP != nil && n.Key != nil && n.InternalIP != nil && n.Subnet != nil
+	return n != nil && n.ExternalIP != nil && n.Key != nil && n.InternalIP != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(resyncPeriod)*2/int64(time.Second)
 }
 
 // EventType describes what kind of an action an event represents.
@@ -284,6 +287,7 @@ func (m *Mesh) Run() error {
 		case e = <-w:
 			m.sync(e)
 		case <-t.C:
+			m.checkIn()
 			m.applyTopology()
 			t.Reset(resyncPeriod)
 		case <-m.stop:
@@ -332,6 +336,25 @@ func (m *Mesh) sync(e *Event) {
 	}
 }
 
+// checkIn will try to update the local node's LastSeen timestamp
+// in the backend.
+func (m *Mesh) checkIn() {
+	m.mu.Lock()
+	n := m.nodes[m.hostname]
+	m.mu.Unlock()
+	if n == nil {
+		level.Debug(m.logger).Log("msg", "no local node found in backend")
+		return
+	}
+	n.LastSeen = time.Now().Unix()
+	if err := m.Set(m.hostname, n); err != nil {
+		level.Error(m.logger).Log("error", fmt.Sprintf("failed to set local node: %v", err), "node", n)
+		m.errorCounter.WithLabelValues("checkin").Inc()
+		return
+	}
+	level.Debug(m.logger).Log("msg", "successfully checked in local node in backend")
+}
+
 func (m *Mesh) handleLocal(n *Node) {
 	// Allow the external IP to be overridden.
 	if n.ExternalIP == nil {
@@ -340,7 +363,16 @@ func (m *Mesh) handleLocal(n *Node) {
 	// Compare the given node to the calculated local node.
 	// Take leader, location, and subnet from the argument, as these
 	// are not determined by kilo.
-	local := &Node{ExternalIP: n.ExternalIP, Key: m.pub, InternalIP: m.internalIP, Leader: n.Leader, Location: n.Location, Name: m.hostname, Subnet: n.Subnet}
+	local := &Node{
+		ExternalIP: n.ExternalIP,
+		Key:        m.pub,
+		InternalIP: m.internalIP,
+		LastSeen:   time.Now().Unix(),
+		Leader:     n.Leader,
+		Location:   n.Location,
+		Name:       m.hostname,
+		Subnet:     n.Subnet,
+	}
 	if !nodesAreEqual(n, local) {
 		level.Debug(m.logger).Log("msg", "local node differs from backend")
 		if err := m.Set(m.hostname, local); err != nil {
@@ -543,6 +575,7 @@ func nodesAreEqual(a, b *Node) bool {
 	if a == b {
 		return true
 	}
+	// Ignore LastSeen when comparing equality.
 	return ipNetsEqual(a.ExternalIP, b.ExternalIP) && string(a.Key) == string(b.Key) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet)
 }
 

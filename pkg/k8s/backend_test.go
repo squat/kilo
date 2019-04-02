@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/squat/kilo/pkg/mesh"
 )
@@ -38,15 +38,15 @@ func TestTranslateNode(t *testing.T) {
 			out:         &mesh.Node{},
 		},
 		{
-			name: "invalid ip",
+			name: "invalid ips",
 			annotations: map[string]string{
 				externalIPAnnotationKey: "10.0.0.1",
-				internalIPAnnotationKey: "10.0.0.1",
+				internalIPAnnotationKey: "foo",
 			},
 			out: &mesh.Node{},
 		},
 		{
-			name: "valid ip",
+			name: "valid ips",
 			annotations: map[string]string{
 				externalIPAnnotationKey: "10.0.0.1/24",
 				internalIPAnnotationKey: "10.0.0.2/32",
@@ -110,12 +110,20 @@ func TestTranslateNode(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid time",
+			annotations: map[string]string{
+				lastSeenAnnotationKey: "foo",
+			},
+			out: &mesh.Node{},
+		},
+		{
 			name: "complete",
 			annotations: map[string]string{
 				externalIPAnnotationKey:      "10.0.0.1/24",
 				forceExternalIPAnnotationKey: "10.0.0.2/24",
 				internalIPAnnotationKey:      "10.0.0.2/32",
 				keyAnnotationKey:             "foo",
+				lastSeenAnnotationKey:        "1000000000",
 				leaderAnnotationKey:          "",
 				locationAnnotationKey:        "b",
 			},
@@ -126,6 +134,7 @@ func TestTranslateNode(t *testing.T) {
 				ExternalIP: &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
 				InternalIP: &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(32, 32)},
 				Key:        []byte("foo"),
+				LastSeen:   1000000000,
 				Leader:     true,
 				Location:   "b",
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
