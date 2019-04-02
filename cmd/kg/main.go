@@ -77,7 +77,7 @@ func Main() error {
 	granularity := flag.String("mesh-granularity", string(mesh.DataCenterGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	kubeconfig := flag.String("kubeconfig", "", "Path to kubeconfig.")
 	hostname := flag.String("hostname", "", "Hostname of the node on which this process is running.")
-	listen := flag.String("listen", "localhost:1107", "The address at which to listen for health and metrics.")
+	listen := flag.String("listen", ":1107", "The address at which to listen for health and metrics.")
 	local := flag.Bool("local", true, "Should Kilo manage routes within a location.")
 	logLevel := flag.String("log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 	master := flag.String("master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
