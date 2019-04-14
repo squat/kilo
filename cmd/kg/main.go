@@ -82,7 +82,7 @@ func Main() error {
 	logLevel := flag.String("log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 	master := flag.String("master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
 	port := flag.Int("port", 51820, "The port over which WireGuard peers should communicate.")
-	subnet := flag.String("subnet", "10.4.0.0/16", "CIDR from which to allocate addressees to WireGuard interfaces.")
+	subnet := flag.String("subnet", "10.4.0.0/16", "CIDR from which to allocate addresses for WireGuard interfaces.")
 	printVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -119,7 +119,7 @@ func Main() error {
 	case logLevelNone:
 		logger = level.NewFilter(logger, level.AllowNone())
 	default:
-		return fmt.Errorf("log level %v unknown; posible values are: %s", *logLevel, availableLogLevels)
+		return fmt.Errorf("log level %v unknown; possible values are: %s", *logLevel, availableLogLevels)
 	}
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
@@ -130,7 +130,7 @@ func Main() error {
 	case mesh.CrossSubnetEncapsulate:
 	case mesh.AlwaysEncapsulate:
 	default:
-		return fmt.Errorf("encapsulation %v unknown; posible values are: %s", *encapsulate, availableEncapsulations)
+		return fmt.Errorf("encapsulation %v unknown; possible values are: %s", *encapsulate, availableEncapsulations)
 	}
 
 	gr := mesh.Granularity(*granularity)
@@ -138,7 +138,7 @@ func Main() error {
 	case mesh.DataCenterGranularity:
 	case mesh.NodeGranularity:
 	default:
-		return fmt.Errorf("mesh granularity %v unknown; posible values are: %s", *granularity, availableGranularities)
+		return fmt.Errorf("mesh granularity %v unknown; possible values are: %s", *granularity, availableGranularities)
 	}
 
 	var b mesh.Backend
@@ -151,7 +151,7 @@ func Main() error {
 		client := kubernetes.NewForConfigOrDie(config)
 		b = k8s.New(client)
 	default:
-		return fmt.Errorf("backend %v unknown; posible values are: %s", *backend, availableBackends)
+		return fmt.Errorf("backend %v unknown; possible values are: %s", *backend, availableBackends)
 	}
 
 	m, err := mesh.New(b, e, gr, *hostname, *port, s, *local, log.With(logger, "component", "kilo"))
@@ -201,6 +201,7 @@ func Main() error {
 			m.Stop()
 		})
 	}
+
 	{
 		// Exit gracefully on SIGINT and SIGTERM.
 		term := make(chan os.Signal, 1)
