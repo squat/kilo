@@ -153,9 +153,10 @@ type Mesh struct {
 	nodes map[string]*Node
 	mu    sync.Mutex
 
-	errorCounter *prometheus.CounterVec
-	nodesGuage   prometheus.Gauge
-	logger       log.Logger
+	errorCounter     *prometheus.CounterVec
+	nodesGuage       prometheus.Gauge
+	reconcileCounter prometheus.Counter
+	logger           log.Logger
 }
 
 // New returns a new Mesh instance.
@@ -240,6 +241,10 @@ func New(backend Backend, encapsulate Encapsulate, granularity Granularity, host
 		nodesGuage: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "kilo_nodes",
 			Help: "Number of in the mesh.",
+		}),
+		reconcileCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "kilo_reconciles_total",
+			Help: "Number of reconciliation attempts.",
 		}),
 		logger: logger,
 	}, nil
@@ -397,6 +402,7 @@ func (m *Mesh) handleLocal(n *Node) {
 }
 
 func (m *Mesh) applyTopology() {
+	m.reconcileCounter.Inc()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	// Ensure all unready nodes are removed.
@@ -525,6 +531,7 @@ func (m *Mesh) RegisterMetrics(r prometheus.Registerer) {
 	r.MustRegister(
 		m.errorCounter,
 		m.nodesGuage,
+		m.reconcileCounter,
 	)
 }
 
