@@ -302,10 +302,7 @@ func writeAllowedIPs(buf *bytes.Buffer, ais []*net.IPNet) error {
 			return err
 		}
 	}
-	if err = buf.WriteByte('\n'); err != nil {
-		return err
-	}
-	return nil
+	return buf.WriteByte('\n')
 }
 
 func writePKey(buf *bytes.Buffer, k key, b []byte) error {
@@ -319,10 +316,7 @@ func writePKey(buf *bytes.Buffer, k key, b []byte) error {
 	if _, err = buf.Write(b); err != nil {
 		return err
 	}
-	if err = buf.WriteByte('\n'); err != nil {
-		return err
-	}
-	return nil
+	return buf.WriteByte('\n')
 }
 
 func writeValue(buf *bytes.Buffer, k key, v string) error {
@@ -333,10 +327,7 @@ func writeValue(buf *bytes.Buffer, k key, v string) error {
 	if _, err = buf.WriteString(v); err != nil {
 		return err
 	}
-	if err = buf.WriteByte('\n'); err != nil {
-		return err
-	}
-	return nil
+	return buf.WriteByte('\n')
 }
 
 func writeEndpoint(buf *bytes.Buffer, e *Endpoint) error {
@@ -356,10 +347,7 @@ func writeEndpoint(buf *bytes.Buffer, e *Endpoint) error {
 	if _, err = buf.WriteString(strconv.FormatUint(uint64(e.Port), 10)); err != nil {
 		return err
 	}
-	if err = buf.WriteByte('\n'); err != nil {
-		return err
-	}
-	return nil
+	return buf.WriteByte('\n')
 }
 
 func writeSection(buf *bytes.Buffer, s section) error {
@@ -373,10 +361,7 @@ func writeSection(buf *bytes.Buffer, s section) error {
 	if err = buf.WriteByte(']'); err != nil {
 		return err
 	}
-	if err = buf.WriteByte('\n'); err != nil {
-		return err
-	}
-	return nil
+	return buf.WriteByte('\n')
 }
 
 func writeKey(buf *bytes.Buffer, k key) error {
@@ -384,8 +369,6 @@ func writeKey(buf *bytes.Buffer, k key) error {
 	if _, err = buf.WriteString(string(k)); err != nil {
 		return err
 	}
-	if _, err = buf.WriteString(" = "); err != nil {
-		return err
-	}
-	return nil
+	_, err = buf.WriteString(" = ")
+	return err
 }
