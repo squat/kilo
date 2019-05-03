@@ -31,7 +31,7 @@ Now, the `kgctl` tool can be used to generate the WireGuard configuration for th
 
 ```shell
 PEER=squat
-kgctl --kubeconfig=$KUBECONFIG showconf peer $PEER
+kgctl showconf peer $PEER
 ```
 
 This will produce some output like:
@@ -47,7 +47,7 @@ The configuration can then be applied to a local WireGuard interface, e.g. `wg0`
 
 ```shell
 IFACE=wg0
-kgctl --kubeconfig=$KUBECONFIG showconf peer $PEER > peer.ini
+kgctl showconf peer $PEER > peer.ini
 sudo wg setconf $IFACE peer.ini
 ```
 
@@ -55,7 +55,7 @@ Finally, in order to access the cluster, the client will need appropriate routes
 For example, on a Linux machine, the creation of these routes could be automated by running:
 
 ```shell
-for ip in $(kgctl --kubeconfig=$KUBECONFIG showconf peer $PEER | grep AllowedIPs | cut -f 3- -d ' ' | tr -d ','); do
+for ip in $(kgctl showconf peer $PEER | grep AllowedIPs | cut -f 3- -d ' ' | tr -d ','); do
 	sudo ip route add $ip dev $IFACE
 done
 ```

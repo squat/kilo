@@ -99,7 +99,7 @@ EOF
 This configuration can then be applied to a local WireGuard interface, e.g. `wg0`, with the help of the `kgctl` tool:
 
 ```shell
-kgctl --kubeconfig=$KUBECONFIG showconf peer squat > peer.ini
+kgctl showconf peer squat > peer.ini
 sudo wg setconf wg0 peer.ini
 ```
 
@@ -111,7 +111,7 @@ The topology of a Kilo network can be analyzed using the `kgctl` binary.
 For example, the `graph` command can be used to generate a graph of the network in Graphviz format:
 
 ```shell
-kgctl graph --kubeconfig=$KUBECONFIG | twopi -Tsvg > cluster.svg
+kgctl graph | twopi -Tsvg > cluster.svg
 ```
 
 <img src="./cluster.svg">

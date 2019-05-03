@@ -116,7 +116,7 @@ func main() {
 	}
 	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
 	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.DataCenterGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
-	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig.")
+	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"), "Path to kubeconfig.")
 	cmd.PersistentFlags().StringVar(&subnet, "subnet", "10.4.0.0/16", "CIDR from which to allocate addressees to WireGuard interfaces.")
 
 	for _, subCmd := range []*cobra.Command{
