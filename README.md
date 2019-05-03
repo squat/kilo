@@ -11,6 +11,7 @@ Kilo is a multi-cloud network overlay built on WireGuard and designed for Kubern
 
 Kilo connects nodes in a cluster by providing an encrypted layer 3 network that can span across data centers and public clouds.
 By allowing pools of nodes in different locations to communicate securely, Kilo enables the operation of multi-cloud clusters.
+Kilo's design allows clients to VPN to a cluster in order to securely access services running on the cluster.
 
 ## How it works
 
@@ -75,6 +76,33 @@ To run Kilo on Typhoon:
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon.yaml
 ```
+
+## VPN
+
+Kilo enables peers outside of a Kubernetes cluster to also connect to the VPN, allowing cluster applications to securely access external services and permitting developers and support to securely debug cluster resources.
+In order to declare a peer, start by defining a Kilo peer resource:
+
+```shell
+cat <<'EOF' | kubectl apply -f -
+apiVersion: kilo.squat.ai/v1alpha1
+kind: Peer
+metadata:
+  name: squat
+spec:
+  allowedIPs:
+  - 10.4.1.1/32
+  publicKey: GY5aT1N9dTR/nJnT1N2f4ClZWVj0jOAld0r8ysWLyjg=
+  persistentKeepalive: 10
+EOF
+```
+
+This configuration can then be applied to a local WireGuard interface, e.g. `wg0`, with the help of the `kgctl` tool:
+
+```shell
+sudo wg setconf wg0 <(kgctl showconf peer squat)
+```
+
+[See the VPN docs for more details](./docs/vpn.md).
 
 ## Analysis
 
