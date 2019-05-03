@@ -28,7 +28,7 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"./pkg/k8s/apis/kilo/v1alpha1.PeerSpec":                          schema_k8s_apis_kilo_v1alpha1_PeerSpec(ref),
+		"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1.PeerSpec":      schema_k8s_apis_kilo_v1alpha1_PeerSpec(ref),
 		"k8s.io/api/core/v1.AWSElasticBlockStoreVolumeSource":            schema_k8sio_api_core_v1_AWSElasticBlockStoreVolumeSource(ref),
 		"k8s.io/api/core/v1.Affinity":                                    schema_k8sio_api_core_v1_Affinity(ref),
 		"k8s.io/api/core/v1.AttachedVolume":                              schema_k8sio_api_core_v1_AttachedVolume(ref),
@@ -294,7 +294,7 @@ func schema_k8s_apis_kilo_v1alpha1_PeerSpec(ref common.ReferenceCallback) common
 					"endpoint": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Endpoint is the initial endpoint for connections to the peer.",
-							Ref:         ref("./pkg/k8s/apis/kilo/v1alpha1.PeerEndpoint"),
+							Ref:         ref("github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1.PeerEndpoint"),
 						},
 					},
 					"persistentKeepalive": {
@@ -316,7 +316,7 @@ func schema_k8s_apis_kilo_v1alpha1_PeerSpec(ref common.ReferenceCallback) common
 			},
 		},
 		Dependencies: []string{
-			"./pkg/k8s/apis/kilo/v1alpha1.PeerEndpoint"},
+			"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1.PeerEndpoint"},
 	}
 }
 

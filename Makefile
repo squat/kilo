@@ -1,4 +1,4 @@
-#export GO111MODULE=on
+export GO111MODULE=on
 .PHONY: all push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi
 
 BINS := $(addprefix bin/,kg kgctl)
@@ -61,7 +61,9 @@ pkg/k8s/apis/kilo/v1alpha1/zz_generated.deepcopy.go: .header pkg/k8s/apis/kilo/v
 	--go-header-file=.header \
 	--logtostderr \
 	--output-base $(CURDIR) \
-	--output-file-base zz_generated.deepcopy \
+	--output-file-base zz_generated.deepcopy
+	mv $(PKG)/$@ $@ || true
+	rm -r github.com || true
 	go fmt $@
 
 informer: pkg/k8s/informers/kilo/v1alpha1/peer.go
@@ -96,7 +98,7 @@ pkg/k8s/listers/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/types.
 openapi: pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go
 pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go: pkg/k8s/apis/kilo/v1alpha1/types.go $(OPENAPI_GEN_BINARY)
 	$(OPENAPI_GEN_BINARY) \
-	--input-dirs ./$(@D),k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/api/core/v1 \
+	--input-dirs $(PKG)/$(@D),k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/api/core/v1 \
 	--output-base $(CURDIR) \
 	--output-package ./$(@D) \
 	--logtostderr \

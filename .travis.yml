@@ -8,6 +8,11 @@ services:
 go:
   - 1.12.1
 
+env:
+  - GO111MODULE=on
+
+install: true
+
 before_install:
   - go get -u golang.org/x/lint/golint
 
