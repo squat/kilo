@@ -24,7 +24,11 @@ import (
 	"strings"
 	"time"
 
+	crdutils "github.com/ant31/crd-validation/pkg"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -33,7 +37,12 @@ import (
 	v1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
+	kiloclient "github.com/squat/kilo/pkg/k8s/clientset/versioned"
+	v1alpha1informers "github.com/squat/kilo/pkg/k8s/informers/kilo/v1alpha1"
+	v1alpha1listers "github.com/squat/kilo/pkg/k8s/listers/kilo/v1alpha1"
 	"github.com/squat/kilo/pkg/mesh"
+	"github.com/squat/kilo/pkg/wireguard"
 )
 
 const (
@@ -52,43 +61,74 @@ const (
 )
 
 type backend struct {
+	nodes *nodeBackend
+	peers *peerBackend
+}
+
+// Nodes implements the mesh.Backend interface.
+func (b *backend) Nodes() mesh.NodeBackend {
+	return b.nodes
+}
+
+// Peers implements the mesh.Backend interface.
+func (b *backend) Peers() mesh.PeerBackend {
+	return b.peers
+}
+
+type nodeBackend struct {
 	client   kubernetes.Interface
-	events   chan *mesh.Event
+	events   chan *mesh.NodeEvent
 	informer cache.SharedIndexInformer
 	lister   v1listers.NodeLister
 }
 
+type peerBackend struct {
+	client           kiloclient.Interface
+	extensionsClient apiextensions.Interface
+	events           chan *mesh.PeerEvent
+	informer         cache.SharedIndexInformer
+	lister           v1alpha1listers.PeerLister
+}
+
 // New creates a new instance of a mesh.Backend.
-func New(client kubernetes.Interface) mesh.Backend {
-	informer := v1informers.NewNodeInformer(client, 5*time.Minute, nil)
+func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface) mesh.Backend {
+	ni := v1informers.NewNodeInformer(c, 5*time.Minute, nil)
+	pi := v1alpha1informers.NewPeerInformer(kc, 5*time.Minute, nil)
 
-	b := &backend{
-		client:   client,
-		events:   make(chan *mesh.Event),
-		informer: informer,
-		lister:   v1listers.NewNodeLister(informer.GetIndexer()),
+	return &backend{
+		&nodeBackend{
+			client:   c,
+			events:   make(chan *mesh.NodeEvent),
+			informer: ni,
+			lister:   v1listers.NewNodeLister(ni.GetIndexer()),
+		},
+		&peerBackend{
+			client:           kc,
+			extensionsClient: ec,
+			events:           make(chan *mesh.PeerEvent),
+			informer:         pi,
+			lister:           v1alpha1listers.NewPeerLister(pi.GetIndexer()),
+		},
 	}
-
-	return b
 }
 
 // CleanUp removes configuration applied to the backend.
-func (b *backend) CleanUp(name string) error {
+func (nb *nodeBackend) CleanUp(name string) error {
 	patch := []byte("[" + strings.Join([]string{
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(externalIPAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(internalIPAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(keyAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(lastSeenAnnotationKey, "/", jsonPatchSlash, 1))),
 	}, ",") + "]")
-	if _, err := b.client.CoreV1().Nodes().Patch(name, types.JSONPatchType, patch); err != nil {
+	if _, err := nb.client.CoreV1().Nodes().Patch(name, types.JSONPatchType, patch); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
 	}
 	return nil
 }
 
 // Get gets a single Node by name.
-func (b *backend) Get(name string) (*mesh.Node, error) {
-	n, err := b.lister.Get(name)
+func (nb *nodeBackend) Get(name string) (*mesh.Node, error) {
+	n, err := nb.lister.Get(name)
 	if err != nil {
 		return nil, err
 	}
@@ -97,14 +137,14 @@ func (b *backend) Get(name string) (*mesh.Node, error) {
 
 // Init initializes the backend; for this backend that means
 // syncing the informer cache.
-func (b *backend) Init(stop <-chan struct{}) error {
-	go b.informer.Run(stop)
+func (nb *nodeBackend) Init(stop <-chan struct{}) error {
+	go nb.informer.Run(stop)
 	if ok := cache.WaitForCacheSync(stop, func() bool {
-		return b.informer.HasSynced()
+		return nb.informer.HasSynced()
 	}); !ok {
 		return errors.New("failed to start sync node cache")
 	}
-	b.informer.AddEventHandler(
+	nb.informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -112,7 +152,7 @@ func (b *backend) Init(stop <-chan struct{}) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				b.events <- &mesh.Event{Type: mesh.AddEvent, Node: translateNode(n)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.AddEvent, Node: translateNode(n)}
 			},
 			UpdateFunc: func(_, obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -120,7 +160,7 @@ func (b *backend) Init(stop <-chan struct{}) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				b.events <- &mesh.Event{Type: mesh.UpdateEvent, Node: translateNode(n)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.UpdateEvent, Node: translateNode(n)}
 			},
 			DeleteFunc: func(obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -128,7 +168,7 @@ func (b *backend) Init(stop <-chan struct{}) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				b.events <- &mesh.Event{Type: mesh.DeleteEvent, Node: translateNode(n)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.DeleteEvent, Node: translateNode(n)}
 			},
 		},
 	)
@@ -136,8 +176,8 @@ func (b *backend) Init(stop <-chan struct{}) error {
 }
 
 // List gets all the Nodes in the cluster.
-func (b *backend) List() ([]*mesh.Node, error) {
-	ns, err := b.lister.List(labels.Everything())
+func (nb *nodeBackend) List() ([]*mesh.Node, error) {
+	ns, err := nb.lister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +189,8 @@ func (b *backend) List() ([]*mesh.Node, error) {
 }
 
 // Set sets the fields of a node.
-func (b *backend) Set(name string, node *mesh.Node) error {
-	old, err := b.lister.Get(name)
+func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
+	old, err := nb.lister.Get(name)
 	if err != nil {
 		return fmt.Errorf("failed to find node: %v", err)
 	}
@@ -171,15 +211,15 @@ func (b *backend) Set(name string, node *mesh.Node) error {
 	if err != nil {
 		return fmt.Errorf("failed to create patch for node %q: %v", n.Name, err)
 	}
-	if _, err = b.client.CoreV1().Nodes().Patch(name, types.StrategicMergePatchType, patch); err != nil {
+	if _, err = nb.client.CoreV1().Nodes().Patch(name, types.StrategicMergePatchType, patch); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
 	}
 	return nil
 }
 
 // Watch returns a chan of node events.
-func (b *backend) Watch() <-chan *mesh.Event {
-	return b.events
+func (nb *nodeBackend) Watch() <-chan *mesh.NodeEvent {
+	return nb.events
 }
 
 // translateNode translates a Kubernetes Node to a mesh.Node.
@@ -214,7 +254,7 @@ func translateNode(node *v1.Node) *mesh.Node {
 	}
 	return &mesh.Node{
 		// ExternalIP and InternalIP should only ever fail to parse if the
-		// remote node's mesh has not yet set its IP address;
+		// remote node's agent has not yet set its IP address;
 		// in this case the IP will be nil and
 		// the mesh can wait for the node to be updated.
 		ExternalIP: normalizeIP(externalIP),
@@ -228,10 +268,179 @@ func translateNode(node *v1.Node) *mesh.Node {
 	}
 }
 
+// translatePeer translates a Peer CRD to a mesh.Peer.
+func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
+	if peer == nil {
+		return nil
+	}
+	var aips []*net.IPNet
+	for _, aip := range peer.Spec.AllowedIPs {
+		aip := normalizeIP(aip)
+		// Skip any invalid IPs.
+		if aip == nil {
+			continue
+		}
+		aips = append(aips, aip)
+	}
+	var endpoint *wireguard.Endpoint
+	if peer.Spec.Endpoint != nil {
+		ip := net.ParseIP(peer.Spec.Endpoint.IP)
+		if ip4 := ip.To4(); ip4 != nil {
+			ip = ip4
+		} else {
+			ip = ip.To16()
+		}
+		if peer.Spec.Endpoint.Port > 0 && ip != nil {
+			endpoint = &wireguard.Endpoint{
+				IP:   ip,
+				Port: peer.Spec.Endpoint.Port,
+			}
+		}
+	}
+	var key []byte
+	if len(peer.Spec.PublicKey) > 0 {
+		key = []byte(peer.Spec.PublicKey)
+	}
+	var pka int
+	if peer.Spec.PersistentKeepalive > 0 {
+		pka = peer.Spec.PersistentKeepalive
+	}
+	return &mesh.Peer{
+		Name: peer.Name,
+		Peer: wireguard.Peer{
+			AllowedIPs:          aips,
+			Endpoint:            endpoint,
+			PublicKey:           key,
+			PersistentKeepalive: pka,
+		},
+	}
+}
+
+// CleanUp removes configuration applied to the backend.
+func (pb *peerBackend) CleanUp(name string) error {
+	return nil
+}
+
+// Get gets a single Peer by name.
+func (pb *peerBackend) Get(name string) (*mesh.Peer, error) {
+	p, err := pb.lister.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return translatePeer(p), nil
+}
+
+// Init initializes the backend; for this backend that means
+// syncing the informer cache.
+func (pb *peerBackend) Init(stop <-chan struct{}) error {
+	// Register CRD.
+	crd := crdutils.NewCustomResourceDefinition(crdutils.Config{
+		SpecDefinitionName:    "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1.Peer",
+		EnableValidation:      true,
+		ResourceScope:         string(v1beta1.ClusterScoped),
+		Group:                 v1alpha1.GroupName,
+		Kind:                  v1alpha1.PeerKind,
+		Version:               v1alpha1.SchemeGroupVersion.Version,
+		Plural:                v1alpha1.PeerPlural,
+		ShortNames:            v1alpha1.PeerShortNames,
+		GetOpenAPIDefinitions: v1alpha1.GetOpenAPIDefinitions,
+	})
+	crd.Spec.Subresources.Scale = nil
+	crd.Spec.Subresources.Status = nil
+
+	_, err := pb.extensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create CRD: %v", err)
+	}
+
+	go pb.informer.Run(stop)
+	if ok := cache.WaitForCacheSync(stop, func() bool {
+		return pb.informer.HasSynced()
+	}); !ok {
+		return errors.New("failed to start sync peer cache")
+	}
+	pb.informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				p, ok := obj.(*v1alpha1.Peer)
+				if !ok || p.Validate() != nil {
+					// Failed to decode Peer; ignoring...
+					return
+				}
+				pb.events <- &mesh.PeerEvent{Type: mesh.AddEvent, Peer: translatePeer(p)}
+			},
+			UpdateFunc: func(_, obj interface{}) {
+				p, ok := obj.(*v1alpha1.Peer)
+				if !ok || p.Validate() != nil {
+					// Failed to decode Peer; ignoring...
+					return
+				}
+				pb.events <- &mesh.PeerEvent{Type: mesh.UpdateEvent, Peer: translatePeer(p)}
+			},
+			DeleteFunc: func(obj interface{}) {
+				p, ok := obj.(*v1alpha1.Peer)
+				if !ok || p.Validate() != nil {
+					// Failed to decode Peer; ignoring...
+					return
+				}
+				pb.events <- &mesh.PeerEvent{Type: mesh.DeleteEvent, Peer: translatePeer(p)}
+			},
+		},
+	)
+	return nil
+}
+
+// List gets all the Peers in the cluster.
+func (pb *peerBackend) List() ([]*mesh.Peer, error) {
+	ps, err := pb.lister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	peers := make([]*mesh.Peer, len(ps))
+	for i := range ps {
+		// Skip invalid peers.
+		if ps[i].Validate() != nil {
+			continue
+		}
+		peers[i] = translatePeer(ps[i])
+	}
+	return peers, nil
+}
+
+// Set sets the fields of a peer.
+func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
+	old, err := pb.lister.Get(name)
+	if err != nil {
+		return fmt.Errorf("failed to find peer: %v", err)
+	}
+	p := old.DeepCopy()
+	p.Spec.AllowedIPs = make([]string, len(peer.AllowedIPs))
+	for i := range peer.AllowedIPs {
+		p.Spec.AllowedIPs[i] = peer.AllowedIPs[i].String()
+	}
+	if peer.Endpoint != nil {
+		p.Spec.Endpoint = &v1alpha1.PeerEndpoint{
+			IP:   peer.Endpoint.IP.String(),
+			Port: peer.Endpoint.Port,
+		}
+	}
+	p.Spec.PersistentKeepalive = peer.PersistentKeepalive
+	p.Spec.PublicKey = string(peer.PublicKey)
+	if _, err = pb.client.KiloV1alpha1().Peers().Update(p); err != nil {
+		return fmt.Errorf("failed to update peer: %v", err)
+	}
+	return nil
+}
+
+// Watch returns a chan of peer events.
+func (pb *peerBackend) Watch() <-chan *mesh.PeerEvent {
+	return pb.events
+}
+
 func normalizeIP(ip string) *net.IPNet {
-	i, ipNet, _ := net.ParseCIDR(ip)
-	if ipNet == nil {
-		return ipNet
+	i, ipNet, err := net.ParseCIDR(ip)
+	if err != nil || ipNet == nil {
+		return nil
 	}
 	if ip4 := i.To4(); ip4 != nil {
 		ipNet.IP = ip4

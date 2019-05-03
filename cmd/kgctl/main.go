@@ -20,11 +20,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/spf13/cobra"
 	"github.com/squat/kilo/pkg/k8s"
+	kiloclient "github.com/squat/kilo/pkg/k8s/clientset/versioned"
 	"github.com/squat/kilo/pkg/mesh"
 	"github.com/squat/kilo/pkg/version"
 )
@@ -86,14 +88,20 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create Kubernetes config: %v", err)
 		}
-		client := kubernetes.NewForConfigOrDie(config)
-		opts.backend = k8s.New(client)
+		c := kubernetes.NewForConfigOrDie(config)
+		kc := kiloclient.NewForConfigOrDie(config)
+		ec := apiextensions.NewForConfigOrDie(config)
+		opts.backend = k8s.New(c, kc, ec)
 	default:
 		return fmt.Errorf("backend %v unknown; posible values are: %s", backend, availableBackends)
 	}
 
-	if err := opts.backend.Init(make(chan struct{})); err != nil {
-		return fmt.Errorf("failed to initialize backend: %v", err)
+	if err := opts.backend.Nodes().Init(make(chan struct{})); err != nil {
+		return fmt.Errorf("failed to initialize node backend: %v", err)
+	}
+
+	if err := opts.backend.Peers().Init(make(chan struct{})); err != nil {
+		return fmt.Errorf("failed to initialize peer backend: %v", err)
 	}
 	return nil
 }
@@ -112,7 +120,8 @@ func main() {
 	cmd.PersistentFlags().StringVar(&subnet, "subnet", "10.4.0.0/16", "CIDR from which to allocate addressees to WireGuard interfaces.")
 
 	for _, subCmd := range []*cobra.Command{
-		newGraph(),
+		graph(),
+		showConf(),
 	} {
 		cmd.AddCommand(subCmd)
 	}

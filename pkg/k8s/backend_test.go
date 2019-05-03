@@ -21,7 +21,9 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	v1 "k8s.io/api/core/v1"
 
+	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	"github.com/squat/kilo/pkg/mesh"
+	"github.com/squat/kilo/pkg/wireguard"
 )
 
 func TestTranslateNode(t *testing.T) {
@@ -148,6 +150,116 @@ func TestTranslateNode(t *testing.T) {
 		n.Spec.PodCIDR = tc.subnet
 		node := translateNode(n)
 		if diff := pretty.Compare(node, tc.out); diff != "" {
+			t.Errorf("test case %q: got diff: %v", tc.name, diff)
+		}
+	}
+}
+
+func TestTranslatePeer(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		out  *mesh.Peer
+		spec v1alpha1.PeerSpec
+	}{
+		{
+			name: "empty",
+			out:  &mesh.Peer{},
+		},
+		{
+			name: "invalid ips",
+			spec: v1alpha1.PeerSpec{
+				AllowedIPs: []string{
+					"10.0.0.1",
+					"foo",
+				},
+			},
+			out: &mesh.Peer{},
+		},
+		{
+			name: "valid ips",
+			spec: v1alpha1.PeerSpec{
+				AllowedIPs: []string{
+					"10.0.0.1/24",
+					"10.0.0.2/32",
+				},
+			},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					AllowedIPs: []*net.IPNet{
+						{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)},
+						{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(32, 32)},
+					},
+				},
+			},
+		},
+		{
+			name: "invalid endpoint ip",
+			spec: v1alpha1.PeerSpec{
+				Endpoint: &v1alpha1.PeerEndpoint{
+					IP:   "foo",
+					Port: mesh.DefaultKiloPort,
+				},
+			},
+			out: &mesh.Peer{},
+		},
+		{
+			name: "valid endpoint",
+			spec: v1alpha1.PeerSpec{
+				Endpoint: &v1alpha1.PeerEndpoint{
+					IP:   "10.0.0.1",
+					Port: mesh.DefaultKiloPort,
+				},
+			},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					Endpoint: &wireguard.Endpoint{
+						IP:   net.ParseIP("10.0.0.1"),
+						Port: mesh.DefaultKiloPort,
+					},
+				},
+			},
+		},
+		{
+			name: "empty key",
+			spec: v1alpha1.PeerSpec{
+				PublicKey: "",
+			},
+			out: &mesh.Peer{},
+		},
+		{
+			name: "valid key",
+			spec: v1alpha1.PeerSpec{
+				PublicKey: "foo",
+			},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PublicKey: []byte("foo"),
+				},
+			},
+		},
+		{
+			name: "invalid keepalive",
+			spec: v1alpha1.PeerSpec{
+				PersistentKeepalive: -1,
+			},
+			out: &mesh.Peer{},
+		},
+		{
+			name: "valid keepalive",
+			spec: v1alpha1.PeerSpec{
+				PersistentKeepalive: 1,
+			},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PersistentKeepalive: 1,
+				},
+			},
+		},
+	} {
+		p := &v1alpha1.Peer{}
+		p.Spec = tc.spec
+		peer := translatePeer(p)
+		if diff := pretty.Compare(peer, tc.out); diff != "" {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}
 	}

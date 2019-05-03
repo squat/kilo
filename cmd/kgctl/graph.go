@@ -21,7 +21,7 @@ import (
 	"github.com/squat/kilo/pkg/mesh"
 )
 
-func newGraph() *cobra.Command {
+func graph() *cobra.Command {
 	return &cobra.Command{
 		Use:   "graph",
 		Short: "Generates a graph of the Kilo network",
@@ -31,7 +31,7 @@ func newGraph() *cobra.Command {
 }
 
 func runGraph(_ *cobra.Command, _ []string) error {
-	ns, err := opts.backend.List()
+	ns, err := opts.backend.Nodes().List()
 	if err != nil {
 		return fmt.Errorf("failed to list nodes: %v", err)
 	}
@@ -46,7 +46,7 @@ func runGraph(_ *cobra.Command, _ []string) error {
 	if len(nodes) == 0 {
 		return fmt.Errorf("did not find any valid Kilo nodes in the cluster")
 	}
-	t, err := mesh.NewTopology(nodes, opts.granularity, hostname, 0, []byte{}, opts.subnet)
+	t, err := mesh.NewTopology(nodes, nil, opts.granularity, hostname, 0, []byte{}, opts.subnet)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}

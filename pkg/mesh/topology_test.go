@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/squat/kilo/pkg/wireguard"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -28,38 +29,14 @@ func allowedIPs(ips ...string) string {
 	return strings.Join(ips, ", ")
 }
 
-func setup(t *testing.T) (map[string]*Node, []byte, int, *net.IPNet) {
+func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32, *net.IPNet) {
 	key := []byte("private")
-	port := 51820
-	_, kiloNet, err := net.ParseCIDR("10.4.0.0/16")
-	if err != nil {
-		t.Fatalf("failed to parse Kilo subnet CIDR: %v", err)
-	}
-	ip, e1, err := net.ParseCIDR("10.1.0.1/16")
-	if err != nil {
-		t.Fatalf("failed to parse external IP CIDR: %v", err)
-	}
-	e1.IP = ip
-	ip, e2, err := net.ParseCIDR("10.1.0.2/16")
-	if err != nil {
-		t.Fatalf("failed to parse external IP CIDR: %v", err)
-	}
-	e2.IP = ip
-	ip, e3, err := net.ParseCIDR("10.1.0.3/16")
-	if err != nil {
-		t.Fatalf("failed to parse external IP CIDR: %v", err)
-	}
-	e3.IP = ip
-	ip, i1, err := net.ParseCIDR("192.168.0.1/24")
-	if err != nil {
-		t.Fatalf("failed to parse internal IP CIDR: %v", err)
-	}
-	i1.IP = ip
-	ip, i2, err := net.ParseCIDR("192.168.0.2/24")
-	if err != nil {
-		t.Fatalf("failed to parse internal IP CIDR: %v", err)
-	}
-	i2.IP = ip
+	kiloNet := &net.IPNet{IP: net.ParseIP("10.4.0.0").To4(), Mask: net.CIDRMask(16, 32)}
+	e1 := &net.IPNet{IP: net.ParseIP("10.1.0.1").To4(), Mask: net.CIDRMask(16, 32)}
+	e2 := &net.IPNet{IP: net.ParseIP("10.1.0.2").To4(), Mask: net.CIDRMask(16, 32)}
+	e3 := &net.IPNet{IP: net.ParseIP("10.1.0.3").To4(), Mask: net.CIDRMask(16, 32)}
+	i1 := &net.IPNet{IP: net.ParseIP("192.168.0.1").To4(), Mask: net.CIDRMask(32, 32)}
+	i2 := &net.IPNet{IP: net.ParseIP("192.168.0.2").To4(), Mask: net.CIDRMask(32, 32)}
 	nodes := map[string]*Node{
 		"a": {
 			Name:       "a",
@@ -87,11 +64,36 @@ func setup(t *testing.T) (map[string]*Node, []byte, int, *net.IPNet) {
 			Key:      []byte("key3"),
 		},
 	}
-	return nodes, key, port, kiloNet
+	peers := map[string]*Peer{
+		"a": {
+			Name: "a",
+			Peer: wireguard.Peer{
+				AllowedIPs: []*net.IPNet{
+					{IP: net.ParseIP("10.5.0.1"), Mask: net.CIDRMask(24, 32)},
+					{IP: net.ParseIP("10.5.0.2"), Mask: net.CIDRMask(24, 32)},
+				},
+				PublicKey: []byte("key4"),
+			},
+		},
+		"b": {
+			Name: "b",
+			Peer: wireguard.Peer{
+				AllowedIPs: []*net.IPNet{
+					{IP: net.ParseIP("10.5.0.3"), Mask: net.CIDRMask(24, 32)},
+				},
+				Endpoint: &wireguard.Endpoint{
+					IP:   net.ParseIP("192.168.0.1"),
+					Port: DefaultKiloPort,
+				},
+				PublicKey: []byte("key5"),
+			},
+		},
+	}
+	return nodes, peers, key, DefaultKiloPort, kiloNet
 }
 
 func TestNewTopology(t *testing.T) {
-	nodes, key, port, kiloNet := setup(t)
+	nodes, peers, key, port, kiloNet := setup(t)
 
 	w1 := net.ParseIP("10.4.0.1").To4()
 	w2 := net.ParseIP("10.4.0.2").To4()
@@ -109,32 +111,33 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["a"].Name,
 				leader:        true,
-				Location:      nodes["a"].Location,
+				location:      nodes["a"].Location,
 				subnet:        kiloNet,
 				privateIP:     nodes["a"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
-				Segments: []*segment{
+				segments: []*segment{
 					{
-						AllowedIPs:  allowedIPs(nodes["a"].Subnet.String(), "192.168.0.1/32", "10.4.0.1/32"),
-						Endpoint:    nodes["a"].ExternalIP.IP.String(),
-						Key:         string(nodes["a"].Key),
-						Location:    nodes["a"].Location,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].ExternalIP.IP,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Location,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
 						wireGuardIP: w1,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["b"].Subnet.String(), "192.168.0.1/32", nodes["c"].Subnet.String(), "192.168.0.2/32", "10.4.0.2/32"),
-						Endpoint:    nodes["b"].ExternalIP.IP.String(),
-						Key:         string(nodes["b"].Key),
-						Location:    nodes["b"].Location,
+						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["b"].ExternalIP.IP,
+						key:         nodes["b"].Key,
+						location:    nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
 						hostnames:   []string{"b", "c"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP: w2,
 					},
 				},
+				peers: []*Peer{peers["a"], peers["b"]},
 			},
 		},
 		{
@@ -144,32 +147,33 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["b"].Name,
 				leader:        true,
-				Location:      nodes["b"].Location,
+				location:      nodes["b"].Location,
 				subnet:        kiloNet,
 				privateIP:     nodes["b"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
-				Segments: []*segment{
+				segments: []*segment{
 					{
-						AllowedIPs:  allowedIPs(nodes["a"].Subnet.String(), "192.168.0.1/32", "10.4.0.1/32"),
-						Endpoint:    nodes["a"].ExternalIP.IP.String(),
-						Key:         string(nodes["a"].Key),
-						Location:    nodes["a"].Location,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].ExternalIP.IP,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Location,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
 						wireGuardIP: w1,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["b"].Subnet.String(), "192.168.0.1/32", nodes["c"].Subnet.String(), "192.168.0.2/32", "10.4.0.2/32"),
-						Endpoint:    nodes["b"].ExternalIP.IP.String(),
-						Key:         string(nodes["b"].Key),
-						Location:    nodes["b"].Location,
+						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["b"].ExternalIP.IP,
+						key:         nodes["b"].Key,
+						location:    nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
 						hostnames:   []string{"b", "c"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP: w2,
 					},
 				},
+				peers: []*Peer{peers["a"], peers["b"]},
 			},
 		},
 		{
@@ -179,32 +183,33 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["c"].Name,
 				leader:        false,
-				Location:      nodes["b"].Location,
+				location:      nodes["b"].Location,
 				subnet:        kiloNet,
 				privateIP:     nodes["c"].InternalIP,
 				wireGuardCIDR: nil,
-				Segments: []*segment{
+				segments: []*segment{
 					{
-						AllowedIPs:  allowedIPs(nodes["a"].Subnet.String(), "192.168.0.1/32", "10.4.0.1/32"),
-						Endpoint:    nodes["a"].ExternalIP.IP.String(),
-						Key:         string(nodes["a"].Key),
-						Location:    nodes["a"].Location,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].ExternalIP.IP,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Location,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
 						wireGuardIP: w1,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["b"].Subnet.String(), "192.168.0.1/32", nodes["c"].Subnet.String(), "192.168.0.2/32", "10.4.0.2/32"),
-						Endpoint:    nodes["b"].ExternalIP.IP.String(),
-						Key:         string(nodes["b"].Key),
-						Location:    nodes["b"].Location,
+						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["b"].ExternalIP.IP,
+						key:         nodes["b"].Key,
+						location:    nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
 						hostnames:   []string{"b", "c"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP: w2,
 					},
 				},
+				peers: []*Peer{peers["a"], peers["b"]},
 			},
 		},
 		{
@@ -214,42 +219,43 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["a"].Name,
 				leader:        true,
-				Location:      nodes["a"].Name,
+				location:      nodes["a"].Name,
 				subnet:        kiloNet,
 				privateIP:     nodes["a"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
-				Segments: []*segment{
+				segments: []*segment{
 					{
-						AllowedIPs:  allowedIPs(nodes["a"].Subnet.String(), "192.168.0.1/32", "10.4.0.1/32"),
-						Endpoint:    nodes["a"].ExternalIP.IP.String(),
-						Key:         string(nodes["a"].Key),
-						Location:    nodes["a"].Name,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].ExternalIP.IP,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Name,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
 						wireGuardIP: w1,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["b"].Subnet.String(), "192.168.0.1/32", "10.4.0.2/32"),
-						Endpoint:    nodes["b"].ExternalIP.IP.String(),
-						Key:         string(nodes["b"].Key),
-						Location:    nodes["b"].Name,
+						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["b"].ExternalIP.IP,
+						key:         nodes["b"].Key,
+						location:    nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
 						hostnames:   []string{"b"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP},
 						wireGuardIP: w2,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["c"].Subnet.String(), "192.168.0.2/32", "10.4.0.3/32"),
-						Endpoint:    nodes["c"].ExternalIP.IP.String(),
-						Key:         string(nodes["c"].Key),
-						Location:    nodes["c"].Name,
+						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["c"].ExternalIP.IP,
+						key:         nodes["c"].Key,
+						location:    nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
 						hostnames:   []string{"c"},
 						privateIPs:  []net.IP{nodes["c"].InternalIP.IP},
 						wireGuardIP: w3,
 					},
 				},
+				peers: []*Peer{peers["a"], peers["b"]},
 			},
 		},
 		{
@@ -259,42 +265,43 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["b"].Name,
 				leader:        true,
-				Location:      nodes["b"].Name,
+				location:      nodes["b"].Name,
 				subnet:        kiloNet,
 				privateIP:     nodes["b"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
-				Segments: []*segment{
+				segments: []*segment{
 					{
-						AllowedIPs:  allowedIPs(nodes["a"].Subnet.String(), "192.168.0.1/32", "10.4.0.1/32"),
-						Endpoint:    nodes["a"].ExternalIP.IP.String(),
-						Key:         string(nodes["a"].Key),
-						Location:    nodes["a"].Name,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].ExternalIP.IP,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Name,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
 						wireGuardIP: w1,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["b"].Subnet.String(), "192.168.0.1/32", "10.4.0.2/32"),
-						Endpoint:    nodes["b"].ExternalIP.IP.String(),
-						Key:         string(nodes["b"].Key),
-						Location:    nodes["b"].Name,
+						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["b"].ExternalIP.IP,
+						key:         nodes["b"].Key,
+						location:    nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
 						hostnames:   []string{"b"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP},
 						wireGuardIP: w2,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["c"].Subnet.String(), "192.168.0.2/32", "10.4.0.3/32"),
-						Endpoint:    nodes["c"].ExternalIP.IP.String(),
-						Key:         string(nodes["c"].Key),
-						Location:    nodes["c"].Name,
+						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["c"].ExternalIP.IP,
+						key:         nodes["c"].Key,
+						location:    nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
 						hostnames:   []string{"c"},
 						privateIPs:  []net.IP{nodes["c"].InternalIP.IP},
 						wireGuardIP: w3,
 					},
 				},
+				peers: []*Peer{peers["a"], peers["b"]},
 			},
 		},
 		{
@@ -304,48 +311,49 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["c"].Name,
 				leader:        true,
-				Location:      nodes["c"].Name,
+				location:      nodes["c"].Name,
 				subnet:        kiloNet,
 				privateIP:     nodes["c"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w3, Mask: net.CIDRMask(16, 32)},
-				Segments: []*segment{
+				segments: []*segment{
 					{
-						AllowedIPs:  allowedIPs(nodes["a"].Subnet.String(), "192.168.0.1/32", "10.4.0.1/32"),
-						Endpoint:    nodes["a"].ExternalIP.IP.String(),
-						Key:         string(nodes["a"].Key),
-						Location:    nodes["a"].Name,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].ExternalIP.IP,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Name,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
 						wireGuardIP: w1,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["b"].Subnet.String(), "192.168.0.1/32", "10.4.0.2/32"),
-						Endpoint:    nodes["b"].ExternalIP.IP.String(),
-						Key:         string(nodes["b"].Key),
-						Location:    nodes["b"].Name,
+						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["b"].ExternalIP.IP,
+						key:         nodes["b"].Key,
+						location:    nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
 						hostnames:   []string{"b"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP},
 						wireGuardIP: w2,
 					},
 					{
-						AllowedIPs:  allowedIPs(nodes["c"].Subnet.String(), "192.168.0.2/32", "10.4.0.3/32"),
-						Endpoint:    nodes["c"].ExternalIP.IP.String(),
-						Key:         string(nodes["c"].Key),
-						Location:    nodes["c"].Name,
+						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["c"].ExternalIP.IP,
+						key:         nodes["c"].Key,
+						location:    nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
 						hostnames:   []string{"c"},
 						privateIPs:  []net.IP{nodes["c"].InternalIP.IP},
 						wireGuardIP: w3,
 					},
 				},
+				peers: []*Peer{peers["a"], peers["b"]},
 			},
 		},
 	} {
-		tc.result.Key = string(key)
-		tc.result.Port = port
-		topo, err := NewTopology(nodes, tc.granularity, tc.hostname, port, key, kiloNet)
+		tc.result.key = key
+		tc.result.port = port
+		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, kiloNet)
 		if err != nil {
 			t.Errorf("test case %q: failed to generate Topology: %v", tc.name, err)
 		}
@@ -355,8 +363,8 @@ func TestNewTopology(t *testing.T) {
 	}
 }
 
-func mustTopo(t *testing.T, nodes map[string]*Node, granularity Granularity, hostname string, port int, key []byte, subnet *net.IPNet) *Topology {
-	topo, err := NewTopology(nodes, granularity, hostname, port, key, subnet)
+func mustTopo(t *testing.T, nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port uint32, key []byte, subnet *net.IPNet) *Topology {
+	topo, err := NewTopology(nodes, peers, granularity, hostname, port, key, subnet)
 	if err != nil {
 		t.Errorf("failed to generate Topology: %v", err)
 	}
@@ -364,12 +372,12 @@ func mustTopo(t *testing.T, nodes map[string]*Node, granularity Granularity, hos
 }
 
 func TestRoutes(t *testing.T) {
-	nodes, key, port, kiloNet := setup(t)
+	nodes, peers, key, port, kiloNet := setup(t)
 	kiloIface := 0
 	privIface := 1
 	pubIface := 2
 	mustTopoForGranularityAndHost := func(granularity Granularity, hostname string) *Topology {
-		return mustTopo(t, nodes, granularity, hostname, port, key, kiloNet)
+		return mustTopo(t, nodes, peers, granularity, hostname, port, key, kiloNet)
 	}
 
 	for _, tc := range []struct {
@@ -383,30 +391,45 @@ func TestRoutes(t *testing.T) {
 			topology: mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name),
 			result: []*netlink.Route{
 				{
-					Dst:       mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["b"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
-					Dst:       mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].cidrs[1],
+					Dst:       mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].cidrs[1],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["c"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -417,16 +440,31 @@ func TestRoutes(t *testing.T) {
 			topology: mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name),
 			result: []*netlink.Route{
 				{
-					Dst:       mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).Segments[0].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).segments[0].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["a"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).segments[0].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -437,14 +475,14 @@ func TestRoutes(t *testing.T) {
 			topology: mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name),
 			result: []*netlink.Route{
 				{
-					Dst:       oneAddressCIDR(mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).Segments[0].wireGuardIP),
+					Dst:       oneAddressCIDR(mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).segments[0].wireGuardIP),
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: privIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
-					Dst:       mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).Segments[0].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).segments[0].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: privIface,
@@ -458,7 +496,28 @@ func TestRoutes(t *testing.T) {
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
-					Dst:       oneAddressCIDR(mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).Segments[1].wireGuardIP),
+					Dst:       oneAddressCIDR(mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).segments[1].wireGuardIP),
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        nodes["b"].InternalIP.IP,
+					LinkIndex: privIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        nodes["b"].InternalIP.IP,
+					LinkIndex: privIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        nodes["b"].InternalIP.IP,
+					LinkIndex: privIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: privIface,
@@ -471,30 +530,45 @@ func TestRoutes(t *testing.T) {
 			topology: mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name),
 			result: []*netlink.Route{
 				{
-					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[1].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[1].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["b"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
-					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[2].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[2].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[2].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["c"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[2].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[2].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -505,30 +579,45 @@ func TestRoutes(t *testing.T) {
 			topology: mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name),
 			result: []*netlink.Route{
 				{
-					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[0].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[0].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["a"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
-					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[2].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[2].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[2].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["c"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[2].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[2].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -539,30 +628,45 @@ func TestRoutes(t *testing.T) {
 			topology: mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name),
 			result: []*netlink.Route{
 				{
-					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[0].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[0].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["a"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
-					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[1].cidrs[0],
+					Dst:       mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[1].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["b"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -576,28 +680,43 @@ func TestRoutes(t *testing.T) {
 				{
 					Dst:       nodes["b"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["b"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       nodes["c"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["c"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["a"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -611,14 +730,14 @@ func TestRoutes(t *testing.T) {
 				{
 					Dst:       nodes["a"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["a"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(DataCenterGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -629,6 +748,21 @@ func TestRoutes(t *testing.T) {
 					LinkIndex: privIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
 			},
 		},
 		{
@@ -637,7 +771,7 @@ func TestRoutes(t *testing.T) {
 			topology: mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name),
 			result: []*netlink.Route{
 				{
-					Dst:       oneAddressCIDR(mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).Segments[0].wireGuardIP),
+					Dst:       oneAddressCIDR(mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).segments[0].wireGuardIP),
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: privIface,
@@ -658,7 +792,7 @@ func TestRoutes(t *testing.T) {
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
-					Dst:       oneAddressCIDR(mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).Segments[1].wireGuardIP),
+					Dst:       oneAddressCIDR(mustTopoForGranularityAndHost(DataCenterGranularity, nodes["c"].Name).segments[1].wireGuardIP),
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: privIface,
@@ -666,6 +800,27 @@ func TestRoutes(t *testing.T) {
 				},
 				{
 					Dst:       nodes["b"].Subnet,
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        nodes["b"].InternalIP.IP,
+					LinkIndex: privIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        nodes["b"].InternalIP.IP,
+					LinkIndex: privIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        nodes["b"].InternalIP.IP,
+					LinkIndex: privIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: privIface,
@@ -681,28 +836,43 @@ func TestRoutes(t *testing.T) {
 				{
 					Dst:       nodes["b"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["b"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       nodes["c"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[2].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["c"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).Segments[2].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["a"].Name).segments[2].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -716,28 +886,43 @@ func TestRoutes(t *testing.T) {
 				{
 					Dst:       nodes["a"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["a"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       nodes["c"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[2].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["c"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).Segments[2].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["b"].Name).segments[2].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -751,28 +936,43 @@ func TestRoutes(t *testing.T) {
 				{
 					Dst:       nodes["a"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["a"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[0].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       nodes["b"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["b"].InternalIP.IP),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).Segments[1].wireGuardIP,
+					Gw:        mustTopoForGranularityAndHost(NodeGranularity, nodes["c"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[0],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["a"].AllowedIPs[1],
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
 				},
@@ -787,7 +987,7 @@ func TestRoutes(t *testing.T) {
 }
 
 func TestConf(t *testing.T) {
-	nodes, key, port, kiloNet := setup(t)
+	nodes, peers, key, port, kiloNet := setup(t)
 	for _, tc := range []struct {
 		name     string
 		topology *Topology
@@ -795,7 +995,7 @@ func TestConf(t *testing.T) {
 	}{
 		{
 			name:     "datacenter from a",
-			topology: mustTopo(t, nodes, DataCenterGranularity, nodes["a"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, DataCenterGranularity, nodes["a"].Name, port, key, kiloNet),
 			result: `[Interface]
 PrivateKey = private
 ListenPort = 51820
@@ -804,95 +1004,162 @@ ListenPort = 51820
 PublicKey = key2
 Endpoint = 10.1.0.2:51820
 AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+
+[Peer]
+PublicKey = key4
+PersistentKeepalive = 0
+AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+
+[Peer]
+PublicKey = key5
+Endpoint = 192.168.0.1:51820
+PersistentKeepalive = 0
+AllowedIPs = 10.5.0.3/24
 `,
 		},
 		{
 			name:     "datacenter from b",
-			topology: mustTopo(t, nodes, DataCenterGranularity, nodes["b"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, DataCenterGranularity, nodes["b"].Name, port, key, kiloNet),
 			result: `[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-PublicKey = key1
-Endpoint = 10.1.0.1:51820
-AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
-`,
+		[Peer]
+		PublicKey = key1
+		Endpoint = 10.1.0.1:51820
+		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
+
+		[Peer]
+		PublicKey = key4
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+
+		[Peer]
+		PublicKey = key5
+		Endpoint = 192.168.0.1:51820
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.3/24
+		`,
 		},
 		{
 			name:     "datacenter from c",
-			topology: mustTopo(t, nodes, DataCenterGranularity, nodes["c"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, DataCenterGranularity, nodes["c"].Name, port, key, kiloNet),
 			result: `[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-PublicKey = key1
-Endpoint = 10.1.0.1:51820
-AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
-`,
+		[Peer]
+		PublicKey = key1
+		Endpoint = 10.1.0.1:51820
+		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
+
+		[Peer]
+		PublicKey = key4
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+
+		[Peer]
+		PublicKey = key5
+		Endpoint = 192.168.0.1:51820
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.3/24
+		`,
 		},
 		{
 			name:     "node from a",
-			topology: mustTopo(t, nodes, NodeGranularity, nodes["a"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, NodeGranularity, nodes["a"].Name, port, key, kiloNet),
 			result: `[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-PublicKey = key2
-Endpoint = 10.1.0.2:51820
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
+		[Peer]
+		PublicKey = key2
+		Endpoint = 10.1.0.2:51820
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
 
-[Peer]
-PublicKey = key3
-Endpoint = 10.1.0.3:51820
-AllowedIPs = 10.2.3.0/24, 192.168.0.2/32, 10.4.0.3/32
-`,
+		[Peer]
+		PublicKey = key3
+		Endpoint = 10.1.0.3:51820
+		AllowedIPs = 10.2.3.0/24, 192.168.0.2/32, 10.4.0.3/32
+
+		[Peer]
+		PublicKey = key4
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+
+		[Peer]
+		PublicKey = key5
+		Endpoint = 192.168.0.1:51820
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.3/24
+		`,
 		},
 		{
 			name:     "node from b",
-			topology: mustTopo(t, nodes, NodeGranularity, nodes["b"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, NodeGranularity, nodes["b"].Name, port, key, kiloNet),
 			result: `[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-PublicKey = key1
-Endpoint = 10.1.0.1:51820
-AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
+		[Peer]
+		PublicKey = key1
+		Endpoint = 10.1.0.1:51820
+		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
-[Peer]
-PublicKey = key3
-Endpoint = 10.1.0.3:51820
-AllowedIPs = 10.2.3.0/24, 192.168.0.2/32, 10.4.0.3/32
-`,
+		[Peer]
+		PublicKey = key3
+		Endpoint = 10.1.0.3:51820
+		AllowedIPs = 10.2.3.0/24, 192.168.0.2/32, 10.4.0.3/32
+
+		[Peer]
+		PublicKey = key4
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+
+		[Peer]
+		PublicKey = key5
+		Endpoint = 192.168.0.1:51820
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.3/24
+		`,
 		},
 		{
 			name:     "node from c",
-			topology: mustTopo(t, nodes, NodeGranularity, nodes["c"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, NodeGranularity, nodes["c"].Name, port, key, kiloNet),
 			result: `[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-PublicKey = key1
-Endpoint = 10.1.0.1:51820
-AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
+		[Peer]
+		PublicKey = key1
+		Endpoint = 10.1.0.1:51820
+		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
-[Peer]
-PublicKey = key2
-Endpoint = 10.1.0.2:51820
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
-`,
+		[Peer]
+		PublicKey = key2
+		Endpoint = 10.1.0.2:51820
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
+
+		[Peer]
+		PublicKey = key4
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+
+		[Peer]
+		PublicKey = key5
+		Endpoint = 192.168.0.1:51820
+		PersistentKeepalive = 0
+		AllowedIPs = 10.5.0.3/24
+		`,
 		},
 	} {
-		conf, err := tc.topology.Conf()
-		if err != nil {
-			t.Errorf("test case %q: failed to generate conf: %v", tc.name, err)
-		}
-		if string(conf) != tc.result {
-			t.Errorf("test case %q: expected %s got %s", tc.name, tc.result, string(conf))
+		conf := tc.topology.Conf()
+		if !conf.Equal(wireguard.Parse([]byte(tc.result))) {
+			buf, err := conf.Bytes()
+			if err != nil {
+				t.Errorf("test case %q: failed to render conf: %v", tc.name, err)
+			}
+			t.Errorf("test case %q: expected %s got %s", tc.name, tc.result, string(buf))
 		}
 	}
 }

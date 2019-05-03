@@ -37,22 +37,22 @@ func (t *Topology) Dot() (string, error) {
 	if err := g.SetDir(true); err != nil {
 		return "", fmt.Errorf("failed to set direction")
 	}
-	leaders := make([]string, len(t.Segments))
+	leaders := make([]string, len(t.segments))
 	nodeAttrs := map[string]string{
 		string(gographviz.Shape): "ellipse",
 	}
-	for i, s := range t.Segments {
-		if err := g.AddSubGraph("kilo", subGraphName(s.Location), nil); err != nil {
+	for i, s := range t.segments {
+		if err := g.AddSubGraph("kilo", subGraphName(s.location), nil); err != nil {
 			return "", fmt.Errorf("failed to add subgraph")
 		}
-		if err := g.AddAttr(subGraphName(s.Location), string(gographviz.Label), graphEscape(s.Location)); err != nil {
+		if err := g.AddAttr(subGraphName(s.location), string(gographviz.Label), graphEscape(s.location)); err != nil {
 			return "", fmt.Errorf("failed to add label to subgraph")
 		}
-		if err := g.AddAttr(subGraphName(s.Location), string(gographviz.Style), `"dashed,rounded"`); err != nil {
+		if err := g.AddAttr(subGraphName(s.location), string(gographviz.Style), `"dashed,rounded"`); err != nil {
 			return "", fmt.Errorf("failed to add style to subgraph")
 		}
 		for j := range s.cidrs {
-			if err := g.AddNode(subGraphName(s.Location), graphEscape(s.hostnames[j]), nodeAttrs); err != nil {
+			if err := g.AddNode(subGraphName(s.location), graphEscape(s.hostnames[j]), nodeAttrs); err != nil {
 				return "", fmt.Errorf("failed to add node to subgraph")
 			}
 			var wg net.IP
@@ -62,11 +62,11 @@ func (t *Topology) Dot() (string, error) {
 					return "", fmt.Errorf("failed to add rank to node")
 				}
 			}
-			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.Location, s.hostnames[j], s.cidrs[j], s.privateIPs[j], wg)); err != nil {
+			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], s.privateIPs[j], wg)); err != nil {
 				return "", fmt.Errorf("failed to add label to node")
 			}
 		}
-		meshSubGraph(g, g.Relations.SortedChildren(subGraphName(s.Location)), s.leader)
+		meshSubGraph(g, g.Relations.SortedChildren(subGraphName(s.location)), s.leader)
 		leaders[i] = graphEscape(s.hostnames[s.leader])
 	}
 	meshSubGraph(g, leaders, 0)

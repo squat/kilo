@@ -34,108 +34,137 @@ func TestCompareConf(t *testing.T) {
 		{
 			name: "key and value order",
 			a: []byte(`[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-Endpoint = 10.1.0.2:51820
-PublicKey = key
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-`),
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
 			b: []byte(`[Interface]
-ListenPort = 51820
-PrivateKey = private
+		ListenPort = 51820
+		PrivateKey = private
 
-[Peer]
-PublicKey = key
-AllowedIPs = 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32, 10.2.2.0/24
-Endpoint = 10.1.0.2:51820
-`),
+		[Peer]
+		PublicKey = key
+		AllowedIPs = 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32, 10.2.2.0/24
+		Endpoint = 10.1.0.2:51820
+		`),
 			out: true,
 		},
 		{
 			name: "whitespace",
 			a: []byte(`[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-Endpoint = 10.1.0.2:51820
-PublicKey = key
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-`),
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
 			b: []byte(`[Interface]
-PrivateKey=private
-ListenPort=51820
-[Peer]
-Endpoint=10.1.0.2:51820
-PublicKey=key
-AllowedIPs=10.2.2.0/24,192.168.0.1/32,10.2.3.0/24,192.168.0.2/32,10.4.0.2/32
-`),
+		PrivateKey=private
+		ListenPort=51820
+		[Peer]
+		Endpoint=10.1.0.2:51820
+		PublicKey=key
+		AllowedIPs=10.2.2.0/24,192.168.0.1/32,10.2.3.0/24,192.168.0.2/32,10.4.0.2/32
+		`),
 			out: true,
 		},
 		{
 			name: "missing key",
 			a: []byte(`[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-Endpoint = 10.1.0.2:51820
-PublicKey = key
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-`),
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
 			b: []byte(`[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-PublicKey = key
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-`),
+		[Peer]
+		PublicKey = key
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
 			out: false,
 		},
 		{
 			name: "section order",
 			a: []byte(`[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-Endpoint = 10.1.0.2:51820
-PublicKey = key
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-`),
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
 			b: []byte(`[Peer]
-Endpoint = 10.1.0.2:51820
-PublicKey = key
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 
-[Interface]
-PrivateKey = private
-ListenPort = 51820
-`),
+		[Interface]
+		PrivateKey = private
+		ListenPort = 51820
+		`),
+			out: true,
+		},
+		{
+			name: "out of order peers",
+			a: []byte(`[Interface]
+		PrivateKey = private
+		ListenPort = 51820
+
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key2
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key1
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
+			b: []byte(`[Interface]
+		PrivateKey = private
+		ListenPort = 51820
+
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key1
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key2
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
 			out: true,
 		},
 		{
 			name: "one empty",
 			a: []byte(`[Interface]
-PrivateKey = private
-ListenPort = 51820
+		PrivateKey = private
+		ListenPort = 51820
 
-[Peer]
-Endpoint = 10.1.0.2:51820
-PublicKey = key
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-`),
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
 			b:   []byte(``),
 			out: false,
 		},
 	} {
-		equal, err := CompareConf(tc.a, tc.b)
-		if err != nil {
-			t.Errorf("test case %q: got unexpected error: %v", tc.name, err)
-		}
+		equal := Parse(tc.a).Equal(Parse(tc.b))
 		if equal != tc.out {
 			t.Errorf("test case %q: expected %t, got %t", tc.name, tc.out, equal)
 		}

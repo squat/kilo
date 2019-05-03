@@ -19,11 +19,9 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
-	"sort"
 	"strconv"
 
 	"github.com/vishvananda/netlink"
-	"gopkg.in/ini.v1"
 )
 
 type wgLink struct {
@@ -84,7 +82,8 @@ func Keys() ([]byte, []byte, error) {
 
 // GenKey generates a WireGuard private key.
 func GenKey() ([]byte, error) {
-	return exec.Command("wg", "genkey").Output()
+	key, err := exec.Command("wg", "genkey").Output()
+	return bytes.Trim(key, "\n"), err
 }
 
 // PubKey generates a WireGuard public key for a given private key.
@@ -104,7 +103,7 @@ func PubKey(key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate public key: %v", err)
 	}
-	return public, nil
+	return bytes.Trim(public, "\n"), nil
 }
 
 // SetConf applies a WireGuard configuration file to the given interface.
@@ -128,56 +127,4 @@ func ShowConf(iface string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read the WireGuard configuration: %s", stderr.String())
 	}
 	return stdout.Bytes(), nil
-}
-
-// CompareConf compares two WireGuard configurations.
-// It returns true if they are equal, false if they are not,
-// and any error that was encountered.
-// Note: CompareConf only goes one level deep, as WireGuard
-// configurations are not nested further than that.
-func CompareConf(a, b []byte) (bool, error) {
-	iniA, err := ini.Load(a)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse configuration: %v", err)
-	}
-	iniB, err := ini.Load(b)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse configuration: %v", err)
-	}
-	secsA, secsB := iniA.SectionStrings(), iniB.SectionStrings()
-	if len(secsA) != len(secsB) {
-		return false, nil
-	}
-	sort.Strings(secsA)
-	sort.Strings(secsB)
-	var keysA, keysB []string
-	var valsA, valsB []string
-	for i := range secsA {
-		if secsA[i] != secsB[i] {
-			return false, nil
-		}
-		keysA, keysB = iniA.Section(secsA[i]).KeyStrings(), iniB.Section(secsB[i]).KeyStrings()
-		if len(keysA) != len(keysB) {
-			return false, nil
-		}
-		sort.Strings(keysA)
-		sort.Strings(keysB)
-		for j := range keysA {
-			if keysA[j] != keysB[j] {
-				return false, nil
-			}
-			valsA, valsB = iniA.Section(secsA[i]).Key(keysA[j]).Strings(","), iniB.Section(secsB[i]).Key(keysB[j]).Strings(",")
-			if len(valsA) != len(valsB) {
-				return false, nil
-			}
-			sort.Strings(valsA)
-			sort.Strings(valsB)
-			for k := range valsA {
-				if valsA[k] != valsB[k] {
-					return false, nil
-				}
-			}
-		}
-	}
-	return true, nil
 }

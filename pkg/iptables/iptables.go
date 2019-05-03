@@ -254,13 +254,17 @@ func EncapsulateRules(nodes []*net.IPNet) []Rule {
 
 // ForwardRules returns a set of iptables rules that are necessary
 // when traffic must be forwarded for the overlay.
-func ForwardRules(subnet *net.IPNet) []Rule {
-	s := subnet.String()
-	return []Rule{
-		// Forward traffic to and from the overlay.
-		&rule{"filter", "FORWARD", []string{"-s", s, "-j", "ACCEPT"}, nil},
-		&rule{"filter", "FORWARD", []string{"-d", s, "-j", "ACCEPT"}, nil},
+func ForwardRules(subnets ...*net.IPNet) []Rule {
+	var rules []Rule
+	for _, subnet := range subnets {
+		s := subnet.String()
+		rules = append(rules, []Rule{
+			// Forward traffic to and from the overlay.
+			&rule{"filter", "FORWARD", []string{"-s", s, "-j", "ACCEPT"}, nil},
+			&rule{"filter", "FORWARD", []string{"-d", s, "-j", "ACCEPT"}, nil},
+		}...)
 	}
+	return rules
 }
 
 // MasqueradeRules returns a set of iptables rules that are necessary

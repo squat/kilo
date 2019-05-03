@@ -30,10 +30,12 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/squat/kilo/pkg/k8s"
+	kiloclient "github.com/squat/kilo/pkg/k8s/clientset/versioned"
 	"github.com/squat/kilo/pkg/mesh"
 	"github.com/squat/kilo/pkg/version"
 )
@@ -81,7 +83,8 @@ func Main() error {
 	local := flag.Bool("local", true, "Should Kilo manage routes within a location.")
 	logLevel := flag.String("log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 	master := flag.String("master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
-	port := flag.Int("port", 51820, "The port over which WireGuard peers should communicate.")
+	var port uint
+	flag.UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
 	subnet := flag.String("subnet", "10.4.0.0/16", "CIDR from which to allocate addresses for WireGuard interfaces.")
 	printVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
@@ -148,13 +151,15 @@ func Main() error {
 		if err != nil {
 			return fmt.Errorf("failed to create Kubernetes config: %v", err)
 		}
-		client := kubernetes.NewForConfigOrDie(config)
-		b = k8s.New(client)
+		c := kubernetes.NewForConfigOrDie(config)
+		kc := kiloclient.NewForConfigOrDie(config)
+		ec := apiextensions.NewForConfigOrDie(config)
+		b = k8s.New(c, kc, ec)
 	default:
 		return fmt.Errorf("backend %v unknown; possible values are: %s", *backend, availableBackends)
 	}
 
-	m, err := mesh.New(b, e, gr, *hostname, *port, s, *local, log.With(logger, "component", "kilo"))
+	m, err := mesh.New(b, e, gr, *hostname, uint32(port), s, *local, log.With(logger, "component", "kilo"))
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}

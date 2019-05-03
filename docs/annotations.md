@@ -1,4 +1,5 @@
 # Annotations
+
 The following annotations can be added to any Kubernetes Node object to configure the Kilo network.
 
 |Name|type|example|
