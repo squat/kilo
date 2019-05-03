@@ -99,7 +99,8 @@ EOF
 This configuration can then be applied to a local WireGuard interface, e.g. `wg0`, with the help of the `kgctl` tool:
 
 ```shell
-sudo wg setconf wg0 <(kgctl showconf peer squat)
+kgctl --kubeconfig=$KUBECONFIG showconf peer squat > peer.ini
+sudo wg setconf wg0 peer.ini
 ```
 
 [See the VPN docs for more details](./docs/vpn.md).
