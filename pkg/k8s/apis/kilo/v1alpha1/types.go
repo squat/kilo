@@ -44,7 +44,7 @@ type Peer struct {
 	// Standard object’s metadata. More info:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata
 	// +k8s:openapi-gen=false
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// Specification of the desired behavior of the Kilo Peer. More info:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status
 	Spec PeerSpec `json:"spec"`
@@ -58,11 +58,12 @@ type PeerSpec struct {
 	AllowedIPs []string `json:"allowedIPs"`
 	// Endpoint is the initial endpoint for connections to the peer.
 	// +optional
-	Endpoint *PeerEndpoint `json:"endpoint"`
+	Endpoint *PeerEndpoint `json:"endpoint,omitempty"`
 	// PersistentKeepalive is the interval in seconds of the emission
 	// of keepalive packets to the peer. This defaults to 0, which
 	// disables the feature.
-	PersistentKeepalive int `json:"persistentKeepalive"`
+	// +optional
+	PersistentKeepalive int `json:"persistentKeepalive,omitempty"`
 	// PublicKey is the WireGuard public key for the node.
 	PublicKey string `json:"publicKey"`
 }
@@ -136,7 +137,7 @@ func (p *Peer) Validate() error {
 // PeerList is a list of peers.
 type PeerList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	// List of peers.
 	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md
 	Items []Peer `json:"items"`

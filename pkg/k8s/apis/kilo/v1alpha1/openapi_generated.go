@@ -312,7 +312,7 @@ func schema_k8s_apis_kilo_v1alpha1_PeerSpec(ref common.ReferenceCallback) common
 						},
 					},
 				},
-				Required: []string{"allowedIPs", "persistentKeepalive", "publicKey"},
+				Required: []string{"allowedIPs", "publicKey"},
 			},
 		},
 		Dependencies: []string{
