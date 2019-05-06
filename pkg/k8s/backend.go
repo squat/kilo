@@ -142,7 +142,7 @@ func (nb *nodeBackend) Init(stop <-chan struct{}) error {
 	if ok := cache.WaitForCacheSync(stop, func() bool {
 		return nb.informer.HasSynced()
 	}); !ok {
-		return errors.New("failed to start sync node cache")
+		return errors.New("failed to sync node cache")
 	}
 	nb.informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -357,7 +357,7 @@ func (pb *peerBackend) Init(stop <-chan struct{}) error {
 	if ok := cache.WaitForCacheSync(stop, func() bool {
 		return pb.informer.HasSynced()
 	}); !ok {
-		return errors.New("failed to start sync peer cache")
+		return errors.New("failed to sync peer cache")
 	}
 	pb.informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

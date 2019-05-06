@@ -51,7 +51,6 @@ type Topology struct {
 }
 
 type segment struct {
-	// Some fields need to be exported so that the template can read them.
 	allowedIPs []*net.IPNet
 	endpoint   net.IP
 	key        []byte

@@ -1,4 +1,36 @@
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kilo
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kilo
+data:
+  cni-conf.json: |
+    {
+       "cniVersion":"0.3.1",
+       "name":"kilo",
+       "plugins":[
+          {
+             "name":"kubernetes",
+             "type":"bridge",
+             "bridge":"kube-bridge",
+             "isDefaultGateway":true,
+             "ipam":{
+                "type":"host-local"
+             }
+          },
+          {
+             "type":"portmap",
+             "snat":true,
+             "capabilities":{
+                "portMappings":true
+             }
+          }
+       ]
+    }
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kilo
@@ -68,9 +100,36 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
+        - name: cni-conf-dir
+          mountPath: /etc/cni/net.d
         - name: kubeconfig
           mountPath: /etc/kubernetes
           readOnly: true
+      initContainers:
+      - name: install-cni
+        image: squat/kilo
+        command:
+        - /bin/sh
+        - -c
+        - set -e -x;
+          cp /opt/cni/bin/* /host/opt/cni/bin/;
+          TMP_CONF="$CNI_CONF_NAME".tmp;
+          echo "$CNI_NETWORK_CONFIG" > $TMP_CONF;
+          rm -f /host/etc/cni/net.d/*;
+          mv $TMP_CONF /host/etc/cni/net.d/$CNI_CONF_NAME
+        env:
+        - name: CNI_CONF_NAME
+          value: 10-kilo.conflist
+        - name: CNI_NETWORK_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: kilo
+              key: cni-conf.json
+        volumeMounts:
+        - name: cni-bin-dir
+          mountPath: /host/opt/cni/bin
+        - name: cni-conf-dir
+          mountPath: /host/etc/cni/net.d
       tolerations:
       - effect: NoSchedule
         operator: Exists
@@ -83,3 +142,9 @@ spec:
           items:
           - key: kubeconfig.conf
             path: kubeconfig
+      - name: cni-bin-dir
+        hostPath:
+          path: /opt/cni/bin
+      - name: cni-conf-dir
+        hostPath:
+          path: /etc/kubernetes/cni/net.d

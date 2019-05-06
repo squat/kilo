@@ -59,3 +59,10 @@ for ip in $(kgctl showconf peer $PEER | grep AllowedIPs | cut -f 3- -d ' ' | tr 
 	sudo ip route add $ip dev $IFACE
 done
 ```
+
+Once the routes are in place, the connection to the cluster can be tested.
+For example, try connecting to the API server:
+
+```shell
+curl -k https://10.0.27.179:6443
+```

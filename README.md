@@ -18,7 +18,7 @@ Kilo's design allows clients to VPN to a cluster in order to securely access ser
 Kilo uses [WireGuard](https://www.wireguard.com/), a performant and secure VPN, to create a mesh between the different logical locations in a cluster.
 The Kilo agent, `kg`, runs on every node in the cluster, setting up the public and private keys for the VPN as well as the necessary rules to route packets between locations.
 
-Kilo can operate as an add-on complimenting the cluster-networking solution currently installed on a cluster.
+Kilo can operate both as a complete, independent networking provider as well as an add-on complimenting the cluster-networking solution currently installed on a cluster.
 This means that if a cluster uses, for example, Calico for networking, Kilo can be installed on top to enable pools of nodes in different locations to join; Kilo will take care of the network between locations, while Calico will take care of the network within locations.
 
 ## Installing on Kubernetes

@@ -245,10 +245,15 @@ func (c *Controller) CleanUp() error {
 // when traffic between nodes must be encapsulated.
 func EncapsulateRules(nodes []*net.IPNet) []Rule {
 	var rules []Rule
+	rules = append(rules, &chain{"filter", "KILO-IPIP", nil})
+	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: jump to IPIP chain", "-p", "4", "-j", "KILO-IPIP"}, nil})
 	for _, n := range nodes {
 		// Accept encapsulated traffic from peers.
-		rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: allow IPIP traffic", "-s", n.IP.String(), "-p", "4", "-j", "ACCEPT"}, nil})
+		rules = append(rules, &rule{"filter", "KILO-IPIP", []string{"-m", "comment", "--comment", "Kilo: allow IPIP traffic", "-s", n.IP.String(), "-j", "ACCEPT"}, nil})
 	}
+	// Drop all other IPIP traffic.
+	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: reject other IPIP traffic", "-p", "4", "-j", "DROP"}, nil})
+
 	return rules
 }
 
@@ -268,20 +273,27 @@ func ForwardRules(subnets ...*net.IPNet) []Rule {
 }
 
 // MasqueradeRules returns a set of iptables rules that are necessary
-// when traffic must be masqueraded for Kilo.
-func MasqueradeRules(subnet, localPodSubnet *net.IPNet, remotePodSubnet []*net.IPNet) []Rule {
+// to NAT traffic from the local Pod subnet to the Internet and out of the Kilo interface.
+func MasqueradeRules(kilo, private, localPodSubnet *net.IPNet, remotePodSubnet, peers []*net.IPNet) []Rule {
 	var rules []Rule
-	rules = append(rules, &chain{"mangle", "KILO-MARK", nil})
-	rules = append(rules, &rule{"mangle", "PREROUTING", []string{"-m", "comment", "--comment", "Kilo: jump to mark chain", "-i", "kilo+", "-j", "KILO-MARK"}, nil})
-	rules = append(rules, &rule{"mangle", "KILO-MARK", []string{"-m", "comment", "--comment", "Kilo: do not mark packets destined for the local Pod subnet", "-d", localPodSubnet.String(), "-j", "RETURN"}, nil})
-	if subnet != nil {
-		rules = append(rules, &rule{"mangle", "KILO-MARK", []string{"-m", "comment", "--comment", "Kilo: do not mark packets destined for the local private subnet", "-d", subnet.String(), "-j", "RETURN"}, nil})
-	}
-	rules = append(rules, &rule{"mangle", "KILO-MARK", []string{"-m", "comment", "--comment", "Kilo: remaining packets should be marked for NAT", "-j", "MARK", "--set-xmark", "0x1107/0x1107"}, nil})
-	rules = append(rules, &rule{"nat", "POSTROUTING", []string{"-m", "comment", "--comment", "Kilo: NAT packets from Kilo interface", "-m", "mark", "--mark", "0x1107/0x1107", "-j", "MASQUERADE"}, nil})
+	rules = append(rules, &chain{"nat", "KILO-NAT", nil})
+
+	// NAT packets from Kilo interface.
+	rules = append(rules, &rule{"mangle", "PREROUTING", []string{"-m", "comment", "--comment", "Kilo: jump to mark chain", "-i", "kilo+", "-j", "MARK", "--set-xmark", "0x1107/0x1107"}, nil})
+	rules = append(rules, &rule{"nat", "POSTROUTING", []string{"-m", "comment", "--comment", "Kilo: NAT packets from Kilo interface", "-m", "mark", "--mark", "0x1107/0x1107", "-j", "KILO-NAT"}, nil})
+
+	// NAT packets from pod subnet.
+	rules = append(rules, &rule{"nat", "POSTROUTING", []string{"-m", "comment", "--comment", "Kilo: jump to NAT chain", "-s", localPodSubnet.String(), "-j", "KILO-NAT"}, nil})
+	rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets destined for the local Pod subnet", "-d", localPodSubnet.String(), "-j", "RETURN"}, nil})
+	rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets destined for the Kilo subnet", "-d", kilo.String(), "-j", "RETURN"}, nil})
+	rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets destined for the local private IP", "-d", private.String(), "-j", "RETURN"}, nil})
 	for _, r := range remotePodSubnet {
-		rules = append(rules, &rule{"nat", "POSTROUTING", []string{"-m", "comment", "--comment", "Kilo: NAT packets from local pod subnet to remote pod subnets", "-s", localPodSubnet.String(), "-d", r.String(), "-j", "MASQUERADE"}, nil})
+		rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets from local pod subnet to remote pod subnets", "-s", localPodSubnet.String(), "-d", r.String(), "-j", "RETURN"}, nil})
 	}
+	for _, p := range peers {
+		rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets from local pod subnet to peers", "-s", localPodSubnet.String(), "-d", p.String(), "-j", "RETURN"}, nil})
+	}
+	rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: NAT remaining packets", "-j", "MASQUERADE"}, nil})
 	return rules
 }
 

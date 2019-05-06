@@ -75,6 +75,8 @@ var (
 // Main is the principal function for the binary, wrapped only by `main` for convenience.
 func Main() error {
 	backend := flag.String("backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
+	cni := flag.Bool("cni", true, "Should Kilo manage the node's CNI configuration.")
+	cniPath := flag.String("cni-path", mesh.DefaultCNIPath, "Path to CNI config.")
 	encapsulate := flag.String("encapsulate", string(mesh.AlwaysEncapsulate), fmt.Sprintf("When should Kilo encapsulate packets within a location. Possible values: %s", availableEncapsulations))
 	granularity := flag.String("mesh-granularity", string(mesh.DataCenterGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	kubeconfig := flag.String("kubeconfig", "", "Path to kubeconfig.")
@@ -159,7 +161,7 @@ func Main() error {
 		return fmt.Errorf("backend %v unknown; possible values are: %s", *backend, availableBackends)
 	}
 
-	m, err := mesh.New(b, e, gr, *hostname, uint32(port), s, *local, log.With(logger, "component", "kilo"))
+	m, err := mesh.New(b, e, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, log.With(logger, "component", "kilo"))
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}
