@@ -45,8 +45,8 @@ var (
 		k8s.Backend,
 	}, ", ")
 	availableGranularities = strings.Join([]string{
-		string(mesh.DataCenterGranularity),
-		string(mesh.NodeGranularity),
+		string(mesh.LogicalGranularity),
+		string(mesh.FullGranularity),
 	}, ", ")
 	availableLogLevels = strings.Join([]string{
 		logLevelAll,
@@ -76,8 +76,8 @@ func runRoot(_ *cobra.Command, _ []string) error {
 
 	opts.granularity = mesh.Granularity(granularity)
 	switch opts.granularity {
-	case mesh.DataCenterGranularity:
-	case mesh.NodeGranularity:
+	case mesh.LogicalGranularity:
+	case mesh.FullGranularity:
 	default:
 		return fmt.Errorf("mesh granularity %v unknown; posible values are: %s", granularity, availableGranularities)
 	}
@@ -115,7 +115,7 @@ func main() {
 		Version:           version.Version,
 	}
 	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
-	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.DataCenterGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
+	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"), "Path to kubeconfig.")
 	cmd.PersistentFlags().StringVar(&subnet, "subnet", "10.4.0.0/16", "CIDR from which to allocate addressees to WireGuard interfaces.")
 

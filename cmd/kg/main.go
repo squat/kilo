@@ -59,8 +59,8 @@ var (
 		string(mesh.AlwaysEncapsulate),
 	}, ", ")
 	availableGranularities = strings.Join([]string{
-		string(mesh.DataCenterGranularity),
-		string(mesh.NodeGranularity),
+		string(mesh.LogicalGranularity),
+		string(mesh.FullGranularity),
 	}, ", ")
 	availableLogLevels = strings.Join([]string{
 		logLevelAll,
@@ -78,7 +78,7 @@ func Main() error {
 	cni := flag.Bool("cni", true, "Should Kilo manage the node's CNI configuration.")
 	cniPath := flag.String("cni-path", mesh.DefaultCNIPath, "Path to CNI config.")
 	encapsulate := flag.String("encapsulate", string(mesh.AlwaysEncapsulate), fmt.Sprintf("When should Kilo encapsulate packets within a location. Possible values: %s", availableEncapsulations))
-	granularity := flag.String("mesh-granularity", string(mesh.DataCenterGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
+	granularity := flag.String("mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	kubeconfig := flag.String("kubeconfig", "", "Path to kubeconfig.")
 	hostname := flag.String("hostname", "", "Hostname of the node on which this process is running.")
 	listen := flag.String("listen", ":1107", "The address at which to listen for health and metrics.")
@@ -140,8 +140,8 @@ func Main() error {
 
 	gr := mesh.Granularity(*granularity)
 	switch gr {
-	case mesh.DataCenterGranularity:
-	case mesh.NodeGranularity:
+	case mesh.LogicalGranularity:
+	case mesh.FullGranularity:
 	default:
 		return fmt.Errorf("mesh granularity %v unknown; possible values are: %s", *granularity, availableGranularities)
 	}

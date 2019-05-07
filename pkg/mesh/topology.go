@@ -76,18 +76,18 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 	for _, node := range nodes {
 		var location string
 		switch granularity {
-		case DataCenterGranularity:
+		case LogicalGranularity:
 			location = node.Location
-		case NodeGranularity:
+		case FullGranularity:
 			location = node.Name
 		}
 		topoMap[location] = append(topoMap[location], node)
 	}
 	var localLocation string
 	switch granularity {
-	case DataCenterGranularity:
+	case LogicalGranularity:
 		localLocation = nodes[hostname].Location
-	case NodeGranularity:
+	case FullGranularity:
 		localLocation = hostname
 	}
 

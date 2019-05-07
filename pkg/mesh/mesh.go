@@ -58,13 +58,13 @@ type Granularity string
 type Encapsulate string
 
 const (
-	// DataCenterGranularity indicates that the network should create
-	// a mesh between data-centers but not between nodes within a
-	// single data-center.
-	DataCenterGranularity Granularity = "data-center"
-	// NodeGranularity indicates that the network should create
+	// LogicalGranularity indicates that the network should create
+	// a mesh between logical locations, e.g. data-centers, but not between
+	// all nodes within a single location.
+	LogicalGranularity Granularity = "location"
+	// FullGranularity indicates that the network should create
 	// a mesh between every node.
-	NodeGranularity Granularity = "node"
+	FullGranularity Granularity = "full"
 	// NeverEncapsulate indicates that no packets within a location
 	// should be encapsulated.
 	NeverEncapsulate Encapsulate = "never"
