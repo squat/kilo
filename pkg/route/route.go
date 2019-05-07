@@ -139,8 +139,23 @@ func (t *Table) Set(routes []*netlink.Route) error {
 			delete(t.routes, k)
 		}
 	}
+
+	// When adding routes, we need to compare against what is
+	// actually on the Linux routing table. This is because
+	// routes can be deleted by the kernel due to interface churn
+	// causing a situation where the controller thinks it has a route
+	// that is not actually there.
+	existing := make(map[string]*netlink.Route)
+	existingRoutes, err := netlink.RouteList(nil, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("failed to list existing routes: %v", err)
+	}
+	for k := range existingRoutes {
+		existing[routeToString(&existingRoutes[k])] = &existingRoutes[k]
+	}
+
 	for k := range r {
-		if _, ok := t.routes[k]; !ok {
+		if _, ok := existing[k]; !ok {
 			if err := t.add(r[k]); err != nil {
 				return fmt.Errorf("failed to add route %q: %v", routeToString(r[k]), err)
 			}
