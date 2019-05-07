@@ -17,16 +17,42 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+
+	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	"github.com/squat/kilo/pkg/mesh"
+	"github.com/squat/kilo/pkg/wireguard"
+)
+
+const (
+	outputFormatJSON      = "json"
+	outputFormatWireGuard = "wireguard"
+	outputFormatYAML      = "yaml"
+)
+
+var (
+	availableOutputFormats = strings.Join([]string{
+		outputFormatJSON,
+		outputFormatWireGuard,
+		outputFormatYAML,
+	}, ", ")
+	asPeer     bool
+	output     string
+	serializer *json.Serializer
 )
 
 func showConf() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "showconf",
-		Short: "Show the WireGuard configuration for a node or peer in the Kilo network",
-		Long:  "",
+		Use:               "showconf",
+		Short:             "Show the WireGuard configuration for a node or peer in the Kilo network",
+		PersistentPreRunE: runShowConf,
 	}
 
 	for _, subCmd := range []*cobra.Command{
@@ -35,15 +61,29 @@ func showConf() *cobra.Command {
 	} {
 		cmd.AddCommand(subCmd)
 	}
+	cmd.PersistentFlags().BoolVar(&asPeer, "as-peer", false, "Should the resource be shown as a peer? Useful to configure this resource as a peer of another WireGuard interface.")
+	cmd.PersistentFlags().StringVarP(&output, "output", "o", "wireguard", fmt.Sprintf("The output format of the resource. Only valid when combined with 'as-peer'. Possible values: %s", availableOutputFormats))
 
 	return cmd
 }
 
+func runShowConf(c *cobra.Command, args []string) error {
+	switch output {
+	case outputFormatJSON:
+		serializer = json.NewSerializer(json.DefaultMetaFactory, peerCreatorTyper{}, peerCreatorTyper{}, true)
+	case outputFormatWireGuard:
+	case outputFormatYAML:
+		serializer = json.NewYAMLSerializer(json.DefaultMetaFactory, peerCreatorTyper{}, peerCreatorTyper{})
+	default:
+		return fmt.Errorf("output format %v unknown; posible values are: %s", output, availableOutputFormats)
+	}
+	return runRoot(c, args)
+}
+
 func showConfNode() *cobra.Command {
 	return &cobra.Command{
-		Use:   "node",
+		Use:   "node [name]",
 		Short: "Show the WireGuard configuration for a node in the Kilo network",
-		Long:  "",
 		RunE:  runShowConfNode,
 		Args:  cobra.ExactArgs(1),
 	}
@@ -51,9 +91,8 @@ func showConfNode() *cobra.Command {
 
 func showConfPeer() *cobra.Command {
 	return &cobra.Command{
-		Use:   "peer",
+		Use:   "peer [name]",
 		Short: "Show the WireGuard configuration for a peer in the Kilo network",
-		Long:  "",
 		RunE:  runShowConfPeer,
 		Args:  cobra.ExactArgs(1),
 	}
@@ -93,11 +132,35 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
-	c, err := t.Conf().Bytes()
-	if err != nil {
-		return fmt.Errorf("failed to generate configuration: %v", err)
+
+	if !asPeer {
+		c, err := t.Conf().Bytes()
+		if err != nil {
+			return fmt.Errorf("failed to generate configuration: %v", err)
+		}
+		_, err = os.Stdout.Write(c)
+		return err
 	}
-	fmt.Printf(string(c))
+
+	switch output {
+	case outputFormatJSON:
+		fallthrough
+	case outputFormatYAML:
+		p := translatePeer(t.AsPeer())
+		p.Name = hostname
+		return serializer.Encode(p, os.Stdout)
+	case outputFormatWireGuard:
+		c, err := (&wireguard.Conf{
+			Peers: []*wireguard.Peer{
+				t.AsPeer(),
+			},
+		}).Bytes()
+		if err != nil {
+			return fmt.Errorf("failed to generate configuration: %v", err)
+		}
+		_, err = os.Stdout.Write(c)
+		return err
+	}
 	return nil
 }
 
@@ -137,10 +200,89 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
-	c, err := t.PeerConf(peer).Bytes()
-	if err != nil {
-		return fmt.Errorf("failed to generate configuration: %v", err)
+	if !asPeer {
+		c, err := t.PeerConf(peer).Bytes()
+		if err != nil {
+			return fmt.Errorf("failed to generate configuration: %v", err)
+		}
+		_, err = os.Stdout.Write(c)
+		return err
 	}
-	fmt.Printf(string(c))
+
+	switch output {
+	case outputFormatJSON:
+		fallthrough
+	case outputFormatYAML:
+		p := translatePeer(t.AsPeer())
+		p.Name = peer
+		return serializer.Encode(p, os.Stdout)
+	case outputFormatWireGuard:
+		c, err := (&wireguard.Conf{
+			Peers: []*wireguard.Peer{
+				&peers[peer].Peer,
+			},
+		}).Bytes()
+		if err != nil {
+			return fmt.Errorf("failed to generate configuration: %v", err)
+		}
+		_, err = os.Stdout.Write(c)
+		return err
+	}
 	return nil
+}
+
+// translatePeer translates a wireguard.Peer to a Peer CRD.
+func translatePeer(peer *wireguard.Peer) *v1alpha1.Peer {
+	if peer == nil {
+		return &v1alpha1.Peer{}
+	}
+	var aips []string
+	for _, aip := range peer.AllowedIPs {
+		// Skip any invalid IPs.
+		if aip == nil {
+			continue
+		}
+		aips = append(aips, aip.String())
+	}
+	var endpoint *v1alpha1.PeerEndpoint
+	if peer.Endpoint != nil && peer.Endpoint.Port > 0 && peer.Endpoint.IP != nil {
+		endpoint = &v1alpha1.PeerEndpoint{
+			IP:   peer.Endpoint.IP.String(),
+			Port: peer.Endpoint.Port,
+		}
+	}
+	var key string
+	if len(peer.PublicKey) > 0 {
+		key = string(peer.PublicKey)
+	}
+	var pka int
+	if peer.PersistentKeepalive > 0 {
+		pka = peer.PersistentKeepalive
+	}
+	return &v1alpha1.Peer{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1alpha1.PeerKind,
+			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		},
+		Spec: v1alpha1.PeerSpec{
+			AllowedIPs:          aips,
+			Endpoint:            endpoint,
+			PublicKey:           key,
+			PersistentKeepalive: pka,
+		},
+	}
+}
+
+type peerCreatorTyper struct{}
+
+func (p peerCreatorTyper) New(_ schema.GroupVersionKind) (runtime.Object, error) {
+	return &v1alpha1.Peer{}, nil
+}
+
+func (p peerCreatorTyper) ObjectKinds(_ runtime.Object) ([]schema.GroupVersionKind, bool, error) {
+	return []schema.GroupVersionKind{v1alpha1.PeerGVK}, false, nil
+}
+
+func (p peerCreatorTyper) Recognizes(_ schema.GroupVersionKind) bool {
+	return true
 }

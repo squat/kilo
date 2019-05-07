@@ -21,13 +21,21 @@ import (
 	"net"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
+	// Version is the version of this API.
+	Version = "v1alpha1"
 	// PeerKind is the API kind for the peer resource.
 	PeerKind = "Peer"
 	// PeerPlural is the plural name for the peer resource.
 	PeerPlural = "peers"
+)
+
+var (
+	// PeerGVK is the GroupVersionKind for Peers.
+	PeerGVK = schema.GroupVersionKind{Group: GroupName, Version: Version, Kind: PeerKind}
 )
 
 // PeerShortNames are convenient shortnames for the peer resource.

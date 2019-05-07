@@ -25,7 +25,6 @@ func graph() *cobra.Command {
 	return &cobra.Command{
 		Use:   "graph",
 		Short: "Generates a graph of the Kilo network",
-		Long:  "",
 		RunE:  runGraph,
 	}
 }

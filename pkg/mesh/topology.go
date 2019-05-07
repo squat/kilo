@@ -338,6 +338,25 @@ func (t *Topology) Conf() *wireguard.Conf {
 	return c
 }
 
+// AsPeer generates the WireGuard peer configuration for the local location of the given Topology.
+// This configuration can be used to configure this location as a peer of another WireGuard interface.
+func (t *Topology) AsPeer() *wireguard.Peer {
+	for _, s := range t.segments {
+		if s.location != t.location {
+			continue
+		}
+		return &wireguard.Peer{
+			AllowedIPs: s.allowedIPs,
+			Endpoint: &wireguard.Endpoint{
+				IP:   s.endpoint,
+				Port: uint32(t.port),
+			},
+			PublicKey: s.key,
+		}
+	}
+	return nil
+}
+
 // PeerConf generates a WireGuard configuration file for a given peer in a Topology.
 func (t *Topology) PeerConf(name string) *wireguard.Conf {
 	c := &wireguard.Conf{}
