@@ -40,15 +40,19 @@ kubectl apply -f https://raw.githubusercontent.com/squat/modulus/master/wireguar
 The nodes in the mesh will require an open UDP port in order to communicate.
 By default, Kilo uses UDP port 51820.
 
-### Step 3: specify locations
+### Step 3: specify topology
 
-Kilo needs to know which nodes are in each location.
+By default, Kilo creates a mesh between the different logical locations in the cluster, e.g. data-centers, cloud providers, etc.
+For this, Kilo needs to know which groups of nodes are in each location.
 If the cluster does not automatically set the [failure-domain.beta.kubernetes.io/region](https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#failure-domain-beta-kubernetes-io-region) node label, then the [kilo.squat.ai/location](./docs/annotations.md#location) annotation can be used.
 For example, the following snippet could be used to annotate all nodes with `GCP` in the name:
 
 ```shell
 for node in $(kubectl get nodes | grep -i gcp | awk '{print $1}'); do kubectl annotate node $node kilo.squat.ai/location="gcp"; done
 ```
+
+Kilo allows the topology of the encrypted network to be completely customized.
+[See the topology docs for more details](./docs/topology.md).
 
 ### Step 4: ensure nodes have public IP
 
@@ -111,7 +115,7 @@ The topology of a Kilo network can be analyzed using the `kgctl` binary.
 For example, the `graph` command can be used to generate a graph of the network in Graphviz format:
 
 ```shell
-kgctl graph | twopi -Tsvg > cluster.svg
+kgctl graph | circo -Tsvg > cluster.svg
 ```
 
-<img src="./cluster.svg">
+<img src="./docs/graphs/location.svg">

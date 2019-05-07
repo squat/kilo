@@ -31,6 +31,9 @@ func (t *Topology) Dot() (string, error) {
 	if err := g.AddAttr("kilo", string(gographviz.LabelLOC), "t"); err != nil {
 		return "", fmt.Errorf("failed to add label location to graph")
 	}
+	if err := g.AddAttr("kilo", string(gographviz.OutputOrder), "nodesfirst"); err != nil {
+		return "", fmt.Errorf("failed to set output ordering")
+	}
 	if err := g.AddAttr("kilo", string(gographviz.Overlap), "false"); err != nil {
 		return "", fmt.Errorf("failed to disable graph overlap")
 	}
@@ -41,6 +44,7 @@ func (t *Topology) Dot() (string, error) {
 	nodeAttrs := map[string]string{
 		string(gographviz.Shape): "ellipse",
 	}
+
 	for i, s := range t.segments {
 		if err := g.AddSubGraph("kilo", subGraphName(s.location), nil); err != nil {
 			return "", fmt.Errorf("failed to add subgraph")
@@ -66,21 +70,38 @@ func (t *Topology) Dot() (string, error) {
 				return "", fmt.Errorf("failed to add label to node")
 			}
 		}
-		meshSubGraph(g, g.Relations.SortedChildren(subGraphName(s.location)), s.leader)
+		meshSubGraph(g, g.Relations.SortedChildren(subGraphName(s.location)), s.leader, nil)
 		leaders[i] = graphEscape(s.hostnames[s.leader])
 	}
-	meshSubGraph(g, leaders, 0)
+	meshGraph(g, leaders, nil)
 	return g.String(), nil
 }
 
-func meshSubGraph(g *gographviz.Graph, nodes []string, leader int) {
+func meshGraph(g *gographviz.Graph, nodes []string, attrs gographviz.Attrs) {
+	if attrs == nil {
+		attrs = make(gographviz.Attrs)
+		attrs[gographviz.Dir] = "both"
+	}
+	for i := range nodes {
+		for j := i + 1; j < len(nodes); j++ {
+			if i == j {
+				continue
+			}
+			g.Edges.Add(&gographviz.Edge{Src: nodes[i], Dst: nodes[j], Dir: true, Attrs: attrs})
+		}
+	}
+}
+
+func meshSubGraph(g *gographviz.Graph, nodes []string, leader int, attrs gographviz.Attrs) {
+	if attrs == nil {
+		attrs = make(gographviz.Attrs)
+		attrs[gographviz.Dir] = "both"
+	}
 	for i := range nodes {
 		if i == leader {
 			continue
 		}
-		a := make(gographviz.Attrs)
-		a[gographviz.Dir] = "both"
-		g.Edges.Add(&gographviz.Edge{Src: nodes[leader], Dst: nodes[i], Dir: true, Attrs: a})
+		g.Edges.Add(&gographviz.Edge{Src: nodes[leader], Dst: nodes[i], Dir: true, Attrs: attrs})
 	}
 }
 
