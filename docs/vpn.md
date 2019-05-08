@@ -16,7 +16,7 @@ metadata:
   name: squat
 spec:
   allowedIPs:
-  - 10.4.1.1/32
+  - 10.5.0.1/32 # Example IP address on the peer's interface.
   publicKey: GY5aT1N9dTR/nJnT1N2f4ClZWVj0jOAld0r8ysWLyjg=
   persistentKeepalive: 10
 ```
@@ -66,3 +66,42 @@ For example, try connecting to the API server:
 ```shell
 curl -k https://10.0.27.179:6443
 ```
+
+Likewise, the cluster now also has layer 3 access to the newly added peer.
+From any node or Pod on the cluster, one can now ping the peer:
+
+```shell
+ping 10.5.0.1
+```
+
+If the peer exposes a layer 4 service, for example an HTTP service, then one could also make requests against that endpoint from the cluster:
+
+```shell
+curl http://10.5.0.1
+```
+
+Kubernetes Services can be created to provide better discoverability to cluster workloads for services exposed by peers, for example:
+
+```shell
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: important-service
+spec:
+  ports:
+    - port: 80
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+    name: important-service
+subsets:
+  - addresses:
+      - ip: 10.5.0.1
+    ports:
+      - port: 80
+EOF
+```
+
+[See the multi-cluster services docs for more details on connecting clusters to external services](./docs/multi-cluster-services.md).

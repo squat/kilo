@@ -17,6 +17,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
@@ -43,6 +44,8 @@ var (
 		outputFormatWireGuard,
 		outputFormatYAML,
 	}, ", ")
+	allowedIPs []string
+	aips       []*net.IPNet
 	asPeer     bool
 	output     string
 	serializer *json.Serializer
@@ -63,6 +66,7 @@ func showConf() *cobra.Command {
 	}
 	cmd.PersistentFlags().BoolVar(&asPeer, "as-peer", false, "Should the resource be shown as a peer? Useful to configure this resource as a peer of another WireGuard interface.")
 	cmd.PersistentFlags().StringVarP(&output, "output", "o", "wireguard", fmt.Sprintf("The output format of the resource. Only valid when combined with 'as-peer'. Possible values: %s", availableOutputFormats))
+	cmd.PersistentFlags().StringSliceVar(&allowedIPs, "allowed-ips", []string{}, "Override the allowed IPs of the configuration. Only valid when combined with 'as-peer'.")
 
 	return cmd
 }
@@ -76,6 +80,13 @@ func runShowConf(c *cobra.Command, args []string) error {
 		serializer = json.NewYAMLSerializer(json.DefaultMetaFactory, peerCreatorTyper{}, peerCreatorTyper{})
 	default:
 		return fmt.Errorf("output format %v unknown; posible values are: %s", output, availableOutputFormats)
+	}
+	for i := range allowedIPs {
+		_, aip, err := net.ParseCIDR(allowedIPs[i])
+		if err != nil {
+			return fmt.Errorf("allowed-ips must contain only valid CIDRs; got %q", allowedIPs[i])
+		}
+		aips = append(aips, aip)
 	}
 	return runRoot(c, args)
 }
@@ -148,12 +159,17 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 	case outputFormatYAML:
 		p := translatePeer(t.AsPeer())
 		p.Name = hostname
+		if len(aips) != 0 {
+			p.Spec.AllowedIPs = allowedIPs
+		}
 		return serializer.Encode(p, os.Stdout)
 	case outputFormatWireGuard:
+		p := t.AsPeer()
+		if len(aips) != 0 {
+			p.AllowedIPs = aips
+		}
 		c, err := (&wireguard.Conf{
-			Peers: []*wireguard.Peer{
-				t.AsPeer(),
-			},
+			Peers: []*wireguard.Peer{p},
 		}).Bytes()
 		if err != nil {
 			return fmt.Errorf("failed to generate configuration: %v", err)
@@ -215,12 +231,18 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 	case outputFormatYAML:
 		p := translatePeer(t.AsPeer())
 		p.Name = peer
+		p.Name = hostname
+		if len(aips) != 0 {
+			p.Spec.AllowedIPs = allowedIPs
+		}
 		return serializer.Encode(p, os.Stdout)
 	case outputFormatWireGuard:
+		p := &peers[peer].Peer
+		if len(aips) != 0 {
+			p.AllowedIPs = aips
+		}
 		c, err := (&wireguard.Conf{
-			Peers: []*wireguard.Peer{
-				&peers[peer].Peer,
-			},
+			Peers: []*wireguard.Peer{p},
 		}).Bytes()
 		if err != nil {
 			return fmt.Errorf("failed to generate configuration: %v", err)

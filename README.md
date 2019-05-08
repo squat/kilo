@@ -12,10 +12,11 @@ Kilo is a multi-cloud network overlay built on WireGuard and designed for Kubern
 Kilo connects nodes in a cluster by providing an encrypted layer 3 network that can span across data centers and public clouds.
 By allowing pools of nodes in different locations to communicate securely, Kilo enables the operation of multi-cloud clusters.
 Kilo's design allows clients to VPN to a cluster in order to securely access services running on the cluster.
+In addition to creating multi-cloud clusters, Kilo enables the creation of multi-cluster services, i.e. services that span across different Kubernetes clusters.
 
 ## How it works
 
-Kilo uses [WireGuard](https://www.wireguard.com/), a performant and secure VPN, to create a mesh between the different logical locations in a cluster.
+Kilo uses [WireGuard](https://www.wireguard.com/), a performant and secure VPN, to create a mesh between the different nodes in a cluster.
 The Kilo agent, `kg`, runs on every node in the cluster, setting up the public and private keys for the VPN as well as the necessary rules to route packets between locations.
 
 Kilo can operate both as a complete, independent networking provider as well as an add-on complimenting the cluster-networking solution currently installed on a cluster.
@@ -94,7 +95,7 @@ metadata:
   name: squat
 spec:
   allowedIPs:
-  - 10.4.1.1/32
+  - 10.5.0.1/32
   publicKey: GY5aT1N9dTR/nJnT1N2f4ClZWVj0jOAld0r8ysWLyjg=
   persistentKeepalive: 10
 EOF
@@ -109,9 +110,46 @@ sudo wg setconf wg0 peer.ini
 
 [See the VPN docs for more details](./docs/vpn.md).
 
+## Multi-cluster Services
+
+A logical application of Kilo's VPN is to connect two different Kubernetes clusters.
+This allows workloads running in one cluster to access services running in another.
+For example, if `cluster1` is running a Kubernetes Service that we need to access from Pods running in `cluster2`, we could do the following:
+
+```shell
+# Register cluster1 as a peer of cluster2.
+kgctl --kubeconfig $KUBECONFIG1 showconf node $NODE1 --as-peer -o yaml --allowed-ips $PODCIDR1,$SERVICECIDR1 | kubectl --kubeconfig KUBECONFIG2 apply -f -
+# Register cluster2 as a peer of cluster1.
+kgctl --kubeconfig $KUBECONFIG2 showconf node $NODE2 --as-peer -o yaml --allowed-ips $PODCIDR2,$SERVICECIDR2 | kubectl --kubeconfig KUBECONFIG1 apply -f -
+# Create a Service in cluster2 to mirror the Service in cluster1.
+cat <<'EOF' | kubectl --kubeconfig $KUBECONFIG2 apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: important-service
+spec:
+  ports:
+    - port: 80
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+    name: important-service
+subsets:
+  - addresses:
+      - ip: $CLUSTERIP # The cluster IP of the important service on cluster1.
+    ports:
+      - port: 80
+EOF
+```
+
+Now, `important-service` can be used on `cluster2` just like any other Kubernetes Service.
+
+[See the multi-cluster services docs for more details](./docs/multi-cluster-services.md).
+
 ## Analysis
 
-The topology of a Kilo network can be analyzed using the `kgctl` binary.
+The topology and configuration of a Kilo network can be analyzed using the `kgctl` binary.
 For example, the `graph` command can be used to generate a graph of the network in Graphviz format:
 
 ```shell
