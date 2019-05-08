@@ -154,13 +154,18 @@ func (nb *nodeBackend) Init(stop <-chan struct{}) error {
 				}
 				nb.events <- &mesh.NodeEvent{Type: mesh.AddEvent, Node: translateNode(n)}
 			},
-			UpdateFunc: func(_, obj interface{}) {
+			UpdateFunc: func(old, obj interface{}) {
 				n, ok := obj.(*v1.Node)
 				if !ok {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				nb.events <- &mesh.NodeEvent{Type: mesh.UpdateEvent, Node: translateNode(n)}
+				o, ok := old.(*v1.Node)
+				if !ok {
+					// Failed to decode Node; ignoring...
+					return
+				}
+				nb.events <- &mesh.NodeEvent{Type: mesh.UpdateEvent, Node: translateNode(n), Old: translateNode(o)}
 			},
 			DeleteFunc: func(obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -369,13 +374,18 @@ func (pb *peerBackend) Init(stop <-chan struct{}) error {
 				}
 				pb.events <- &mesh.PeerEvent{Type: mesh.AddEvent, Peer: translatePeer(p)}
 			},
-			UpdateFunc: func(_, obj interface{}) {
+			UpdateFunc: func(old, obj interface{}) {
 				p, ok := obj.(*v1alpha1.Peer)
 				if !ok || p.Validate() != nil {
 					// Failed to decode Peer; ignoring...
 					return
 				}
-				pb.events <- &mesh.PeerEvent{Type: mesh.UpdateEvent, Peer: translatePeer(p)}
+				o, ok := old.(*v1alpha1.Peer)
+				if !ok || o.Validate() != nil {
+					// Failed to decode Peer; ignoring...
+					return
+				}
+				pb.events <- &mesh.PeerEvent{Type: mesh.UpdateEvent, Peer: translatePeer(p), Old: translatePeer(o)}
 			},
 			DeleteFunc: func(obj interface{}) {
 				p, ok := obj.(*v1alpha1.Peer)
