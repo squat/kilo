@@ -9,14 +9,14 @@ Unlike services exposed via Ingresses or NodePort Services, multi-cluster servic
 
 Consider two clusters, `cluster1` with:
 * kubeconfig: `KUBECONFIG1`
-* pod CIDR: $PODCIDR1`
-* service CIDR: $SERVICECIDR1`
+* pod CIDR: `$PODCIDR1`
+* service CIDR: `$SERVICECIDR1`
 * a node named: `$NODE1`
 
 and `cluster2` with:
 * kubeconfig: `KUBECONFIG2`
-* pod CIDR: $PODCIDR2`
-* service CIDR: $SERVICECIDR2`
+* pod CIDR: `$PODCIDR2`
+* service CIDR: `$SERVICECIDR2`
 * a node named: `$NODE2`
 
 In order to give `cluster2` access to a service running on `cluster1`, start by peering the nodes:
@@ -32,7 +32,7 @@ Now, `cluster2` has access to Pods and Services on `cluster1`, and vice-versa.
 However, as it stands the external Services can only be accessed by using their clusterIPs directly; in other words, they are not Kubernetes-native.
 We can change that by creating a Kubernetes Service in `cluster2` to mirror the Service in `cluster1`:
 
-```
+```shell
 cat <<'EOF' | kubectl --kubeconfig $KUBECONFIG2 apply -f -
 apiVersion: v1
 kind: Service
