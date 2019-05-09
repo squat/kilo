@@ -44,11 +44,13 @@ var (
 		outputFormatWireGuard,
 		outputFormatYAML,
 	}, ", ")
-	allowedIPs []string
-	aips       []*net.IPNet
-	asPeer     bool
-	output     string
-	serializer *json.Serializer
+	allowedIPs   []string
+	showConfOpts struct {
+		allowedIPs []*net.IPNet
+		serializer *json.Serializer
+		output     string
+		asPeer     bool
+	}
 )
 
 func showConf() *cobra.Command {
@@ -64,29 +66,29 @@ func showConf() *cobra.Command {
 	} {
 		cmd.AddCommand(subCmd)
 	}
-	cmd.PersistentFlags().BoolVar(&asPeer, "as-peer", false, "Should the resource be shown as a peer? Useful to configure this resource as a peer of another WireGuard interface.")
-	cmd.PersistentFlags().StringVarP(&output, "output", "o", "wireguard", fmt.Sprintf("The output format of the resource. Only valid when combined with 'as-peer'. Possible values: %s", availableOutputFormats))
+	cmd.PersistentFlags().BoolVar(&showConfOpts.asPeer, "as-peer", false, "Should the resource be shown as a peer? Useful to configure this resource as a peer of another WireGuard interface.")
+	cmd.PersistentFlags().StringVarP(&showConfOpts.output, "output", "o", "wireguard", fmt.Sprintf("The output format of the resource. Only valid when combined with 'as-peer'. Possible values: %s", availableOutputFormats))
 	cmd.PersistentFlags().StringSliceVar(&allowedIPs, "allowed-ips", []string{}, "Override the allowed IPs of the configuration. Only valid when combined with 'as-peer'.")
 
 	return cmd
 }
 
 func runShowConf(c *cobra.Command, args []string) error {
-	switch output {
+	switch showConfOpts.output {
 	case outputFormatJSON:
-		serializer = json.NewSerializer(json.DefaultMetaFactory, peerCreatorTyper{}, peerCreatorTyper{}, true)
+		showConfOpts.serializer = json.NewSerializer(json.DefaultMetaFactory, peerCreatorTyper{}, peerCreatorTyper{}, true)
 	case outputFormatWireGuard:
 	case outputFormatYAML:
-		serializer = json.NewYAMLSerializer(json.DefaultMetaFactory, peerCreatorTyper{}, peerCreatorTyper{})
+		showConfOpts.serializer = json.NewYAMLSerializer(json.DefaultMetaFactory, peerCreatorTyper{}, peerCreatorTyper{})
 	default:
-		return fmt.Errorf("output format %v unknown; posible values are: %s", output, availableOutputFormats)
+		return fmt.Errorf("output format %v unknown; posible values are: %s", showConfOpts.output, availableOutputFormats)
 	}
 	for i := range allowedIPs {
 		_, aip, err := net.ParseCIDR(allowedIPs[i])
 		if err != nil {
 			return fmt.Errorf("allowed-ips must contain only valid CIDRs; got %q", allowedIPs[i])
 		}
-		aips = append(aips, aip)
+		showConfOpts.allowedIPs = append(showConfOpts.allowedIPs, aip)
 	}
 	return runRoot(c, args)
 }
@@ -144,7 +146,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
 
-	if !asPeer {
+	if !showConfOpts.asPeer {
 		c, err := t.Conf().Bytes()
 		if err != nil {
 			return fmt.Errorf("failed to generate configuration: %v", err)
@@ -153,20 +155,20 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch output {
+	switch showConfOpts.output {
 	case outputFormatJSON:
 		fallthrough
 	case outputFormatYAML:
 		p := translatePeer(t.AsPeer())
 		p.Name = hostname
-		if len(aips) != 0 {
+		if len(showConfOpts.allowedIPs) != 0 {
 			p.Spec.AllowedIPs = allowedIPs
 		}
-		return serializer.Encode(p, os.Stdout)
+		return showConfOpts.serializer.Encode(p, os.Stdout)
 	case outputFormatWireGuard:
 		p := t.AsPeer()
-		if len(aips) != 0 {
-			p.AllowedIPs = aips
+		if len(showConfOpts.allowedIPs) != 0 {
+			p.AllowedIPs = showConfOpts.allowedIPs
 		}
 		c, err := (&wireguard.Conf{
 			Peers: []*wireguard.Peer{p},
@@ -216,7 +218,7 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
-	if !asPeer {
+	if !showConfOpts.asPeer {
 		c, err := t.PeerConf(peer).Bytes()
 		if err != nil {
 			return fmt.Errorf("failed to generate configuration: %v", err)
@@ -225,21 +227,20 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch output {
+	switch showConfOpts.output {
 	case outputFormatJSON:
 		fallthrough
 	case outputFormatYAML:
-		p := translatePeer(t.AsPeer())
+		p := translatePeer(&peers[peer].Peer)
 		p.Name = peer
-		p.Name = hostname
-		if len(aips) != 0 {
+		if len(showConfOpts.allowedIPs) != 0 {
 			p.Spec.AllowedIPs = allowedIPs
 		}
-		return serializer.Encode(p, os.Stdout)
+		return showConfOpts.serializer.Encode(p, os.Stdout)
 	case outputFormatWireGuard:
 		p := &peers[peer].Peer
-		if len(aips) != 0 {
-			p.AllowedIPs = aips
+		if len(showConfOpts.allowedIPs) != 0 {
+			p.AllowedIPs = showConfOpts.allowedIPs
 		}
 		c, err := (&wireguard.Conf{
 			Peers: []*wireguard.Peer{p},
