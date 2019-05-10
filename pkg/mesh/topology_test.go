@@ -1246,3 +1246,147 @@ func TestFindLeader(t *testing.T) {
 		}
 	}
 }
+
+func TestDeduplicatePeerIPs(t *testing.T) {
+	p1 := &Peer{
+		Name: "1",
+		Peer: wireguard.Peer{
+			PublicKey: []byte("key1"),
+			AllowedIPs: []*net.IPNet{
+				{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)},
+				{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
+			},
+		},
+	}
+	p2 := &Peer{
+		Name: "2",
+		Peer: wireguard.Peer{
+			PublicKey: []byte("key2"),
+			AllowedIPs: []*net.IPNet{
+				{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)},
+				{IP: net.ParseIP("10.0.0.3"), Mask: net.CIDRMask(24, 32)},
+			},
+		},
+	}
+	p3 := &Peer{
+		Name: "3",
+		Peer: wireguard.Peer{
+			PublicKey: []byte("key3"),
+			AllowedIPs: []*net.IPNet{
+				{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
+				{IP: net.ParseIP("10.0.0.3"), Mask: net.CIDRMask(24, 32)},
+				{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)},
+			},
+		},
+	}
+
+	p4 := &Peer{
+		Name: "4",
+		Peer: wireguard.Peer{
+			PublicKey: []byte("key4"),
+			AllowedIPs: []*net.IPNet{
+				{IP: net.ParseIP("10.0.0.3"), Mask: net.CIDRMask(24, 32)},
+				{IP: net.ParseIP("10.0.0.3"), Mask: net.CIDRMask(24, 32)},
+			},
+		},
+	}
+
+	for _, tc := range []struct {
+		name  string
+		peers []*Peer
+		out   []*Peer
+	}{
+		{
+			name:  "nil",
+			peers: nil,
+			out:   nil,
+		},
+		{
+			name:  "simple dupe",
+			peers: []*Peer{p1, p2},
+			out: []*Peer{
+				p1,
+				{
+					Name: "2",
+					Peer: wireguard.Peer{
+						PublicKey: []byte("key2"),
+						AllowedIPs: []*net.IPNet{
+							{IP: net.ParseIP("10.0.0.3"), Mask: net.CIDRMask(24, 32)},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "simple dupe reversed",
+			peers: []*Peer{p2, p1},
+			out: []*Peer{
+				p2,
+				{
+					Name: "1",
+					Peer: wireguard.Peer{
+						PublicKey: []byte("key1"),
+						AllowedIPs: []*net.IPNet{
+							{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "one duplicates all",
+			peers: []*Peer{p3, p2, p1, p4},
+			out: []*Peer{
+				p3,
+				{
+					Name: "2",
+					Peer: wireguard.Peer{
+						PublicKey: []byte("key2"),
+					},
+				},
+				{
+					Name: "1",
+					Peer: wireguard.Peer{
+						PublicKey: []byte("key1"),
+					},
+				},
+				{
+					Name: "4",
+					Peer: wireguard.Peer{
+						PublicKey: []byte("key4"),
+					},
+				},
+			},
+		},
+		{
+			name:  "one duplicates itself",
+			peers: []*Peer{p4, p1},
+			out: []*Peer{
+				{
+					Name: "4",
+					Peer: wireguard.Peer{
+						PublicKey: []byte("key4"),
+						AllowedIPs: []*net.IPNet{
+							{IP: net.ParseIP("10.0.0.3"), Mask: net.CIDRMask(24, 32)},
+						},
+					},
+				},
+				{
+					Name: "1",
+					Peer: wireguard.Peer{
+						PublicKey: []byte("key1"),
+						AllowedIPs: []*net.IPNet{
+							{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)},
+							{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
+						},
+					},
+				},
+			},
+		},
+	} {
+		out := deduplicatePeerIPs(tc.peers)
+		if diff := pretty.Compare(out, tc.out); diff != "" {
+			t.Errorf("test case %q: got diff: %v", tc.name, diff)
+		}
+	}
+}

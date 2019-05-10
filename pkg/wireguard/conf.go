@@ -59,6 +59,20 @@ type Peer struct {
 	PublicKey           []byte
 }
 
+// DeduplicateIPs eliminates duplicate allowed IPs.
+func (p *Peer) DeduplicateIPs() {
+	var ips []*net.IPNet
+	seen := make(map[string]struct{})
+	for _, ip := range p.AllowedIPs {
+		if _, ok := seen[ip.String()]; ok {
+			continue
+		}
+		ips = append(ips, ip)
+		seen[ip.String()] = struct{}{}
+	}
+	p.AllowedIPs = ips
+}
+
 // Endpoint represents an `endpoint` key of a `peer` section.
 type Endpoint struct {
 	IP   net.IP

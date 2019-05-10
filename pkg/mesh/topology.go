@@ -138,7 +138,9 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 	sort.Slice(t.peers, func(i, j int) bool {
 		return t.peers[i].Name < t.peers[j].Name
 	})
-
+	// We need to defensively deduplicate peer allowed IPs. If two peers claim the same IP,
+	// the WireGuard configuration could flap, causing the interface to churn.
+	t.peers = deduplicatePeerIPs(t.peers)
 	// Allocate IPs to the segment leaders in a stable, coordination-free manner.
 	a := newAllocator(*subnet)
 	for _, segment := range t.segments {
@@ -416,4 +418,28 @@ func findLeader(nodes []*Node) int {
 		return public[0]
 	}
 	return 0
+}
+
+func deduplicatePeerIPs(peers []*Peer) []*Peer {
+	ps := make([]*Peer, len(peers))
+	ips := make(map[string]struct{})
+	for i, peer := range peers {
+		p := Peer{
+			Name: peer.Name,
+			Peer: wireguard.Peer{
+				Endpoint:            peer.Endpoint,
+				PersistentKeepalive: peer.PersistentKeepalive,
+				PublicKey:           peer.PublicKey,
+			},
+		}
+		for _, ip := range peer.AllowedIPs {
+			if _, ok := ips[ip.String()]; ok {
+				continue
+			}
+			p.AllowedIPs = append(p.AllowedIPs, ip)
+			ips[ip.String()] = struct{}{}
+		}
+		ps[i] = &p
+	}
+	return ps
 }

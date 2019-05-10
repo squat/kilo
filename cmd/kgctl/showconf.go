@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -68,7 +69,7 @@ func showConf() *cobra.Command {
 	}
 	cmd.PersistentFlags().BoolVar(&showConfOpts.asPeer, "as-peer", false, "Should the resource be shown as a peer? Useful to configure this resource as a peer of another WireGuard interface.")
 	cmd.PersistentFlags().StringVarP(&showConfOpts.output, "output", "o", "wireguard", fmt.Sprintf("The output format of the resource. Only valid when combined with 'as-peer'. Possible values: %s", availableOutputFormats))
-	cmd.PersistentFlags().StringSliceVar(&allowedIPs, "allowed-ips", []string{}, "Override the allowed IPs of the configuration. Only valid when combined with 'as-peer'.")
+	cmd.PersistentFlags().StringSliceVar(&allowedIPs, "allowed-ips", []string{}, "Add the given IPs to the allowed IPs of the configuration. Only valid when combined with 'as-peer'.")
 
 	return cmd
 }
@@ -151,6 +152,18 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
 
+	var found bool
+	for _, p := range t.PeerConf("").Peers {
+		if bytes.Equal(p.PublicKey, nodes[hostname].Key) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		_, err := os.Stderr.WriteString(fmt.Sprintf("Node %q is not a leader node\n", hostname))
+		return err
+	}
+
 	if !showConfOpts.asPeer {
 		c, err := t.Conf().Bytes()
 		if err != nil {
@@ -164,17 +177,16 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 	case outputFormatJSON:
 		fallthrough
 	case outputFormatYAML:
-		p := translatePeer(t.AsPeer())
-		p.Name = hostname
-		if len(showConfOpts.allowedIPs) != 0 {
-			p.Spec.AllowedIPs = allowedIPs
-		}
-		return showConfOpts.serializer.Encode(p, os.Stdout)
+		p := t.AsPeer()
+		p.AllowedIPs = append(p.AllowedIPs, showConfOpts.allowedIPs...)
+		p.DeduplicateIPs()
+		k8sp := translatePeer(p)
+		k8sp.Name = hostname
+		return showConfOpts.serializer.Encode(k8sp, os.Stdout)
 	case outputFormatWireGuard:
 		p := t.AsPeer()
-		if len(showConfOpts.allowedIPs) != 0 {
-			p.AllowedIPs = showConfOpts.allowedIPs
-		}
+		p.AllowedIPs = append(p.AllowedIPs, showConfOpts.allowedIPs...)
+		p.DeduplicateIPs()
 		c, err := (&wireguard.Conf{
 			Peers: []*wireguard.Peer{p},
 		}).Bytes()
@@ -241,17 +253,16 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 	case outputFormatJSON:
 		fallthrough
 	case outputFormatYAML:
-		p := translatePeer(&peers[peer].Peer)
-		p.Name = peer
-		if len(showConfOpts.allowedIPs) != 0 {
-			p.Spec.AllowedIPs = allowedIPs
-		}
-		return showConfOpts.serializer.Encode(p, os.Stdout)
+		p := peers[peer]
+		p.AllowedIPs = append(p.AllowedIPs, showConfOpts.allowedIPs...)
+		p.DeduplicateIPs()
+		k8sp := translatePeer(&p.Peer)
+		k8sp.Name = peer
+		return showConfOpts.serializer.Encode(k8sp, os.Stdout)
 	case outputFormatWireGuard:
 		p := &peers[peer].Peer
-		if len(showConfOpts.allowedIPs) != 0 {
-			p.AllowedIPs = showConfOpts.allowedIPs
-		}
+		p.AllowedIPs = append(p.AllowedIPs, showConfOpts.allowedIPs...)
+		p.DeduplicateIPs()
 		c, err := (&wireguard.Conf{
 			Peers: []*wireguard.Peer{p},
 		}).Bytes()
