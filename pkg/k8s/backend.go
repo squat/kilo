@@ -55,9 +55,11 @@ const (
 	lastSeenAnnotationKey        = "kilo.squat.ai/last-seen"
 	leaderAnnotationKey          = "kilo.squat.ai/leader"
 	locationAnnotationKey        = "kilo.squat.ai/location"
-	regionLabelKey               = "failure-domain.beta.kubernetes.io/region"
-	jsonPatchSlash               = "~1"
-	jsonRemovePatch              = `{"op": "remove", "path": "%s"}`
+	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
+
+	regionLabelKey  = "failure-domain.beta.kubernetes.io/region"
+	jsonPatchSlash  = "~1"
+	jsonRemovePatch = `{"op": "remove", "path": "%s"}`
 )
 
 type backend struct {
@@ -119,6 +121,7 @@ func (nb *nodeBackend) CleanUp(name string) error {
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(internalIPAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(keyAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(lastSeenAnnotationKey, "/", jsonPatchSlash, 1))),
+		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(wireGuardIPAnnotationKey, "/", jsonPatchSlash, 1))),
 	}, ",") + "]")
 	if _, err := nb.client.CoreV1().Nodes().Patch(name, types.JSONPatchType, patch); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
@@ -204,6 +207,11 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 	n.ObjectMeta.Annotations[internalIPAnnotationKey] = node.InternalIP.String()
 	n.ObjectMeta.Annotations[keyAnnotationKey] = string(node.Key)
 	n.ObjectMeta.Annotations[lastSeenAnnotationKey] = strconv.FormatInt(node.LastSeen, 10)
+	if node.WireGuardIP == nil {
+		n.ObjectMeta.Annotations[wireGuardIPAnnotationKey] = ""
+	} else {
+		n.ObjectMeta.Annotations[wireGuardIPAnnotationKey] = node.WireGuardIP.String()
+	}
 	oldData, err := json.Marshal(old)
 	if err != nil {
 		return err
@@ -270,6 +278,10 @@ func translateNode(node *v1.Node) *mesh.Node {
 		Location:   location,
 		Name:       node.Name,
 		Subnet:     subnet,
+		// WireGuardIP can fail to parse if the node is not a leader or if
+		// the node's agent has not yet reconciled. In either case, the IP
+		// will parse as nil.
+		WireGuardIP: normalizeIP(node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]),
 	}
 }
 

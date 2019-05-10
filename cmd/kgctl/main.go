@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strings"
 
@@ -59,21 +58,13 @@ var (
 	opts struct {
 		backend     mesh.Backend
 		granularity mesh.Granularity
-		subnet      *net.IPNet
 	}
 	backend     string
 	granularity string
 	kubeconfig  string
-	subnet      string
 )
 
 func runRoot(_ *cobra.Command, _ []string) error {
-	_, s, err := net.ParseCIDR(subnet)
-	if err != nil {
-		return fmt.Errorf("failed to parse %q as CIDR: %v", subnet, err)
-	}
-	opts.subnet = s
-
 	opts.granularity = mesh.Granularity(granularity)
 	switch opts.granularity {
 	case mesh.LogicalGranularity:
@@ -117,7 +108,6 @@ func main() {
 	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
 	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"), "Path to kubeconfig.")
-	cmd.PersistentFlags().StringVar(&subnet, "subnet", "10.4.0.0/16", "CIDR from which to allocate addressees to WireGuard interfaces.")
 
 	for _, subCmd := range []*cobra.Command{
 		graph(),

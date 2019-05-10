@@ -121,12 +121,17 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to list peers: %v", err)
 	}
 	hostname := args[0]
+	subnet := mesh.DefaultKiloSubnet
 	nodes := make(map[string]*mesh.Node)
 	for _, n := range ns {
 		if n.Ready() {
 			nodes[n.Name] = n
 		}
+		if n.WireGuardIP != nil {
+			subnet = n.WireGuardIP
+		}
 	}
+	subnet.IP = subnet.IP.Mask(subnet.Mask)
 	if len(nodes) == 0 {
 		return errors.New("did not find any valid Kilo nodes in the cluster")
 	}
@@ -141,7 +146,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, []byte{}, opts.subnet)
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, []byte{}, subnet)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
@@ -192,13 +197,18 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to list peers: %v", err)
 	}
 	var hostname string
+	subnet := mesh.DefaultKiloSubnet
 	nodes := make(map[string]*mesh.Node)
 	for _, n := range ns {
 		if n.Ready() {
 			nodes[n.Name] = n
 			hostname = n.Name
 		}
+		if n.WireGuardIP != nil {
+			subnet = n.WireGuardIP
+		}
 	}
+	subnet.IP = subnet.IP.Mask(subnet.Mask)
 	if len(nodes) == 0 {
 		return errors.New("did not find any valid Kilo nodes in the cluster")
 	}
@@ -214,7 +224,7 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("did not find any peer named %q in the cluster", peer)
 	}
 
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, []byte{}, opts.subnet)
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, []byte{}, subnet)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}

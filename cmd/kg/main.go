@@ -87,7 +87,7 @@ func Main() error {
 	master := flag.String("master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
 	var port uint
 	flag.UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
-	subnet := flag.String("subnet", "10.4.0.0/16", "CIDR from which to allocate addresses for WireGuard interfaces.")
+	subnet := flag.String("subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
 	printVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 

@@ -35,17 +35,22 @@ func runGraph(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to list nodes: %v", err)
 	}
 	var hostname string
+	subnet := mesh.DefaultKiloSubnet
 	nodes := make(map[string]*mesh.Node)
 	for _, n := range ns {
 		if n.Ready() {
 			nodes[n.Name] = n
 			hostname = n.Name
 		}
+		if n.WireGuardIP != nil {
+			subnet = n.WireGuardIP
+		}
 	}
+	subnet.IP = subnet.IP.Mask(subnet.Mask)
 	if len(nodes) == 0 {
 		return fmt.Errorf("did not find any valid Kilo nodes in the cluster")
 	}
-	t, err := mesh.NewTopology(nodes, nil, opts.granularity, hostname, 0, []byte{}, opts.subnet)
+	t, err := mesh.NewTopology(nodes, nil, opts.granularity, hostname, 0, []byte{}, subnet)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}

@@ -49,6 +49,9 @@ const (
 	DefaultCNIPath = "/etc/cni/net.d/10-kilo.conflist"
 )
 
+// DefaultKiloSubnet is the default CIDR for Kilo.
+var DefaultKiloSubnet = &net.IPNet{IP: []byte{10, 4, 0, 0}, Mask: []byte{255, 255, 0, 0}}
+
 // Granularity represents the abstraction level at which the network
 // should be meshed.
 type Granularity string
@@ -86,14 +89,16 @@ type Node struct {
 	LastSeen int64
 	// Leader is a suggestion to Kilo that
 	// the node wants to lead its segment.
-	Leader   bool
-	Location string
-	Name     string
-	Subnet   *net.IPNet
+	Leader      bool
+	Location    string
+	Name        string
+	Subnet      *net.IPNet
+	WireGuardIP *net.IPNet
 }
 
 // Ready indicates whether or not the node is ready.
 func (n *Node) Ready() bool {
+	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
 	return n != nil && n.ExternalIP != nil && n.Key != nil && n.InternalIP != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(resyncPeriod)*2/int64(time.Second)
 }
 
@@ -194,6 +199,7 @@ type Mesh struct {
 	subnet      *net.IPNet
 	table       *route.Table
 	tunlIface   int
+	wireGuardIP *net.IPNet
 
 	// nodes and peers are mutable fields in the struct
 	// and needs to be guarded.
@@ -514,14 +520,15 @@ func (m *Mesh) handleLocal(n *Node) {
 	// Take leader, location, and subnet from the argument, as these
 	// are not determined by kilo.
 	local := &Node{
-		ExternalIP: n.ExternalIP,
-		Key:        m.pub,
-		InternalIP: m.internalIP,
-		LastSeen:   time.Now().Unix(),
-		Leader:     n.Leader,
-		Location:   n.Location,
-		Name:       m.hostname,
-		Subnet:     n.Subnet,
+		ExternalIP:  n.ExternalIP,
+		Key:         m.pub,
+		InternalIP:  m.internalIP,
+		LastSeen:    time.Now().Unix(),
+		Leader:      n.Leader,
+		Location:    n.Location,
+		Name:        m.hostname,
+		Subnet:      n.Subnet,
+		WireGuardIP: m.wireGuardIP,
 	}
 	if !nodesAreEqual(n, local) {
 		level.Debug(m.logger).Log("msg", "local node differs from backend")
@@ -583,6 +590,8 @@ func (m *Mesh) applyTopology() {
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
+	// Update the node's WireGuard IP.
+	m.wireGuardIP = t.wireGuardCIDR
 	conf := t.Conf()
 	buf, err := conf.Bytes()
 	if err != nil {
@@ -740,7 +749,7 @@ func nodesAreEqual(a, b *Node) bool {
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
 	// equivalent. However, we do want to check if LastSeen has transitioned
 	// between valid and invalid.
-	return ipNetsEqual(a.ExternalIP, b.ExternalIP) && string(a.Key) == string(b.Key) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready()
+	return ipNetsEqual(a.ExternalIP, b.ExternalIP) && string(a.Key) == string(b.Key) && ipNetsEqual(a.WireGuardIP, b.WireGuardIP) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready()
 }
 
 func peersAreEqual(a, b *Peer) bool {

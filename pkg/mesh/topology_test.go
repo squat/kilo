@@ -29,9 +29,8 @@ func allowedIPs(ips ...string) string {
 	return strings.Join(ips, ", ")
 }
 
-func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32, *net.IPNet) {
+func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 	key := []byte("private")
-	kiloNet := &net.IPNet{IP: net.ParseIP("10.4.0.0").To4(), Mask: net.CIDRMask(16, 32)}
 	e1 := &net.IPNet{IP: net.ParseIP("10.1.0.1").To4(), Mask: net.CIDRMask(16, 32)}
 	e2 := &net.IPNet{IP: net.ParseIP("10.1.0.2").To4(), Mask: net.CIDRMask(16, 32)}
 	e3 := &net.IPNet{IP: net.ParseIP("10.1.0.3").To4(), Mask: net.CIDRMask(16, 32)}
@@ -89,11 +88,11 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32, *n
 			},
 		},
 	}
-	return nodes, peers, key, DefaultKiloPort, kiloNet
+	return nodes, peers, key, DefaultKiloPort
 }
 
 func TestNewTopology(t *testing.T) {
-	nodes, peers, key, port, kiloNet := setup(t)
+	nodes, peers, key, port := setup(t)
 
 	w1 := net.ParseIP("10.4.0.1").To4()
 	w2 := net.ParseIP("10.4.0.2").To4()
@@ -112,7 +111,7 @@ func TestNewTopology(t *testing.T) {
 				hostname:      nodes["a"].Name,
 				leader:        true,
 				location:      nodes["a"].Location,
-				subnet:        kiloNet,
+				subnet:        DefaultKiloSubnet,
 				privateIP:     nodes["a"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
@@ -148,7 +147,7 @@ func TestNewTopology(t *testing.T) {
 				hostname:      nodes["b"].Name,
 				leader:        true,
 				location:      nodes["b"].Location,
-				subnet:        kiloNet,
+				subnet:        DefaultKiloSubnet,
 				privateIP:     nodes["b"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
@@ -184,7 +183,7 @@ func TestNewTopology(t *testing.T) {
 				hostname:      nodes["c"].Name,
 				leader:        false,
 				location:      nodes["b"].Location,
-				subnet:        kiloNet,
+				subnet:        DefaultKiloSubnet,
 				privateIP:     nodes["c"].InternalIP,
 				wireGuardCIDR: nil,
 				segments: []*segment{
@@ -220,7 +219,7 @@ func TestNewTopology(t *testing.T) {
 				hostname:      nodes["a"].Name,
 				leader:        true,
 				location:      nodes["a"].Name,
-				subnet:        kiloNet,
+				subnet:        DefaultKiloSubnet,
 				privateIP:     nodes["a"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
@@ -266,7 +265,7 @@ func TestNewTopology(t *testing.T) {
 				hostname:      nodes["b"].Name,
 				leader:        true,
 				location:      nodes["b"].Name,
-				subnet:        kiloNet,
+				subnet:        DefaultKiloSubnet,
 				privateIP:     nodes["b"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
@@ -312,7 +311,7 @@ func TestNewTopology(t *testing.T) {
 				hostname:      nodes["c"].Name,
 				leader:        true,
 				location:      nodes["c"].Name,
-				subnet:        kiloNet,
+				subnet:        DefaultKiloSubnet,
 				privateIP:     nodes["c"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w3, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
@@ -353,7 +352,7 @@ func TestNewTopology(t *testing.T) {
 	} {
 		tc.result.key = key
 		tc.result.port = port
-		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, kiloNet)
+		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, DefaultKiloSubnet)
 		if err != nil {
 			t.Errorf("test case %q: failed to generate Topology: %v", tc.name, err)
 		}
@@ -372,12 +371,12 @@ func mustTopo(t *testing.T, nodes map[string]*Node, peers map[string]*Peer, gran
 }
 
 func TestRoutes(t *testing.T) {
-	nodes, peers, key, port, kiloNet := setup(t)
+	nodes, peers, key, port := setup(t)
 	kiloIface := 0
 	privIface := 1
 	pubIface := 2
 	mustTopoForGranularityAndHost := func(granularity Granularity, hostname string) *Topology {
-		return mustTopo(t, nodes, peers, granularity, hostname, port, key, kiloNet)
+		return mustTopo(t, nodes, peers, granularity, hostname, port, key, DefaultKiloSubnet)
 	}
 
 	for _, tc := range []struct {
@@ -987,7 +986,7 @@ func TestRoutes(t *testing.T) {
 }
 
 func TestConf(t *testing.T) {
-	nodes, peers, key, port, kiloNet := setup(t)
+	nodes, peers, key, port := setup(t)
 	for _, tc := range []struct {
 		name     string
 		topology *Topology
@@ -995,7 +994,7 @@ func TestConf(t *testing.T) {
 	}{
 		{
 			name:     "logical from a",
-			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["a"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["a"].Name, port, key, DefaultKiloSubnet),
 			result: `[Interface]
 PrivateKey = private
 ListenPort = 51820
@@ -1019,7 +1018,7 @@ AllowedIPs = 10.5.0.3/24
 		},
 		{
 			name:     "logical from b",
-			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["b"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["b"].Name, port, key, DefaultKiloSubnet),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1043,7 +1042,7 @@ AllowedIPs = 10.5.0.3/24
 		},
 		{
 			name:     "logical from c",
-			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["c"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["c"].Name, port, key, DefaultKiloSubnet),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1067,7 +1066,7 @@ AllowedIPs = 10.5.0.3/24
 		},
 		{
 			name:     "full from a",
-			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["a"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["a"].Name, port, key, DefaultKiloSubnet),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1096,7 +1095,7 @@ AllowedIPs = 10.5.0.3/24
 		},
 		{
 			name:     "full from b",
-			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["b"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["b"].Name, port, key, DefaultKiloSubnet),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1125,7 +1124,7 @@ AllowedIPs = 10.5.0.3/24
 		},
 		{
 			name:     "full from c",
-			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["c"].Name, port, key, kiloNet),
+			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["c"].Name, port, key, DefaultKiloSubnet),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
