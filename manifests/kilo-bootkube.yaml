@@ -100,14 +100,13 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
+        - name: cni-conf-dir
+          mountPath: /etc/cni/net.d
+        - name: kilo-dir
+          mountPath: /var/lib/kilo
         - name: kubeconfig
           mountPath: /etc/kubernetes/kubeconfig
           readOnly: true
-      tolerations:
-      - effect: NoSchedule
-        operator: Exists
-      - effect: NoExecute
-        operator: Exists
       initContainers:
       - name: install-cni
         image: squat/kilo
@@ -139,12 +138,15 @@ spec:
       - effect: NoExecute
         operator: Exists
       volumes:
-      - name: kubeconfig
-        hostPath:
-          path: /etc/kubernetes/kubeconfig
       - name: cni-bin-dir
         hostPath:
           path: /opt/cni/bin
       - name: cni-conf-dir
         hostPath:
           path: /etc/kubernetes/cni/net.d
+      - name: kilo-dir
+        hostPath:
+          path: /var/lib/kilo
+      - name: kubeconfig
+        hostPath:
+          path: /etc/kubernetes/kubeconfig

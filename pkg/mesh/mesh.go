@@ -713,10 +713,6 @@ func (m *Mesh) cleanUp() {
 		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up routes: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
-	if err := os.Remove(PrivateKeyPath); err != nil {
-		level.Error(m.logger).Log("error", fmt.Sprintf("failed to delete private key: %v", err))
-		m.errorCounter.WithLabelValues("cleanUp").Inc()
-	}
 	if err := os.Remove(ConfPath); err != nil {
 		level.Error(m.logger).Log("error", fmt.Sprintf("failed to delete configuration file: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()

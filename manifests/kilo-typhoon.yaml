@@ -102,6 +102,8 @@ spec:
         volumeMounts:
         - name: cni-conf-dir
           mountPath: /etc/cni/net.d
+        - name: kilo-dir
+          mountPath: /var/lib/kilo
         - name: kubeconfig
           mountPath: /etc/kubernetes
           readOnly: true
@@ -136,12 +138,15 @@ spec:
       - effect: NoExecute
         operator: Exists
       volumes:
-      - name: kubeconfig
-        configMap:
-          name: kubeconfig-in-cluster
       - name: cni-bin-dir
         hostPath:
           path: /opt/cni/bin
       - name: cni-conf-dir
         hostPath:
           path: /etc/kubernetes/cni/net.d
+      - name: kilo-dir
+        hostPath:
+          path: /var/lib/kilo
+      - name: kubeconfig
+        configMap:
+          name: kubeconfig-in-cluster
