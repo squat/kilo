@@ -39,7 +39,26 @@ import (
 // - private IP assigned to interface of default route
 // - private IP assigned to local interface
 // - if no IP was found, return nil and an error.
-func getIP(hostname string) (*net.IPNet, *net.IPNet, error) {
+func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error) {
+	ignore := make(map[string]struct{})
+	for i := range ignoreIfaces {
+		if ignoreIfaces[i] == 0 {
+			// Only ignore valid interfaces.
+			continue
+		}
+		iface, err := net.InterfaceByIndex(ignoreIfaces[i])
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to find interface %d: %v", ignoreIfaces[i], err)
+		}
+		ips, err := ipsForInterface(iface)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, ip := range ips {
+			ignore[ip.String()] = struct{}{}
+			ignore[oneAddressCIDR(ip.IP).String()] = struct{}{}
+		}
+	}
 	var hostPriv, hostPub []*net.IPNet
 	{
 		// Check IPs to which hostname resolves first.
@@ -112,13 +131,25 @@ func getIP(hostname string) (*net.IPNet, *net.IPNet, error) {
 		sortIPs(interfacePub)
 	}
 
-	var priv, pub []*net.IPNet
-	priv = append(priv, hostPriv...)
-	priv = append(priv, defaultPriv...)
-	priv = append(priv, interfacePriv...)
-	pub = append(pub, hostPub...)
-	pub = append(pub, defaultPub...)
-	pub = append(pub, interfacePub...)
+	var priv, pub, tmpPriv, tmpPub []*net.IPNet
+	tmpPriv = append(tmpPriv, hostPriv...)
+	tmpPriv = append(tmpPriv, defaultPriv...)
+	tmpPriv = append(tmpPriv, interfacePriv...)
+	tmpPub = append(tmpPub, hostPub...)
+	tmpPub = append(tmpPub, defaultPub...)
+	tmpPub = append(tmpPub, interfacePub...)
+	for i := range tmpPriv {
+		if _, ok := ignore[tmpPriv[i].String()]; ok {
+			continue
+		}
+		priv = append(priv, tmpPriv[i])
+	}
+	for i := range tmpPub {
+		if _, ok := ignore[tmpPub[i].String()]; ok {
+			continue
+		}
+		pub = append(pub, tmpPub[i])
+	}
 	if len(priv) == 0 && len(pub) == 0 {
 		return nil, nil, errors.New("no valid IP was found")
 	}

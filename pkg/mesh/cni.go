@@ -25,7 +25,23 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	ipamallocator "github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
 	"github.com/go-kit/kit/log/level"
+	"github.com/vishvananda/netlink"
 )
+
+const cniDeviceName = "kube-bridge"
+
+// Try to get the CNI device index.
+// Return 0 if not found and any error encountered.
+func cniDeviceIndex() (int, error) {
+	i, err := netlink.LinkByName(cniDeviceName)
+	if _, ok := err.(netlink.LinkNotFoundError); ok {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return i.Attrs().Index, nil
+}
 
 // updateCNIConfig will try to update the local node's CNI config.
 func (m *Mesh) updateCNIConfig() {

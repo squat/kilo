@@ -234,7 +234,11 @@ func New(backend Backend, encapsulate Encapsulate, granularity Granularity, host
 	if err := ioutil.WriteFile(PrivateKeyPath, private, 0600); err != nil {
 		return nil, fmt.Errorf("failed to write private key to disk: %v", err)
 	}
-	privateIP, publicIP, err := getIP(hostname)
+	cniIndex, err := cniDeviceIndex()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query netlink for CNI device: %v", err)
+	}
+	privateIP, publicIP, err := getIP(hostname, cniIndex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find public IP: %v", err)
 	}
