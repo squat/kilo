@@ -241,9 +241,9 @@ func (c *Controller) CleanUp() error {
 	return nil
 }
 
-// EncapsulateRules returns a set of iptables rules that are necessary
-// when traffic between nodes must be encapsulated.
-func EncapsulateRules(nodes []*net.IPNet) []Rule {
+// IPIPRules returns a set of iptables rules that are necessary
+// when traffic between nodes must be encapsulated with IPIP.
+func IPIPRules(nodes []*net.IPNet) []Rule {
 	var rules []Rule
 	rules = append(rules, &chain{"filter", "KILO-IPIP", nil})
 	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: jump to IPIP chain", "-p", "4", "-j", "KILO-IPIP"}, nil})

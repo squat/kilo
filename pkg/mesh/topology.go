@@ -19,6 +19,7 @@ import (
 	"net"
 	"sort"
 
+	"github.com/squat/kilo/pkg/encapsulation"
 	"github.com/squat/kilo/pkg/wireguard"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -171,7 +172,7 @@ func (t *Topology) RemoteSubnets() []*net.IPNet {
 }
 
 // Routes generates a slice of routes for a given Topology.
-func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encapsulate Encapsulate) []*netlink.Route {
+func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encapsulate encapsulation.Strategy) []*netlink.Route {
 	var routes []*netlink.Route
 	if !t.leader {
 		// Find the leader for this segment.
@@ -306,8 +307,8 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encap
 	return routes
 }
 
-func encapsulateRoute(route *netlink.Route, encapsulate Encapsulate, subnet *net.IPNet, tunlIface int) *netlink.Route {
-	if encapsulate == AlwaysEncapsulate || (encapsulate == CrossSubnetEncapsulate && !subnet.Contains(route.Gw)) {
+func encapsulateRoute(route *netlink.Route, encapsulate encapsulation.Strategy, subnet *net.IPNet, tunlIface int) *netlink.Route {
+	if encapsulate == encapsulation.Always || (encapsulate == encapsulation.CrossSubnet && !subnet.Contains(route.Gw)) {
 		route.LinkIndex = tunlIface
 	}
 	return route

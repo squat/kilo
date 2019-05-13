@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/squat/kilo/pkg/encapsulation"
 	"github.com/squat/kilo/pkg/k8s"
 	kiloclient "github.com/squat/kilo/pkg/k8s/clientset/versioned"
 	"github.com/squat/kilo/pkg/mesh"
@@ -54,9 +55,9 @@ var (
 		k8s.Backend,
 	}, ", ")
 	availableEncapsulations = strings.Join([]string{
-		string(mesh.NeverEncapsulate),
-		string(mesh.CrossSubnetEncapsulate),
-		string(mesh.AlwaysEncapsulate),
+		string(encapsulation.Never),
+		string(encapsulation.CrossSubnet),
+		string(encapsulation.Always),
 	}, ", ")
 	availableGranularities = strings.Join([]string{
 		string(mesh.LogicalGranularity),
@@ -77,7 +78,7 @@ func Main() error {
 	backend := flag.String("backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
 	cni := flag.Bool("cni", true, "Should Kilo manage the node's CNI configuration.")
 	cniPath := flag.String("cni-path", mesh.DefaultCNIPath, "Path to CNI config.")
-	encapsulate := flag.String("encapsulate", string(mesh.AlwaysEncapsulate), fmt.Sprintf("When should Kilo encapsulate packets within a location. Possible values: %s", availableEncapsulations))
+	encapsulate := flag.String("encapsulate", string(encapsulation.Always), fmt.Sprintf("When should Kilo encapsulate packets within a location. Possible values: %s", availableEncapsulations))
 	granularity := flag.String("mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	kubeconfig := flag.String("kubeconfig", "", "Path to kubeconfig.")
 	hostname := flag.String("hostname", "", "Hostname of the node on which this process is running.")
@@ -129,14 +130,16 @@ func Main() error {
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
 
-	e := mesh.Encapsulate(*encapsulate)
+	var enc encapsulation.Interface
+	e := encapsulation.Strategy(*encapsulate)
 	switch e {
-	case mesh.NeverEncapsulate:
-	case mesh.CrossSubnetEncapsulate:
-	case mesh.AlwaysEncapsulate:
+	case encapsulation.Never:
+	case encapsulation.CrossSubnet:
+	case encapsulation.Always:
 	default:
 		return fmt.Errorf("encapsulation %v unknown; possible values are: %s", *encapsulate, availableEncapsulations)
 	}
+	enc = encapsulation.NewIPIP(e)
 
 	gr := mesh.Granularity(*granularity)
 	switch gr {
@@ -161,7 +164,7 @@ func Main() error {
 		return fmt.Errorf("backend %v unknown; possible values are: %s", *backend, availableBackends)
 	}
 
-	m, err := mesh.New(b, e, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, log.With(logger, "component", "kilo"))
+	m, err := mesh.New(b, enc, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, log.With(logger, "component", "kilo"))
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}

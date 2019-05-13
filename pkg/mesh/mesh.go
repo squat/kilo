@@ -28,6 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/squat/kilo/pkg/encapsulation"
 	"github.com/squat/kilo/pkg/iproute"
 	"github.com/squat/kilo/pkg/iptables"
 	"github.com/squat/kilo/pkg/route"
@@ -56,10 +57,6 @@ var DefaultKiloSubnet = &net.IPNet{IP: []byte{10, 4, 0, 0}, Mask: []byte{255, 25
 // should be meshed.
 type Granularity string
 
-// Encapsulate identifies what packets within a location should
-// be encapsulated.
-type Encapsulate string
-
 const (
 	// LogicalGranularity indicates that the network should create
 	// a mesh between logical locations, e.g. data-centers, but not between
@@ -68,15 +65,6 @@ const (
 	// FullGranularity indicates that the network should create
 	// a mesh between every node.
 	FullGranularity Granularity = "full"
-	// NeverEncapsulate indicates that no packets within a location
-	// should be encapsulated.
-	NeverEncapsulate Encapsulate = "never"
-	// CrossSubnetEncapsulate indicates that only packets that
-	// traverse subnets within a location should be encapsulated.
-	CrossSubnetEncapsulate Encapsulate = "crosssubnet"
-	// AlwaysEncapsulate indicates that all packets within a location
-	// should be encapsulated.
-	AlwaysEncapsulate Encapsulate = "always"
 )
 
 // Node represents a node in the network.
@@ -181,7 +169,7 @@ type Mesh struct {
 	Backend
 	cni         bool
 	cniPath     string
-	encapsulate Encapsulate
+	enc         encapsulation.Interface
 	externalIP  *net.IPNet
 	granularity Granularity
 	hostname    string
@@ -198,7 +186,6 @@ type Mesh struct {
 	stop        chan struct{}
 	subnet      *net.IPNet
 	table       *route.Table
-	tunlIface   int
 	wireGuardIP *net.IPNet
 
 	// nodes and peers are mutable fields in the struct
@@ -215,7 +202,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, encapsulate Encapsulate, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath string, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Interface, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath string, logger log.Logger) (*Mesh, error) {
 	if err := os.MkdirAll(KiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -238,7 +225,7 @@ func New(backend Backend, encapsulate Encapsulate, granularity Granularity, host
 	if err != nil {
 		return nil, fmt.Errorf("failed to query netlink for CNI device: %v", err)
 	}
-	privateIP, publicIP, err := getIP(hostname, cniIndex)
+	privateIP, publicIP, err := getIP(hostname, enc.Index(), cniIndex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find public IP: %v", err)
 	}
@@ -256,13 +243,9 @@ func New(backend Backend, encapsulate Encapsulate, granularity Granularity, host
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WireGuard interface: %v", err)
 	}
-	var tunlIface int
-	if encapsulate != NeverEncapsulate {
-		if tunlIface, err = iproute.NewIPIP(privIface); err != nil {
-			return nil, fmt.Errorf("failed to create tunnel interface: %v", err)
-		}
-		if err := iproute.Set(tunlIface, true); err != nil {
-			return nil, fmt.Errorf("failed to set tunnel interface up: %v", err)
+	if enc.Strategy() != encapsulation.Never {
+		if err := enc.Init(privIface); err != nil {
+			return nil, fmt.Errorf("failed to initialize encapsulation: %v", err)
 		}
 	}
 	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the private IP address", privateIP.String()))
@@ -275,7 +258,7 @@ func New(backend Backend, encapsulate Encapsulate, granularity Granularity, host
 		Backend:     backend,
 		cni:         cni,
 		cniPath:     cniPath,
-		encapsulate: encapsulate,
+		enc:         enc,
 		externalIP:  publicIP,
 		granularity: granularity,
 		hostname:    hostname,
@@ -293,7 +276,6 @@ func New(backend Backend, encapsulate Encapsulate, granularity Granularity, host
 		stop:        make(chan struct{}),
 		subnet:      subnet,
 		table:       route.NewTable(),
-		tunlIface:   tunlIface,
 		errorCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kilo_errors_total",
 			Help: "Number of errors that occurred while administering the mesh.",
@@ -318,6 +300,13 @@ func New(backend Backend, encapsulate Encapsulate, granularity Granularity, host
 func (m *Mesh) Run() error {
 	if err := m.Nodes().Init(m.stop); err != nil {
 		return fmt.Errorf("failed to initialize node backend: %v", err)
+	}
+	// Try to set the CNI config quickly.
+	if n, err := m.Nodes().Get(m.hostname); err == nil {
+		if n != nil && n.Subnet != nil {
+			m.nodes[m.hostname] = n
+			m.updateCNIConfig()
+		}
 	}
 	if err := m.Peers().Init(m.stop); err != nil {
 		return fmt.Errorf("failed to initialize peer backend: %v", err)
@@ -616,7 +605,7 @@ func (m *Mesh) applyTopology() {
 	rules = append(rules, iptables.MasqueradeRules(m.subnet, oneAddressCIDR(t.privateIP.IP), nodes[m.hostname].Subnet, t.RemoteSubnets(), peerCIDRs)...)
 	// If we are handling local routes, ensure the local
 	// tunnel has an IP address and IPIP traffic is allowed.
-	if m.encapsulate != NeverEncapsulate && m.local {
+	if m.enc.Strategy() != encapsulation.Never && m.local {
 		var cidrs []*net.IPNet
 		for _, s := range t.segments {
 			if s.location == nodes[m.hostname].Location {
@@ -626,11 +615,11 @@ func (m *Mesh) applyTopology() {
 				break
 			}
 		}
-		rules = append(rules, iptables.EncapsulateRules(cidrs)...)
+		rules = append(rules, m.enc.Rules(cidrs)...)
 
 		// If we are handling local routes, ensure the local
 		// tunnel has an IP address.
-		if err := iproute.SetAddress(m.tunlIface, oneAddressCIDR(newAllocator(*nodes[m.hostname].Subnet).next().IP)); err != nil {
+		if err := m.enc.Set(oneAddressCIDR(newAllocator(*nodes[m.hostname].Subnet).next().IP)); err != nil {
 			level.Error(m.logger).Log("error", err)
 			m.errorCounter.WithLabelValues("apply").Inc()
 			return
@@ -685,7 +674,7 @@ func (m *Mesh) applyTopology() {
 	}
 	// We need to add routes last since they may depend
 	// on the WireGuard interface.
-	routes := t.Routes(m.kiloIface, m.privIface, m.tunlIface, m.local, m.encapsulate)
+	routes := t.Routes(m.kiloIface, m.privIface, m.enc.Index(), m.local, m.enc.Strategy())
 	if err := m.table.Set(routes); err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
@@ -731,6 +720,10 @@ func (m *Mesh) cleanUp() {
 	}
 	if err := m.Peers().CleanUp(m.hostname); err != nil {
 		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up peer backend: %v", err))
+		m.errorCounter.WithLabelValues("cleanUp").Inc()
+	}
+	if err := m.enc.CleanUp(); err != nil {
+		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up encapsulation: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
 }

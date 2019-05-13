@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/squat/kilo/pkg/encapsulation"
 	"github.com/squat/kilo/pkg/wireguard"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -978,7 +979,7 @@ func TestRoutes(t *testing.T) {
 			},
 		},
 	} {
-		routes := tc.topology.Routes(kiloIface, privIface, pubIface, tc.local, NeverEncapsulate)
+		routes := tc.topology.Routes(kiloIface, privIface, pubIface, tc.local, encapsulation.Never)
 		if diff := pretty.Compare(routes, tc.result); diff != "" {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}

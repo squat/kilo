@@ -68,3 +68,21 @@ func SetAddress(index int, cidr *net.IPNet) error {
 	}
 	return netlink.AddrReplace(link, &netlink.Addr{IPNet: cidr})
 }
+
+// DeleteAddresses removes all IP addresses of an interface.
+func DeleteAddresses(index int) error {
+	link, err := netlink.LinkByIndex(index)
+	if err != nil {
+		return fmt.Errorf("failed to get link: %s", err)
+	}
+	addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		return err
+	}
+	for _, addr := range addrs {
+		if err := netlink.AddrDel(link, &addr); err != nil {
+			return fmt.Errorf("failed to delete address: %s", err)
+		}
+	}
+	return nil
+}
