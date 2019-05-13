@@ -20,7 +20,7 @@ Kilo uses [WireGuard](https://www.wireguard.com/), a performant and secure VPN, 
 The Kilo agent, `kg`, runs on every node in the cluster, setting up the public and private keys for the VPN as well as the necessary rules to route packets between locations.
 
 Kilo can operate both as a complete, independent networking provider as well as an add-on complimenting the cluster-networking solution currently installed on a cluster.
-This means that if a cluster uses, for example, Calico for networking, Kilo can be installed on top to enable pools of nodes in different locations to join; Kilo will take care of the network between locations, while Calico will take care of the network within locations.
+This means that if a cluster uses, for example, Flannel for networking, Kilo can be installed on top to enable pools of nodes in different locations to join; Kilo will take care of the network between locations, while Flannel will take care of the network within locations.
 
 ## Installing on Kubernetes
 
@@ -87,6 +87,20 @@ To run Kilo on k3s:
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-k3s.yaml
 ```
+
+## Add-on Mode
+
+Administrators of existing clusters who do not want to swap out the existing networking solution can run Kilo in add-on mode.
+In this mode, Kilo will add advanced features to the cluster, such as VPN and multi-cluster services, while delegating CNI management and local networking to the cluster's current networking provider.
+Currently, Kilo, supports running on top of Flannel.
+
+For example, to run Kilo on Typhoon cluster running Flannel:
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon-flannel.yaml
+```
+
+[See the manifests directory for more examples](./manifests).
 
 ## VPN
 

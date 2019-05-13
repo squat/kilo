@@ -22,45 +22,13 @@ import (
 	"github.com/squat/kilo/pkg/iptables"
 )
 
-// Strategy identifies which packets within a location should
-// be encapsulated.
-type Strategy string
-
-const (
-	// Never indicates that no packets within a location
-	// should be encapsulated.
-	Never Strategy = "never"
-	// CrossSubnet indicates that only packets that
-	// traverse subnets within a location should be encapsulated.
-	CrossSubnet Strategy = "crosssubnet"
-	// Always indicates that all packets within a location
-	// should be encapsulated.
-	Always Strategy = "always"
-)
-
-// Interface can configure
-// the encapsulation interface, init itself,
-// get the encapsulation interface index,
-// set the interface IP address,
-// return the required IPTables rules,
-// return the encapsulation strategy,
-// and clean up any changes applied to the backend.
-type Interface interface {
-	CleanUp() error
-	Index() int
-	Init(int) error
-	Rules([]*net.IPNet) []iptables.Rule
-	Set(*net.IPNet) error
-	Strategy() Strategy
-}
-
 type ipip struct {
 	iface    int
 	strategy Strategy
 }
 
-// NewIPIP returns an encapsulation that uses IPIP.
-func NewIPIP(strategy Strategy) Interface {
+// NewIPIP returns an encapsulator that uses IPIP.
+func NewIPIP(strategy Strategy) Encapsulator {
 	return &ipip{strategy: strategy}
 }
 
@@ -70,6 +38,11 @@ func (i *ipip) CleanUp() error {
 		return nil
 	}
 	return iproute.RemoveInterface(i.iface)
+}
+
+// Gw returns the correct gateway IP associated with the given node.
+func (i *ipip) Gw(_, internal net.IP, _ *net.IPNet) net.IP {
+	return internal
 }
 
 // Index returns the index of the IPIP interface.

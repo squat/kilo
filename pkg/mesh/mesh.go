@@ -169,7 +169,7 @@ type Mesh struct {
 	Backend
 	cni         bool
 	cniPath     string
-	enc         encapsulation.Interface
+	enc         encapsulation.Encapsulator
 	externalIP  *net.IPNet
 	granularity Granularity
 	hostname    string
@@ -202,7 +202,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Interface, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath string, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath string, logger log.Logger) (*Mesh, error) {
 	if err := os.MkdirAll(KiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -245,7 +245,7 @@ func New(backend Backend, enc encapsulation.Interface, granularity Granularity, 
 	}
 	if enc.Strategy() != encapsulation.Never {
 		if err := enc.Init(privIface); err != nil {
-			return nil, fmt.Errorf("failed to initialize encapsulation: %v", err)
+			return nil, fmt.Errorf("failed to initialize encapsulator: %v", err)
 		}
 	}
 	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the private IP address", privateIP.String()))
@@ -674,7 +674,7 @@ func (m *Mesh) applyTopology() {
 	}
 	// We need to add routes last since they may depend
 	// on the WireGuard interface.
-	routes := t.Routes(m.kiloIface, m.privIface, m.enc.Index(), m.local, m.enc.Strategy())
+	routes := t.Routes(m.kiloIface, m.privIface, m.enc.Index(), m.local, m.enc)
 	if err := m.table.Set(routes); err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
@@ -723,7 +723,7 @@ func (m *Mesh) cleanUp() {
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
 	if err := m.enc.CleanUp(); err != nil {
-		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up encapsulation: %v", err))
+		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up encapsulator: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
 }

@@ -979,7 +979,7 @@ func TestRoutes(t *testing.T) {
 			},
 		},
 	} {
-		routes := tc.topology.Routes(kiloIface, privIface, pubIface, tc.local, encapsulation.Never)
+		routes := tc.topology.Routes(kiloIface, privIface, pubIface, tc.local, encapsulation.NewIPIP(encapsulation.Never))
 		if diff := pretty.Compare(routes, tc.result); diff != "" {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}

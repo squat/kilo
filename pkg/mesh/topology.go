@@ -172,14 +172,16 @@ func (t *Topology) RemoteSubnets() []*net.IPNet {
 }
 
 // Routes generates a slice of routes for a given Topology.
-func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encapsulate encapsulation.Strategy) []*netlink.Route {
+func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, enc encapsulation.Encapsulator) []*netlink.Route {
 	var routes []*netlink.Route
 	if !t.leader {
-		// Find the leader for this segment.
-		var leader net.IP
+		// Find the GW for this segment.
+		// This will be the an IP of the leader.
+		// In an IPIP encapsulated mesh it is the leader's private IP.
+		var gw net.IP
 		for _, segment := range t.segments {
 			if segment.location == t.location {
-				leader = segment.privateIPs[segment.leader]
+				gw = enc.Gw(segment.endpoint, segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
 				break
 			}
 		}
@@ -188,10 +190,10 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encap
 			routes = append(routes, encapsulateRoute(&netlink.Route{
 				Dst:       oneAddressCIDR(segment.wireGuardIP),
 				Flags:     int(netlink.FLAG_ONLINK),
-				Gw:        leader,
+				Gw:        gw,
 				LinkIndex: privIface,
 				Protocol:  unix.RTPROT_STATIC,
-			}, encapsulate, t.privateIP, tunlIface))
+			}, enc.Strategy(), t.privateIP, tunlIface))
 			// Add routes for the current segment if local is true.
 			if segment.location == t.location {
 				if local {
@@ -206,7 +208,7 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encap
 							Gw:        segment.privateIPs[i],
 							LinkIndex: privIface,
 							Protocol:  unix.RTPROT_STATIC,
-						}, encapsulate, t.privateIP, tunlIface))
+						}, enc.Strategy(), t.privateIP, tunlIface))
 					}
 				}
 				continue
@@ -216,20 +218,20 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encap
 				routes = append(routes, encapsulateRoute(&netlink.Route{
 					Dst:       segment.cidrs[i],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        leader,
+					Gw:        gw,
 					LinkIndex: privIface,
 					Protocol:  unix.RTPROT_STATIC,
-				}, encapsulate, t.privateIP, tunlIface))
+				}, enc.Strategy(), t.privateIP, tunlIface))
 				// Add routes to the private IPs of nodes in other segments.
 				// Number of CIDRs and private IPs always match so
 				// we can reuse the loop.
 				routes = append(routes, encapsulateRoute(&netlink.Route{
 					Dst:       oneAddressCIDR(segment.privateIPs[i]),
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        leader,
+					Gw:        gw,
 					LinkIndex: privIface,
 					Protocol:  unix.RTPROT_STATIC,
-				}, encapsulate, t.privateIP, tunlIface))
+				}, enc.Strategy(), t.privateIP, tunlIface))
 			}
 		}
 		// Add routes for the allowed IPs of peers.
@@ -238,10 +240,10 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encap
 				routes = append(routes, encapsulateRoute(&netlink.Route{
 					Dst:       peer.AllowedIPs[i],
 					Flags:     int(netlink.FLAG_ONLINK),
-					Gw:        leader,
+					Gw:        gw,
 					LinkIndex: privIface,
 					Protocol:  unix.RTPROT_STATIC,
-				}, encapsulate, t.privateIP, tunlIface))
+				}, enc.Strategy(), t.privateIP, tunlIface))
 			}
 		}
 		return routes
@@ -261,7 +263,7 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encap
 						Gw:        segment.privateIPs[i],
 						LinkIndex: privIface,
 						Protocol:  unix.RTPROT_STATIC,
-					}, encapsulate, t.privateIP, tunlIface))
+					}, enc.Strategy(), t.privateIP, tunlIface))
 				}
 			}
 			continue
