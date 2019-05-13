@@ -82,6 +82,12 @@ To run Kilo on Typhoon:
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon.yaml
 ```
 
+To run Kilo on K3S:
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-k3s.yaml
+```
+
 ## VPN
 
 Kilo enables peers outside of a Kubernetes cluster to also connect to the VPN, allowing cluster applications to securely access external services and permitting developers and support to securely debug cluster resources.
