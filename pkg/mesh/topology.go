@@ -274,6 +274,13 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, encap
 				LinkIndex: kiloIface,
 				Protocol:  unix.RTPROT_STATIC,
 			})
+			// Don't add routes through Kilo if the private IP
+			// equals the external IP. This means that the node
+			// is only accessible through an external IP and we
+			// cannot encapsulate traffic to an IP through the IP.
+			if segment.privateIPs[i].Equal(segment.endpoint) {
+				continue
+			}
 			// Add routes to the private IPs of nodes in other segments.
 			// Number of CIDRs and private IPs always match so
 			// we can reuse the loop.
