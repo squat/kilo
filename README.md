@@ -82,7 +82,7 @@ To run Kilo on Typhoon:
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon.yaml
 ```
 
-To run Kilo on K3S:
+To run Kilo on k3s:
 
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-k3s.yaml
