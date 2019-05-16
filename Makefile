@@ -26,14 +26,12 @@ SRC := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_FILES ?= $$(find . -name '*.go' -not -path './vendor/*')
 GO_PKGS ?= $$(go list ./... | grep -v "$(PKG)/vendor")
 
-CLIENT_GO_VERSION := release-11.0
-CODE_GENERATOR_VERSION := release-1.14
-KUBE_OPENAPI_VERSION := b3a7cee44
-CLIENT_GEN_BINARY:=$(GOPATH)/bin/client-gen
-DEEPCOPY_GEN_BINARY:=$(GOPATH)/bin/deepcopy-gen
-INFORMER_GEN_BINARY:=$(GOPATH)/bin/informer-gen
-LISTER_GEN_BINARY:=$(GOPATH)/bin/lister-gen
-OPENAPI_GEN_BINARY:=$(GOPATH)/bin/openapi-gen
+CLIENT_GEN_BINARY := bin/client-gen
+DEEPCOPY_GEN_BINARY := bin/deepcopy-gen
+INFORMER_GEN_BINARY := bin/informer-gen
+LISTER_GEN_BINARY := bin/lister-gen
+OPENAPI_GEN_BINARY := bin/openapi-gen
+GOLINT_BINARY := bin/golint
 
 BUILD_IMAGE ?= golang:1.12.1-alpine
 
@@ -76,9 +74,9 @@ pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/ki
 	--output-package $(PKG)/pkg/k8s/clientset \
 	--go-header-file=.header \
 	--logtostderr
-	rm -r pkg/k8s/clientset
+	rm -r pkg/k8s/clientset || true
 	mv $(PKG)/pkg/k8s/clientset pkg/k8s
-	rm -r github.com
+	rm -r github.com || true
 	go fmt ./pkg/k8s/clientset/...
 
 deepcopy: pkg/k8s/apis/kilo/v1alpha1/zz_generated.deepcopy.go
@@ -104,9 +102,9 @@ pkg/k8s/informers/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/type
 	--output-base $(CURDIR) \
 	--output-package $(PKG)/pkg/k8s/informers \
 	--single-directory
-	rm -r pkg/k8s/informers
+	rm -r pkg/k8s/informers || true
 	mv $(PKG)/pkg/k8s/informers pkg/k8s
-	rm -r github.com
+	rm -r github.com || true
 	go fmt ./pkg/k8s/informers/...
 
 lister: pkg/k8s/listers/kilo/v1alpha1/peer.go
@@ -117,9 +115,9 @@ pkg/k8s/listers/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/types.
 	--logtostderr \
 	--output-base $(CURDIR) \
 	--output-package $(PKG)/pkg/k8s/listers
-	rm -r pkg/k8s/listers
+	rm -r pkg/k8s/listers || true
 	mv $(PKG)/pkg/k8s/listers pkg/k8s
-	rm -r github.com
+	rm -r github.com || true
 	go fmt ./pkg/k8s/listers/...
 
 openapi: pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go
@@ -155,7 +153,7 @@ fmt:
 	@echo $(GO_PKGS)
 	gofmt -w -s $(GO_FILES)
 
-lint: header
+lint: header $(GOLINT_BINARY)
 	@echo 'go vet $(GO_PKGS)'
 	@vet_res=$$(GO111MODULE=on go vet -mod=vendor $(GO_PKGS) 2>&1); if [ -n "$$vet_res" ]; then \
 		echo ""; \
@@ -164,8 +162,8 @@ lint: header
 		echo "$$vet_res"; \
 		exit 1; \
 	fi
-	@echo 'golint $(GO_PKGS)'
-	@lint_res=$$(golint $(GO_PKGS)); if [ -n "$$lint_res" ]; then \
+	@echo '$(GOLINT_BINARY) $(GO_PKGS)'
+	@lint_res=$$($(GOLINT_BINARY) $(GO_PKGS)); if [ -n "$$lint_res" ]; then \
 		echo ""; \
 		echo "Golint found style issues. Please check the reported issues"; \
 		echo "and fix them if necessary before submitting the code for review:"; \
@@ -277,16 +275,19 @@ vendor:
 	go mod vendor
 
 $(CLIENT_GEN_BINARY):
-	go get k8s.io/code-generator/cmd/client-gen@$(CODE_GENERATOR_VERSION)
+	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/client-gen
 
 $(DEEPCOPY_GEN_BINARY):
-	go get k8s.io/code-generator/cmd/deepcopy-gen@$(CODE_GENERATOR_VERSION)
+	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/deepcopy-gen
 
 $(INFORMER_GEN_BINARY):
-	go get k8s.io/code-generator/cmd/informer-gen@$(CODE_GENERATOR_VERSION)
+	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/informer-gen
 
 $(LISTER_GEN_BINARY):
-	go get k8s.io/code-generator/cmd/lister-gen@$(CODE_GENERATOR_VERSION)
+	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/lister-gen
 
 $(OPENAPI_GEN_BINARY):
-	go get k8s.io/kube-openapi/cmd/openapi-gen@$(KUBE_OPENAPI_VERSION)
+	go build -mod=vendor -o $@ k8s.io/kube-openapi/cmd/openapi-gen
+
+$(GOLINT_BINARY):
+	go build -mod=vendor -o $@ golang.org/x/lint/golint

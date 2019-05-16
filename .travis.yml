@@ -15,12 +15,8 @@ env:
 
 install: true
 
-before_install:
-  - go get -u golang.org/x/lint/golint
-
 script:
   - make
-  - make vendor
   - make unit
   - make lint
   - make container
