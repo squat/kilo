@@ -1,7 +1,11 @@
 export GO111MODULE=on
-.PHONY: all push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi
+.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate
 
-BINS := $(addprefix bin/,kg kgctl)
+ARCH ?= amd64
+ALL_ARCH := amd64 arm arm64
+DOCKER_ARCH := "" arm "arm64 armv8"
+IMAGE_ARCH := amd64 armhf arm64
+BINS := $(addprefix bin/$(ARCH)/,kg kgctl)
 PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
@@ -33,9 +37,32 @@ OPENAPI_GEN_BINARY:=$(GOPATH)/bin/openapi-gen
 
 BUILD_IMAGE ?= golang:1.12.1-alpine
 
-all: build
-
 build: $(BINS)
+
+build-%:
+	@$(MAKE) --no-print-directory ARCH=$* build
+
+container-latest-%:
+	@$(MAKE) --no-print-directory ARCH=$* container-latest
+
+container-%:
+	@$(MAKE) --no-print-directory ARCH=$* container
+
+push-latest-%:
+	@$(MAKE) --no-print-directory ARCH=$* push-latest
+
+push-%:
+	@$(MAKE) --no-print-directory ARCH=$* push
+
+all-build: $(addprefix build-, $(ALL_ARCH))
+
+all-container: $(addprefix container-, $(ALL_ARCH))
+
+all-push: $(addprefix push-, $(ALL_ARCH))
+
+all-container-latest: $(addprefix container-latest-, $(ALL_ARCH))
+
+all-push-latest: $(addprefix push-latest-, $(ALL_ARCH))
 
 generate: client deepcopy informer lister openapi
 
@@ -107,7 +134,7 @@ pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go: pkg/k8s/apis/kilo/v1alpha1/type
 	go fmt $@
 
 $(BINS): $(SRC) go.mod
-	@mkdir -p bin
+	@mkdir -p bin/$(ARCH)
 	@echo "building: $@"
 	@docker run --rm \
 	    -u $$(id -u):$$(id -g) \
@@ -115,6 +142,7 @@ $(BINS): $(SRC) go.mod
 	    -w /$(PROJECT) \
 	    $(BUILD_IMAGE) \
 	    /bin/sh -c " \
+	        GOARCH=$(ARCH) \
 	        GOOS=linux \
 	        GOCACHE=/$(PROJECT)/.cache \
 		CGO_ENABLED=0 \
@@ -174,29 +202,66 @@ header: .header
 		exit 1; \
 	fi
 
-container: .container-$(VERSION) container-name
-.container-$(VERSION): $(BINS) Dockerfile
-	@docker build -t $(IMAGE):$(VERSION) .
-	@docker images -q $(IMAGE):$(VERSION) > $@
+container: .container-$(ARCH)-$(VERSION) container-name
+.container-$(ARCH)-$(VERSION): $(BINS) Dockerfile
+	@i=0; for a in $(ALL_ARCH); do [ "$$a" = $(ARCH) ] && break; i=$$((i+1)); done; \
+	ia=""; \
+	j=0; for a in $(IMAGE_ARCH); do [ "$$i" -eq "$$j" ] && ia="$$a" && break; j=$$((j+1)); done; \
+	docker build -t $(IMAGE):$(ARCH)-$(VERSION) --build-arg FROM=multiarch/alpine:$$ia-v3.9 --build-arg GOARCH=$(ARCH) .
+	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
-container-latest: .container-$(VERSION)
-	@docker tag $(IMAGE):$(VERSION) $(IMAGE):latest
-	@echo "container: $(IMAGE):latest"
+container-latest: .container-$(ARCH)-$(VERSION)
+	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(IMAGE):$(ARCH)-latest
+	@echo "container: $(IMAGE):$(ARCH)-latest"
 
 container-name:
-	@echo "container: $(IMAGE):$(VERSION)"
+	@echo "container: $(IMAGE):$(ARCH)-$(VERSION)"
 
-push: .push-$(VERSION) push-name
-.push-$(VERSION): .container-$(VERSION)
-	@docker push $(REGISTRY)/$(IMAGE):$(VERSION)
-	@docker images -q $(IMAGE):$(VERSION) > $@
+manifest: .manifest-$(VERSION) manifest-name
+.manifest-$(VERSION): Dockerfile $(addprefix push-, $(ALL_ARCH))
+	@docker manifest create --amend $(IMAGE):$(VERSION) $(addsuffix -$(VERSION), $(addprefix squat/$(PROJECT):, $(ALL_ARCH)))
+	@$(MAKE) --no-print-directory manifest-annotate
+	@docker manifest push $(IMAGE):$(VERSION) > $@
+
+manifest-latest: .manifest-$(VERSION) $(addprefix push-latest-, $(ALL_ARCH))
+	@docker manifest create --amend $(IMAGE):latest $(addsuffix -latest, $(addprefix squat/$(PROJECT):, $(ALL_ARCH)))
+	@$(MAKE) --no-print-directory manifest-annotate
+	@docker manifest push $(IMAGE):latest
+	@echo "manifest: $(IMAGE):latest"
+
+manifest-annotate:
+	@i=0; \
+	for a in $(ALL_ARCH); do \
+	    annotate=; \
+	    j=0; for da in $(DOCKER_ARCH); do \
+		if [ "$$j" -eq "$$i" ] && [ -n "$$da" ]; then \
+		    annotate="docker manifest annotate $(IMAGE):$(VERSION) $(IMAGE):$$a-$(VERSION) --os linux --arch"; \
+		    k=0; for ea in $$da; do \
+			[ "$$k" = 0 ] && annotate="$$annotate $$ea"; \
+			[ "$$k" != 0 ] && annotate="$$annotate --variant $$ea"; \
+			k=$$((k+1)); \
+		    done; \
+		    $$annotate; \
+		fi; \
+		j=$$((j+1)); \
+	    done; \
+	    i=$$((i+1)); \
+	done
+
+manifest-name:
+	@echo "manifest: $(IMAGE_ROOT):$(VERSION)"
+
+push: .push-$(ARCH)-$(VERSION) push-name
+.push-$(ARCH)-$(VERSION): .container-$(ARCH)-$(VERSION)
+	@docker push $(REGISTRY)/$(IMAGE):$(ARCH)-$(VERSION)
+	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
 push-latest: container-latest
-	@docker push $(REGISTRY)/$(IMAGE):latest
-	@echo "pushed: $(IMAGE):latest"
+	@docker push $(REGISTRY)/$(IMAGE):$(ARCH)-latest
+	@echo "pushed: $(IMAGE):$(ARCH)-latest"
 
 push-name:
-	@echo "pushed: $(IMAGE):$(VERSION)"
+	@echo "pushed: $(IMAGE):$(ARCH)-$(VERSION)"
 
 clean: container-clean bin-clean
 	rm -r .cache

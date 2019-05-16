@@ -1,5 +1,7 @@
 sudo: required
 
+dist: xenial
+
 language: go
 
 services:
@@ -9,7 +11,7 @@ go:
   - 1.12.1
 
 env:
-  - GO111MODULE=on
+  - GO111MODULE=on DOCKER_CLI_EXPERIMENTAL=enabled
 
 install: true
 
@@ -18,10 +20,12 @@ before_install:
 
 script:
   - make
+  - make vendor
   - make unit
   - make lint
   - make container
 
 after_success:
   - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-  - make push && make push-latest
+  - docker run --rm --privileged multiarch/qemu-user-static:register
+  - make manifest && make manifest-latest
