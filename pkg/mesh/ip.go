@@ -62,10 +62,7 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 	var hostPriv, hostPub []*net.IPNet
 	{
 		// Check IPs to which hostname resolves first.
-		ips, err := ipsForHostname(hostname)
-		if err != nil {
-			return nil, nil, err
-		}
+		ips := ipsForHostname(hostname)
 		for _, ip := range ips {
 			ok, mask, err := assignedToInterface(ip)
 			if err != nil {
@@ -241,19 +238,20 @@ func isPublic(ip *net.IPNet) bool {
 
 // ipsForHostname returns a slice of IPs to which the
 // given hostname resolves.
-func ipsForHostname(hostname string) ([]*net.IPNet, error) {
+func ipsForHostname(hostname string) []*net.IPNet {
 	if ip := net.ParseIP(hostname); ip != nil {
-		return []*net.IPNet{oneAddressCIDR(ip)}, nil
+		return []*net.IPNet{oneAddressCIDR(ip)}
 	}
 	ips, err := net.LookupIP(hostname)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookip IPs of hostname: %v", err)
+		// Most likely the hostname is not resolvable.
+		return nil
 	}
 	nets := make([]*net.IPNet, len(ips))
 	for i := range ips {
 		nets[i] = oneAddressCIDR(ips[i])
 	}
-	return nets, nil
+	return nets
 }
 
 // ipsForAllInterfaces returns a slice of IPs assigned to all the
