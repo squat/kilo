@@ -97,6 +97,12 @@ spec:
         image: squat/kilo
         args:
         - --kubeconfig=/etc/kubernetes/kubeconfig
+        - --hostname=$(NODE_NAME)
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         securityContext:
           privileged: true
         volumeMounts:
