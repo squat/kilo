@@ -104,4 +104,4 @@ subsets:
 EOF
 ```
 
-[See the multi-cluster services docs for more details on connecting clusters to external services](./docs/multi-cluster-services.md).
+[See the multi-cluster services docs for more details on connecting clusters to external services](./multi-cluster-services.md).
