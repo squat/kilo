@@ -112,6 +112,16 @@ func TestTranslateNode(t *testing.T) {
 			},
 		},
 		{
+			name: "internal IP override",
+			annotations: map[string]string{
+				internalIPAnnotationKey:      "10.1.0.1/24",
+				forceInternalIPAnnotationKey: "10.1.0.2/24",
+			},
+			out: &mesh.Node{
+				InternalIP: &net.IPNet{IP: net.ParseIP("10.1.0.2"), Mask: net.CIDRMask(24, 32)},
+			},
+		},
+		{
 			name: "invalid time",
 			annotations: map[string]string{
 				lastSeenAnnotationKey: "foo",
@@ -123,7 +133,8 @@ func TestTranslateNode(t *testing.T) {
 			annotations: map[string]string{
 				externalIPAnnotationKey:      "10.0.0.1/24",
 				forceExternalIPAnnotationKey: "10.0.0.2/24",
-				internalIPAnnotationKey:      "10.0.0.2/32",
+				forceInternalIPAnnotationKey: "10.1.0.2/32",
+				internalIPAnnotationKey:      "10.1.0.1/32",
 				keyAnnotationKey:             "foo",
 				lastSeenAnnotationKey:        "1000000000",
 				leaderAnnotationKey:          "",
@@ -135,7 +146,7 @@ func TestTranslateNode(t *testing.T) {
 			},
 			out: &mesh.Node{
 				ExternalIP:  &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
-				InternalIP:  &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(32, 32)},
+				InternalIP:  &net.IPNet{IP: net.ParseIP("10.1.0.2"), Mask: net.CIDRMask(32, 32)},
 				Key:         []byte("foo"),
 				LastSeen:    1000000000,
 				Leader:      true,

@@ -50,6 +50,7 @@ const (
 	Backend                      = "kubernetes"
 	externalIPAnnotationKey      = "kilo.squat.ai/external-ip"
 	forceExternalIPAnnotationKey = "kilo.squat.ai/force-external-ip"
+	forceInternalIPAnnotationKey = "kilo.squat.ai/force-internal-ip"
 	internalIPAnnotationKey      = "kilo.squat.ai/internal-ip"
 	keyAnnotationKey             = "kilo.squat.ai/key"
 	lastSeenAnnotationKey        = "kilo.squat.ai/last-seen"
@@ -252,10 +253,14 @@ func translateNode(node *v1.Node) *mesh.Node {
 	if !ok {
 		location = node.ObjectMeta.Labels[regionLabelKey]
 	}
-	// Allow the external IP to be overridden.
+	// Allow the IPs to be overridden.
 	externalIP, ok := node.ObjectMeta.Annotations[forceExternalIPAnnotationKey]
 	if !ok {
 		externalIP = node.ObjectMeta.Annotations[externalIPAnnotationKey]
+	}
+	internalIP, ok := node.ObjectMeta.Annotations[forceInternalIPAnnotationKey]
+	if !ok {
+		internalIP = node.ObjectMeta.Annotations[internalIPAnnotationKey]
 	}
 	var lastSeen int64
 	if ls, ok := node.ObjectMeta.Annotations[lastSeenAnnotationKey]; !ok {
@@ -271,7 +276,7 @@ func translateNode(node *v1.Node) *mesh.Node {
 		// in this case the IP will be nil and
 		// the mesh can wait for the node to be updated.
 		ExternalIP: normalizeIP(externalIP),
-		InternalIP: normalizeIP(node.ObjectMeta.Annotations[internalIPAnnotationKey]),
+		InternalIP: normalizeIP(internalIP),
 		Key:        []byte(node.ObjectMeta.Annotations[keyAnnotationKey]),
 		LastSeen:   lastSeen,
 		Leader:     leader,

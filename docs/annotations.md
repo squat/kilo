@@ -5,6 +5,7 @@ The following annotations can be added to any Kubernetes Node object to configur
 |Name|type|example|
 |----|----|-------|
 |[kilo.squat.ai/force-external-ip](#force-external-ip)|CIDR|`"55.55.55.55/32"`|
+|[kilo.squat.ai/force-internal-ip](#force-internal-ip)|CIDR|`"55.55.55.55/32"`|
 |[kilo.squat.ai/leader](#leader)|string|`""`|
 |[kilo.squat.ai/location](#location)|string|`"gcp-east"`|
 
@@ -13,7 +14,13 @@ Kilo requires at least one node in each location to have a publicly accessible I
 The Kilo agent running on each node will use heuristics to automatically detect an external IP address for the node; however, in some circumstances it may be necessary to explicitly configure the IP address, for example:
  * _no automatic public IP on ethernet device_: on some cloud providers it is common for nodes to be allocated a public IP address but for the Ethernet devices to only be automatically configured with the private network address; in this case the allocated public IP address should be specified;
  * _multiple public IP addresses_: if a node has multiple public IPs but one is preferred, then the preferred IP address should be specified;
- * _IPv6_: if a node has both public IPv4 and IPv6 addresses and the Kilo network should operate over IPv6, then the IPv6 address should be specified;
+ * _IPv6_: if a node has both public IPv4 and IPv6 addresses and the Kilo network should operate over IPv6, then the IPv6 address should be specified.
+
+### force-internal-ip
+Kilo routes packets destined for nodes inside the same logical location using the node's internal IP address.
+The Kilo agent running on each node will use heuristics to automatically detect a private IP address for the node; however, in some circumstances it may be necessary to explicitly configure the IP address, for example:
+ * _multiple private IP addresses_: if a node has multiple private IPs but one is preferred, then the preferred IP address should be specified;
+ * _IPv6_: if a node has both private IPv4 and IPv6 addresses and the Kilo network should operate over IPv6, then the IPv6 address should be specified.
 
 ### leader
 By default, Kilo creates a network mesh at the data-center granularity.
@@ -21,7 +28,7 @@ This means that one leader node is selected from each location to be an edge ser
 Kilo automatically selects the leader for each location in a stable and deterministic manner to avoid churn in the network configuration, while giving preference to nodes that are known to have public IP addresses.
 In some situations it may be desirable to manually select the leader for a location, for example:
  * _firewall_: Kilo requires an open UDP port, which defaults to 51820, to communicate between locations; if only one node is configured to have that port open, then that node should be given the leader annotation;
- * _bandwidth_: if certain nodes in the cluster have a higher bandwidth or lower latency Internet connection, then those nodes should be given the leader annotation;
+ * _bandwidth_: if certain nodes in the cluster have a higher bandwidth or lower latency Internet connection, then those nodes should be given the leader annotation.
 
 _Note_: multiple nodes within a single location can be given the leader annotation; in this case, Kilo will select one leader from the set of annotated nodes. 
 

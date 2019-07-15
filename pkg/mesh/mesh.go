@@ -505,9 +505,12 @@ func (m *Mesh) checkIn() {
 }
 
 func (m *Mesh) handleLocal(n *Node) {
-	// Allow the external IP to be overridden.
+	// Allow the IPs to be overridden.
 	if n.ExternalIP == nil {
 		n.ExternalIP = m.externalIP
+	}
+	if n.InternalIP == nil {
+		n.InternalIP = m.internalIP
 	}
 	// Compare the given node to the calculated local node.
 	// Take leader, location, and subnet from the argument, as these
@@ -515,7 +518,7 @@ func (m *Mesh) handleLocal(n *Node) {
 	local := &Node{
 		ExternalIP:  n.ExternalIP,
 		Key:         m.pub,
-		InternalIP:  m.internalIP,
+		InternalIP:  n.InternalIP,
 		LastSeen:    time.Now().Unix(),
 		Leader:      n.Leader,
 		Location:    n.Location,
