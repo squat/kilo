@@ -92,9 +92,9 @@ kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/k
 
 Administrators of existing clusters who do not want to swap out the existing networking solution can run Kilo in add-on mode.
 In this mode, Kilo will add advanced features to the cluster, such as VPN and multi-cluster services, while delegating CNI management and local networking to the cluster's current networking provider.
-Currently, Kilo, supports running on top of Flannel.
+Kilo currently supports running on top of Flannel.
 
-For example, to run Kilo on Typhoon cluster running Flannel:
+For example, to run Kilo on a Typhoon cluster running Flannel:
 
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon-flannel.yaml
@@ -104,7 +104,7 @@ kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/k
 
 ## VPN
 
-Kilo enables peers outside of a Kubernetes cluster to also connect to the VPN, allowing cluster applications to securely access external services and permitting developers and support to securely debug cluster resources.
+Kilo also enables peers outside of a Kubernetes cluster to connect to the VPN, allowing cluster applications to securely access external services and permitting developers and support to securely debug cluster resources.
 In order to declare a peer, start by defining a Kilo peer resource:
 
 ```shell
@@ -121,7 +121,7 @@ spec:
 EOF
 ```
 
-This configuration can then be applied to a local WireGuard interface, e.g. `wg0`, with the help of the `kgctl` tool:
+This configuration can then be applied to a local WireGuard interface, e.g. `wg0`, to give it access to the cluster with the help of the `kgctl` tool:
 
 ```shell
 kgctl showconf peer squat > peer.ini
