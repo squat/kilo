@@ -32,19 +32,19 @@ for n in $(kubectl --kubeconfig $KUBECONFIG2 get no -o name | cut -d'/' -f2); do
 done
 ```
 
-Now, Pods on `cluster1` can ping, cURL, or otherwise make requests against Pods and Servives in `cluster2` and vice-versa.
+Now, Pods on `cluster1` can ping, cURL, or otherwise make requests against Pods and Services in `cluster2` and vice-versa.
 
 ## Mirroring Services
 
 At this point, Kilo has created a fully routable network between the two clusters.
 However, as it stands the external Services can only be accessed by using their clusterIPs directly.
-For example, a Pod in `cluster2` would need to use the URL `http://$CLUSTERIP_FROM_CLUSTER1` to make a request against a Service running in `cluster1`.
+For example, a Pod in `cluster2` would need to use the URL `http://$CLUSTERIP_FROM_CLUSTER1` to make an HTTP request against a Service running in `cluster1`.
 In other words, the Services are not yet Kubernetes-native.
 
 We can easily change that by creating a Kubernetes Service in `cluster2` to mirror the Service in `cluster1`:
 
 ```shell
-cat <<'EOF' | kubectl --kubeconfig $KUBECONFIG2 apply -f -
+cat <<EOF | kubectl --kubeconfig $KUBECONFIG2 apply -f -
 apiVersion: v1
 kind: Service
 metadata:
@@ -59,11 +59,14 @@ metadata:
     name: important-service
 subsets:
   - addresses:
-      - ip: $CLUSTERIP_FROM_CLUSTER1 # The cluster IP of the important service on cluster1.
+      - ip: $(kubectl --kubeconfig $KUBECONFIG1 get service important-service -o jsonpath='{.spec.clusterIP}') # The cluster IP of the important service on cluster1.
     ports:
       - port: 80
 EOF
 ```
 
-Now, `important-service` can be used on `cluster2` just like any other Kubernetes Service.
+Now, `important-service` can be used and discovered on `cluster2` just like any other Kubernetes Service.
 That means that a Pod in `cluster2` could directly use the Kubernetes DNS name for the Service when making HTTP requests, for example: `http://important-service.default.svc.cluster.local`.
+
+Notice that this mirroring is ad-hoc, requiring manual administration of each Service.
+This process can be fully automated using [Service-Reflector](https://github.com/squat/service-reflector) to discover and mirror Kubernetes Services between connected clusters.
