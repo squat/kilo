@@ -53,6 +53,9 @@ metadata:
   labels:
     app.kubernetes.io/name: kilo
 spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kilo
   template:
     metadata:
       labels:
