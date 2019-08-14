@@ -96,4 +96,4 @@ spec:
           path: /var/lib/kilo
       - name: kubeconfig
         hostPath: 
-          path: /etc/rancher/k3s/k3s.yaml
+          path: /var/lib/rancher/k3s/agent/kubeconfig.yaml
