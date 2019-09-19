@@ -218,22 +218,24 @@ container-name:
 manifest: .manifest-$(VERSION) manifest-name
 .manifest-$(VERSION): Dockerfile $(addprefix push-, $(ALL_ARCH))
 	@docker manifest create --amend $(IMAGE):$(VERSION) $(addsuffix -$(VERSION), $(addprefix squat/$(PROJECT):, $(ALL_ARCH)))
-	@$(MAKE) --no-print-directory manifest-annotate
+	@$(MAKE) --no-print-directory manifest-annotate-$(VERSION)
 	@docker manifest push $(IMAGE):$(VERSION) > $@
 
-manifest-latest: .manifest-$(VERSION) $(addprefix push-latest-, $(ALL_ARCH))
+manifest-latest: Dockerfile $(addprefix push-latest-, $(ALL_ARCH))
 	@docker manifest create --amend $(IMAGE):latest $(addsuffix -latest, $(addprefix squat/$(PROJECT):, $(ALL_ARCH)))
-	@$(MAKE) --no-print-directory manifest-annotate
+	@$(MAKE) --no-print-directory manifest-annotate-latest
 	@docker manifest push $(IMAGE):latest
 	@echo "manifest: $(IMAGE):latest"
 
-manifest-annotate:
+manifest-annotate: manifest-annotate-$(VERSION)
+
+manifest-annotate-%:
 	@i=0; \
 	for a in $(ALL_ARCH); do \
 	    annotate=; \
 	    j=0; for da in $(DOCKER_ARCH); do \
 		if [ "$$j" -eq "$$i" ] && [ -n "$$da" ]; then \
-		    annotate="docker manifest annotate $(IMAGE):$(VERSION) $(IMAGE):$$a-$(VERSION) --os linux --arch"; \
+		    annotate="docker manifest annotate $(IMAGE):$* $(IMAGE):$$a-$* --os linux --arch"; \
 		    k=0; for ea in $$da; do \
 			[ "$$k" = 0 ] && annotate="$$annotate $$ea"; \
 			[ "$$k" != 0 ] && annotate="$$annotate --variant $$ea"; \
