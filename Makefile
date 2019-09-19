@@ -3,7 +3,7 @@ export GO111MODULE=on
 
 ARCH ?= amd64
 ALL_ARCH := amd64 arm arm64
-DOCKER_ARCH := "" arm "arm64 v8"
+DOCKER_ARCH := "" "arm v7" "arm64 v8"
 IMAGE_ARCH := amd64 armhf arm64
 BINS := $(addprefix bin/$(ARCH)/,kg kgctl)
 PROJECT := kilo
