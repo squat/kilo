@@ -23,12 +23,12 @@ In order to give `cluster2` access to a service running on `cluster1`, start by 
 # Register the nodes in cluster1 as peers of cluster2.
 for n in $(kubectl --kubeconfig $KUBECONFIG1 get no -o name | cut -d'/' -f2); do
     # Specify the service CIDR as an extra IP range that should be routable.
-    kgctl --kubeconfig $KUBECONFIG1 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR1 | kubectl --kubeconfig KUBECONFIG2 apply -f -
+    kgctl --kubeconfig $KUBECONFIG1 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR1 | kubectl --kubeconfig $KUBECONFIG2 apply -f -
 done
 # Register the nodes in cluster2 as peers of cluster1.
 for n in $(kubectl --kubeconfig $KUBECONFIG2 get no -o name | cut -d'/' -f2); do
     # Specify the service CIDR as an extra IP range that should be routable.
-    kgctl --kubeconfig $KUBECONFIG2 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR2 | kubectl --kubeconfig KUBECONFIG1 apply -f -
+    kgctl --kubeconfig $KUBECONFIG2 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR2 | kubectl --kubeconfig $KUBECONFIG1 apply -f -
 done
 ```
 

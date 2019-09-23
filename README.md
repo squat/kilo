@@ -139,11 +139,11 @@ For example, if `cluster1` is running a Kubernetes Service that we need to acces
 ```shell
 # Register the nodes in cluster1 as peers of cluster2.
 for n in $(kubectl --kubeconfig $KUBECONFIG1 get no -o name | cut -d'/' -f2); do
-    kgctl --kubeconfig $KUBECONFIG1 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR1 | kubectl --kubeconfig KUBECONFIG2 apply -f -
+    kgctl --kubeconfig $KUBECONFIG1 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR1 | kubectl --kubeconfig $KUBECONFIG2 apply -f -
 done
 # Register the nodes in cluster2 as peers of cluster1.
 for n in $(kubectl --kubeconfig $KUBECONFIG2 get no -o name | cut -d'/' -f2); do
-    kgctl --kubeconfig $KUBECONFIG2 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR2 | kubectl --kubeconfig KUBECONFIG1 apply -f -
+    kgctl --kubeconfig $KUBECONFIG2 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR2 | kubectl --kubeconfig $KUBECONFIG1 apply -f -
 done
 # Create a Service in cluster2 to mirror the Service in cluster1.
 cat <<'EOF' | kubectl --kubeconfig $KUBECONFIG2 apply -f -
