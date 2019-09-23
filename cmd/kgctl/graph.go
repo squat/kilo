@@ -34,6 +34,10 @@ func runGraph(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to list nodes: %v", err)
 	}
+	ps, err := opts.backend.Peers().List()
+	if err != nil {
+		return fmt.Errorf("failed to list peers: %v", err)
+	}
 	var hostname string
 	subnet := mesh.DefaultKiloSubnet
 	nodes := make(map[string]*mesh.Node)
@@ -50,7 +54,13 @@ func runGraph(_ *cobra.Command, _ []string) error {
 	if len(nodes) == 0 {
 		return fmt.Errorf("did not find any valid Kilo nodes in the cluster")
 	}
-	t, err := mesh.NewTopology(nodes, nil, opts.granularity, hostname, 0, []byte{}, subnet)
+	peers := make(map[string]*mesh.Peer)
+	for _, p := range ps {
+		if p.Ready() {
+			peers[p.Name] = p
+		}
+	}
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, 0, []byte{}, subnet)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}

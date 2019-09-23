@@ -74,6 +74,26 @@ func (t *Topology) Dot() (string, error) {
 		leaders[i] = graphEscape(s.hostnames[s.leader])
 	}
 	meshGraph(g, leaders, nil)
+
+	if err := g.AddSubGraph("kilo", graphEscape("cluster_peers"), nil); err != nil {
+		return "", fmt.Errorf("failed to add peer subgraph")
+	}
+	if err := g.AddAttr(graphEscape("cluster_peers"), string(gographviz.Label), graphEscape("peers")); err != nil {
+		return "", fmt.Errorf("failed to add label to peer subgraph")
+	}
+	if err := g.AddAttr(graphEscape("cluster_peers"), string(gographviz.Style), `"dashed,rounded"`); err != nil {
+		return "", fmt.Errorf("failed to add style to peer subgraph")
+	}
+	for j := range t.peers {
+		if err := g.AddNode(graphEscape("cluster_peers"), graphEscape(t.peers[j].Name), nodeAttrs); err != nil {
+			return "", fmt.Errorf("failed to add peer node to peer subgraph")
+		}
+		if err := g.Nodes.Lookup[graphEscape(t.peers[j].Name)].Attrs.Add(string(gographviz.Label), peerLabel(t.peers[j])); err != nil {
+			return "", fmt.Errorf("failed to add label to peer node")
+		}
+	}
+	meshPeers(g, leaders, g.Relations.SortedChildren(graphEscape("cluster_peers")), nil)
+
 	return g.String(), nil
 }
 
@@ -105,12 +125,25 @@ func meshSubGraph(g *gographviz.Graph, nodes []string, leader int, attrs gograph
 	}
 }
 
+func meshPeers(g *gographviz.Graph, nodes, peers []string, attrs gographviz.Attrs) {
+	if attrs == nil {
+		attrs = make(gographviz.Attrs)
+		attrs[gographviz.Dir] = "both"
+		attrs[gographviz.Style] = "dashed"
+	}
+	for i := range nodes {
+		for j := range peers {
+			g.Edges.Add(&gographviz.Edge{Src: nodes[i], Dst: peers[j], Dir: true, Attrs: attrs})
+		}
+	}
+}
+
 func graphEscape(s string) string {
 	return fmt.Sprintf("\"%s\"", s)
 }
 
 func subGraphName(name string) string {
-	return graphEscape(fmt.Sprintf("cluster_%s", name))
+	return graphEscape(fmt.Sprintf("cluster_location_%s", name))
 }
 
 func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP) string {
@@ -119,4 +152,8 @@ func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP) string
 		wg = wgIP.String()
 	}
 	return graphEscape(fmt.Sprintf("%s\n%s\n%s\n%s\n%s", location, name, cidr.String(), priv.String(), wg))
+}
+
+func peerLabel(peer *Peer) string {
+	return graphEscape(fmt.Sprintf("%s\n%s\n", peer.Name, peer.Endpoint.IP.String()))
 }
