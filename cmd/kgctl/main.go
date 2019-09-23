@@ -58,6 +58,7 @@ var (
 	opts struct {
 		backend     mesh.Backend
 		granularity mesh.Granularity
+		port        uint32
 	}
 	backend     string
 	granularity string
@@ -108,6 +109,7 @@ func main() {
 	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
 	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"), "Path to kubeconfig.")
+	cmd.PersistentFlags().Uint32Var(&opts.port, "port", mesh.DefaultKiloPort, "The WireGuard port over which the nodes communicate.")
 
 	for _, subCmd := range []*cobra.Command{
 		graph(),

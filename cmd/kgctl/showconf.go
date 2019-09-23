@@ -147,7 +147,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, []byte{}, subnet)
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, opts.port, []byte{}, subnet)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
