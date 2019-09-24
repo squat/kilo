@@ -18,8 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"regexp"
-	"strconv"
 
 	"github.com/vishvananda/netlink"
 )
@@ -37,37 +35,28 @@ func (w wgLink) Type() string {
 	return w.t
 }
 
-// New creates a new WireGuard interface.
-func New(prefix string) (int, error) {
-	links, err := netlink.LinkList()
-	if err != nil {
-		return 0, fmt.Errorf("failed to list links: %v", err)
+// New returns a WireGuard interface with the given name.
+// If the interface exists, its index is returned.
+// Otherwise, a new interface is created.
+// The function also returns a boolean to indicate if the interface was created.
+func New(name string) (int, bool, error) {
+	link, err := netlink.LinkByName(name)
+	if err == nil {
+		return link.Attrs().Index, false, nil
 	}
-	max := 0
-	re := regexp.MustCompile(fmt.Sprintf("^%s([0-9]+)$", prefix))
-	for _, link := range links {
-		if matches := re.FindStringSubmatch(link.Attrs().Name); len(matches) == 2 {
-			i, err := strconv.Atoi(matches[1])
-			if err != nil {
-				// This should never happen.
-				return 0, fmt.Errorf("failed to parse digits as an integer: %v", err)
-			}
-			if i >= max {
-				max = i + 1
-			}
-		}
+	if _, ok := err.(netlink.LinkNotFoundError); !ok {
+		return 0, false, fmt.Errorf("failed to get links: %v", err)
 	}
-	name := fmt.Sprintf("%s%d", prefix, max)
 	wl := wgLink{a: netlink.NewLinkAttrs(), t: "wireguard"}
 	wl.a.Name = name
 	if err := netlink.LinkAdd(wl); err != nil {
-		return 0, fmt.Errorf("failed to create interface %s: %v", name, err)
+		return 0, false, fmt.Errorf("failed to create interface %s: %v", name, err)
 	}
-	link, err := netlink.LinkByName(name)
+	link, err = netlink.LinkByName(name)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get interface index: %v", err)
+		return 0, false, fmt.Errorf("failed to get interface index: %v", err)
 	}
-	return link.Attrs().Index, nil
+	return link.Attrs().Index, true, nil
 }
 
 // Keys generates a WireGuard private and public key-pair.

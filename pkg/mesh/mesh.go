@@ -44,6 +44,8 @@ const (
 	PrivateKeyPath = KiloPath + "/key"
 	// ConfPath is the filepath where the WireGuard configuration is stored.
 	ConfPath = KiloPath + "/conf"
+	// DefaultKiloInterface is the default iterface created and used by Kilo.
+	DefaultKiloInterface = "kilo0"
 	// DefaultKiloPort is the default UDP port Kilo uses.
 	DefaultKiloPort = 51820
 	// DefaultCNIPath is the default path to the CNI config file.
@@ -169,6 +171,7 @@ type Mesh struct {
 	Backend
 	cni         bool
 	cniPath     string
+	deleteIface bool
 	enc         encapsulation.Encapsulator
 	externalIP  *net.IPNet
 	granularity Granularity
@@ -202,7 +205,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath string, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, logger log.Logger) (*Mesh, error) {
 	if err := os.MkdirAll(KiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -239,7 +242,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		return nil, fmt.Errorf("failed to find interface for public IP: %v", err)
 	}
 	pubIface := ifaces[0].Index
-	kiloIface, err := wireguard.New("kilo")
+	kiloIface, created, err := wireguard.New(iface)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WireGuard interface: %v", err)
 	}
@@ -258,6 +261,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		Backend:     backend,
 		cni:         cni,
 		cniPath:     cniPath,
+		deleteIface: created,
 		enc:         enc,
 		externalIP:  publicIP,
 		granularity: granularity,
@@ -713,9 +717,11 @@ func (m *Mesh) cleanUp() {
 		level.Error(m.logger).Log("error", fmt.Sprintf("failed to delete configuration file: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
-	if err := iproute.RemoveInterface(m.kiloIface); err != nil {
-		level.Error(m.logger).Log("error", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
-		m.errorCounter.WithLabelValues("cleanUp").Inc()
+	if m.deleteIface {
+		if err := iproute.RemoveInterface(m.kiloIface); err != nil {
+			level.Error(m.logger).Log("error", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
+			m.errorCounter.WithLabelValues("cleanUp").Inc()
+		}
 	}
 	if err := m.Nodes().CleanUp(m.hostname); err != nil {
 		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up node backend: %v", err))
