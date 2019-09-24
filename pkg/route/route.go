@@ -91,6 +91,10 @@ func (t *Table) Run(stop <-chan struct{}) (<-chan error, error) {
 			case unix.RTM_DELROUTE:
 				t.mu.Lock()
 				for _, r := range t.routes {
+					// Filter out invalid routes.
+					if r == nil || r.Dst == nil {
+						continue
+					}
 					// If any deleted route's destination matches a destination
 					// in the table, reset the corresponding route just in case.
 					if r.Dst.IP.Equal(e.Route.Dst.IP) && r.Dst.Mask.String() == e.Route.Dst.Mask.String() {
