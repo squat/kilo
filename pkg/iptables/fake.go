@@ -16,7 +16,6 @@ package iptables
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/coreos/go-iptables/iptables"
 )
@@ -38,55 +37,91 @@ func (s statusError) ExitStatus() int {
 	return int(s)
 }
 
-type fakeClient map[string]Rule
+type fakeClient struct {
+	storage []Rule
+}
 
-var _ iptablesClient = fakeClient(nil)
+var _ iptablesClient = &fakeClient{}
 
-func (f fakeClient) AppendUnique(table, chain string, spec ...string) error {
-	r := &rule{table, chain, spec, nil}
-	f[r.String()] = r
+func (f *fakeClient) AppendUnique(table, chain string, spec ...string) error {
+	exists, err := f.Exists(table, chain, spec...)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	f.storage = append(f.storage, &rule{table, chain, spec, nil})
 	return nil
 }
 
-func (f fakeClient) Delete(table, chain string, spec ...string) error {
+func (f *fakeClient) Delete(table, chain string, spec ...string) error {
 	r := &rule{table, chain, spec, nil}
-	delete(f, r.String())
-	return nil
-}
-
-func (f fakeClient) Exists(table, chain string, spec ...string) (bool, error) {
-	r := &rule{table, chain, spec, nil}
-	_, ok := f[r.String()]
-	return ok, nil
-}
-
-func (f fakeClient) ClearChain(table, name string) error {
-	c := &chain{table, name, nil}
-	for k := range f {
-		if strings.HasPrefix(k, c.String()) {
-			delete(f, k)
+	for i := range f.storage {
+		if f.storage[i].String() == r.String() {
+			copy(f.storage[i:], f.storage[i+1:])
+			f.storage[len(f.storage)-1] = nil
+			f.storage = f.storage[:len(f.storage)-1]
+			break
 		}
 	}
-	f[c.String()] = c
 	return nil
 }
 
-func (f fakeClient) DeleteChain(table, name string) error {
-	c := &chain{table, name, nil}
-	for k := range f {
-		if strings.HasPrefix(k, c.String()) {
+func (f *fakeClient) Exists(table, chain string, spec ...string) (bool, error) {
+	r := &rule{table, chain, spec, nil}
+	for i := range f.storage {
+		if f.storage[i].String() == r.String() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (f *fakeClient) ClearChain(table, name string) error {
+	for i := range f.storage {
+		r, ok := f.storage[i].(*rule)
+		if !ok {
+			continue
+		}
+		if table == r.table && name == r.chain {
+			if err := f.Delete(table, name, r.spec...); err != nil {
+				return nil
+			}
+		}
+	}
+	return f.DeleteChain(table, name)
+}
+
+func (f *fakeClient) DeleteChain(table, name string) error {
+	for i := range f.storage {
+		r, ok := f.storage[i].(*rule)
+		if !ok {
+			continue
+		}
+		if table == r.table && name == r.chain {
 			return fmt.Errorf("cannot delete chain %s; rules exist", name)
 		}
 	}
-	delete(f, c.String())
+	c := &chain{table, name, nil}
+	for i := range f.storage {
+		if f.storage[i].String() == c.String() {
+			copy(f.storage[i:], f.storage[i+1:])
+			f.storage[len(f.storage)-1] = nil
+			f.storage = f.storage[:len(f.storage)-1]
+			break
+		}
+	}
 	return nil
 }
 
-func (f fakeClient) NewChain(table, name string) error {
+func (f *fakeClient) NewChain(table, name string) error {
 	c := &chain{table, name, nil}
-	if _, ok := f[c.String()]; ok {
-		return statusError(1)
+	for i := range f.storage {
+		if f.storage[i].String() == c.String() {
+			return statusError(1)
+		}
 	}
-	f[c.String()] = c
+	f.storage = append(f.storage, c)
 	return nil
 }

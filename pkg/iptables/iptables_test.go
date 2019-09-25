@@ -23,41 +23,101 @@ var rules = []Rule{
 	&rule{"filter", "FORWARD", []string{"-d", "10.4.0.0/16", "-j", "ACCEPT"}, nil},
 }
 
-func newController() *Controller {
-	return &Controller{
-		rules: make(map[string]Rule),
-	}
-}
-
 func TestSet(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
-		rules []Rule
+		name    string
+		sets    [][]Rule
+		out     []Rule
+		actions []func(iptablesClient) error
 	}{
 		{
-			name:  "empty",
-			rules: nil,
+			name: "empty",
 		},
 		{
-			name:  "single",
-			rules: []Rule{rules[0]},
+			name: "single",
+			sets: [][]Rule{
+				{rules[0]},
+			},
+			out: []Rule{rules[0]},
 		},
 		{
-			name:  "multiple",
-			rules: []Rule{rules[0], rules[1]},
+			name: "two rules",
+			sets: [][]Rule{
+				{rules[0], rules[1]},
+			},
+			out: []Rule{rules[0], rules[1]},
+		},
+		{
+			name: "multiple",
+			sets: [][]Rule{
+				{rules[0], rules[1]},
+				{rules[1]},
+			},
+			out: []Rule{rules[1]},
+		},
+		{
+			name: "re-add",
+			sets: [][]Rule{
+				{rules[0], rules[1]},
+			},
+			out: []Rule{rules[0], rules[1]},
+			actions: []func(c iptablesClient) error{
+				func(c iptablesClient) error {
+					setRuleClient(rules[0], c)
+					return rules[0].Delete()
+				},
+				func(c iptablesClient) error {
+					setRuleClient(rules[1], c)
+					return rules[1].Delete()
+				},
+			},
+		},
+		{
+			name: "order",
+			sets: [][]Rule{
+				{rules[0], rules[1]},
+			},
+			out: []Rule{rules[0], rules[1]},
+			actions: []func(c iptablesClient) error{
+				func(c iptablesClient) error {
+					setRuleClient(rules[0], c)
+					return rules[0].Delete()
+				},
+			},
 		},
 	} {
-		backend := make(map[string]Rule)
-		controller := newController()
-		controller.client = fakeClient(backend)
-		if err := controller.Set(tc.rules); err != nil {
-			t.Fatalf("test case %q: got unexpected error: %v", tc.name, err)
+		controller := &Controller{}
+		client := &fakeClient{}
+		controller.client = client
+		for i := range tc.sets {
+			if err := controller.Set(tc.sets[i]); err != nil {
+				t.Fatalf("test case %q: got unexpected error seting rule set %d: %v", tc.name, i, err)
+			}
 		}
-		for _, r := range tc.rules {
-			r1 := backend[r.String()]
-			r2 := controller.rules[r.String()]
-			if r.String() != r1.String() || r.String() != r2.String() {
-				t.Errorf("test case %q: expected all rules to be equal: expected %v, got %v and %v", tc.name, r, r1, r2)
+		for i, f := range tc.actions {
+			if err := f(controller.client); err != nil {
+				t.Fatalf("test case %q action %d: got unexpected error %v", tc.name, i, err)
+			}
+		}
+		if err := controller.reconcile(); err != nil {
+			t.Fatalf("test case %q: got unexpected error %v", tc.name, err)
+		}
+		if len(tc.out) != len(client.storage) {
+			t.Errorf("test case %q: expected %d rules in storage, got %d", tc.name, len(tc.out), len(client.storage))
+		} else {
+			for i := range tc.out {
+				if tc.out[i].String() != client.storage[i].String() {
+					t.Errorf("test case %q: expected rule %d in storage to be equal: expected %v, got %v", tc.name, i, tc.out[i], client.storage[i])
+				}
+			}
+		}
+		if len(tc.out) != len(controller.rules) {
+			t.Errorf("test case %q: expected %d rules in controller, got %d", tc.name, len(tc.out), len(controller.rules))
+		} else {
+			for i := range tc.out {
+				if tc.out[i].String() != controller.rules[i].String() {
+					t.Errorf("test case %q: expected rule %d in controller to be equal: expected %v, got %v", tc.name, i, tc.out[i], controller.rules[i])
+				}
 			}
 		}
 	}
@@ -81,21 +141,20 @@ func TestCleanUp(t *testing.T) {
 			rules: []Rule{rules[0], rules[1]},
 		},
 	} {
-		backend := make(map[string]Rule)
-		controller := newController()
-		controller.client = fakeClient(backend)
+		controller := &Controller{}
+		client := &fakeClient{}
+		controller.client = client
 		if err := controller.Set(tc.rules); err != nil {
 			t.Fatalf("test case %q: Set should not fail: %v", tc.name, err)
+		}
+		if len(client.storage) != len(tc.rules) {
+			t.Errorf("test case %q: expected %d rules in storage, got %d rules", tc.name, len(tc.rules), len(client.storage))
 		}
 		if err := controller.CleanUp(); err != nil {
 			t.Errorf("test case %q: got unexpected error: %v", tc.name, err)
 		}
-		for _, r := range tc.rules {
-			r1 := backend[r.String()]
-			r2 := controller.rules[r.String()]
-			if r1 != nil || r2 != nil {
-				t.Errorf("test case %q: expected all rules to be nil: expected got %v and %v", tc.name, r1, r2)
-			}
+		if len(client.storage) != 0 {
+			t.Errorf("test case %q: expected storage to be empty, got %d rules", tc.name, len(client.storage))
 		}
 	}
 }

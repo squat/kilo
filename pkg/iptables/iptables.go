@@ -126,10 +126,11 @@ type Rule interface {
 
 // Controller is able to reconcile a given set of iptables rules.
 type Controller struct {
-	client     iptablesClient
-	errors     chan error
-	rules      map[string]Rule
-	mu         sync.Mutex
+	client iptablesClient
+	errors chan error
+
+	sync.Mutex
+	rules      []Rule
 	subscribed bool
 }
 
@@ -148,21 +149,20 @@ func New(ipLength int) (*Controller, error) {
 	return &Controller{
 		client: client,
 		errors: make(chan error),
-		rules:  make(map[string]Rule),
 	}, nil
 }
 
 // Run watches for changes to iptables rules and reconciles
 // the rules against the desired state.
 func (c *Controller) Run(stop <-chan struct{}) (<-chan error, error) {
-	c.mu.Lock()
+	c.Lock()
 	if c.subscribed {
-		c.mu.Unlock()
+		c.Unlock()
 		return c.errors, nil
 	}
 	// Ensure a given instance only subscribes once.
 	c.subscribed = true
-	c.mu.Unlock()
+	c.Unlock()
 	go func() {
 		defer close(c.errors)
 		for {
@@ -171,74 +171,98 @@ func (c *Controller) Run(stop <-chan struct{}) (<-chan error, error) {
 			case <-stop:
 				return
 			}
-			c.mu.Lock()
-			for _, r := range c.rules {
-				ok, err := r.Exists()
-				if err != nil {
-					nonBlockingSend(c.errors, fmt.Errorf("failed to check if rule exists: %v", err))
-				}
-				if !ok {
-					if err := r.Add(); err != nil {
-						nonBlockingSend(c.errors, fmt.Errorf("failed to add rule: %v", err))
-					}
-				}
+			if err := c.reconcile(); err != nil {
+				nonBlockingSend(c.errors, fmt.Errorf("failed to reconcile rules: %v", err))
 			}
-			c.mu.Unlock()
 		}
 	}()
 	return c.errors, nil
 }
 
-// Set idempotently overwrites any iptables rules previously defined
-// for the controller with the given set of rules.
-func (c *Controller) Set(rules []Rule) error {
-	r := make(map[string]struct{})
-	for i := range rules {
-		if rules[i] == nil {
-			continue
+// reconcile makes sure that every rule is still in the backend.
+// It does not ensure that the order in the backend is correct.
+// If any rule is missing, that rule and all following rules are
+// re-added.
+func (c *Controller) reconcile() error {
+	c.Lock()
+	defer c.Unlock()
+	for i, r := range c.rules {
+		ok, err := r.Exists()
+		if err != nil {
+			return fmt.Errorf("failed to check if rule exists: %v", err)
 		}
-		switch v := rules[i].(type) {
-		case *rule:
-			v.client = c.client
-		case *chain:
-			v.client = c.client
-		}
-		r[rules[i].String()] = struct{}{}
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for k, rule := range c.rules {
-		if _, ok := r[k]; !ok {
-			if err := rule.Delete(); err != nil {
-				return fmt.Errorf("failed to delete rule: %v", err)
-			}
-			delete(c.rules, k)
-		}
-	}
-	// Iterate over the slice rather than the map
-	// to ensure the rules are added in order.
-	for _, rule := range rules {
-		if _, ok := c.rules[rule.String()]; !ok {
-			if err := rule.Add(); err != nil {
+		if !ok {
+			if err := resetFromIndex(i, c.rules); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
-			c.rules[rule.String()] = rule
+			break
 		}
 	}
 	return nil
 }
 
-// CleanUp will clean up any rules created by the controller.
-func (c *Controller) CleanUp() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for k, rule := range c.rules {
-		if err := rule.Delete(); err != nil {
+// resetFromIndex re-adds all rules starting from the given index.
+func resetFromIndex(i int, rules []Rule) error {
+	if i >= len(rules) {
+		return nil
+	}
+	for j := range rules[i:] {
+		if err := rules[j].Delete(); err != nil {
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
-		delete(c.rules, k)
+		if err := rules[j].Add(); err != nil {
+			return fmt.Errorf("failed to add rule: %v", err)
+		}
 	}
 	return nil
+}
+
+// deleteFromIndex deletes all rules starting from the given index.
+func deleteFromIndex(i int, rules *[]Rule) error {
+	if i >= len(*rules) {
+		return nil
+	}
+	for j := range (*rules)[i:] {
+		if err := (*rules)[j].Delete(); err != nil {
+			return fmt.Errorf("failed to delete rule: %v", err)
+		}
+		(*rules)[j] = nil
+	}
+	*rules = (*rules)[:i]
+	return nil
+}
+
+// Set idempotently overwrites any iptables rules previously defined
+// for the controller with the given set of rules.
+func (c *Controller) Set(rules []Rule) error {
+	c.Lock()
+	defer c.Unlock()
+	var i int
+	for ; i < len(rules); i++ {
+		if i < len(c.rules) {
+			if rules[i].String() != c.rules[i].String() {
+				if err := deleteFromIndex(i, &c.rules); err != nil {
+					return err
+				}
+			}
+		}
+		if i >= len(c.rules) {
+			setRuleClient(rules[i], c.client)
+			if err := rules[i].Add(); err != nil {
+				return fmt.Errorf("failed to add rule: %v", err)
+			}
+			c.rules = append(c.rules, rules[i])
+		}
+
+	}
+	return deleteFromIndex(i, &c.rules)
+}
+
+// CleanUp will clean up any rules created by the controller.
+func (c *Controller) CleanUp() error {
+	c.Lock()
+	defer c.Unlock()
+	return deleteFromIndex(0, &c.rules)
 }
 
 // IPIPRules returns a set of iptables rules that are necessary
@@ -301,5 +325,15 @@ func nonBlockingSend(errors chan<- error, err error) {
 	select {
 	case errors <- err:
 	default:
+	}
+}
+
+// setRuleClient is a helper to set the iptables client on different kinds of rules.
+func setRuleClient(r Rule, c iptablesClient) {
+	switch v := r.(type) {
+	case *rule:
+		v.client = c
+	case *chain:
+		v.client = c
 	}
 }
