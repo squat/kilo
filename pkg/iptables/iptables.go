@@ -206,7 +206,7 @@ func resetFromIndex(i int, rules []Rule) error {
 	if i >= len(rules) {
 		return nil
 	}
-	for j := range rules[i:] {
+	for j := i; j < len(rules); j++ {
 		if err := rules[j].Delete(); err != nil {
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
@@ -222,7 +222,7 @@ func deleteFromIndex(i int, rules *[]Rule) error {
 	if i >= len(*rules) {
 		return nil
 	}
-	for j := range (*rules)[i:] {
+	for j := i; j < len(*rules); j++ {
 		if err := (*rules)[j].Delete(); err != nil {
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
