@@ -205,7 +205,7 @@ container: .container-$(ARCH)-$(VERSION) container-name
 	@i=0; for a in $(ALL_ARCH); do [ "$$a" = $(ARCH) ] && break; i=$$((i+1)); done; \
 	ia=""; \
 	j=0; for a in $(IMAGE_ARCH); do [ "$$i" -eq "$$j" ] && ia="$$a" && break; j=$$((j+1)); done; \
-	docker build -t $(IMAGE):$(ARCH)-$(VERSION) --build-arg FROM=multiarch/alpine:$$ia-v3.9 --build-arg GOARCH=$(ARCH) .
+	docker build -t $(IMAGE):$(ARCH)-$(VERSION) --build-arg FROM=multiarch/alpine:$$ia-v3.10 --build-arg GOARCH=$(ARCH) .
 	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
 container-latest: .container-$(ARCH)-$(VERSION)
