@@ -185,12 +185,12 @@ unit:
 test: lint unit
 
 header: .header
-	@HEADER=$$(sed "s/YEAR/$$(date '+%Y')/" .header); \
+	@HEADER=$$(cat .header); \
 	HEADER_LEN=$$(wc -l .header | awk '{print $$1}'); \
 	FILES=; \
 	for f in $(GO_FILES); do \
 		for i in 0 1 2 3 4 5; do \
-			FILE=$$(tail -n +$$i $$f | head -n $$HEADER_LEN); \
+			FILE=$$(tail -n +$$i $$f | head -n $$HEADER_LEN | sed "s/[0-9]\{4\}/YEAR/"); \
 			[ "$$FILE" = "$$HEADER" ] && continue 2; \
 		done; \
 		FILES="$$FILES$$f "; \
