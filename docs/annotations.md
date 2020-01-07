@@ -35,7 +35,7 @@ _Note_: multiple nodes within a single location can be given the leader annotati
 ### location
 Kilo allows nodes in different logical or physical locations to route packets to one-another.
 In order to know what connections to create, Kilo needs to know which nodes are in each location.
-Kilo will try to infer each node's location from the [failure-domain.beta.kubernetes.io/region](https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#failure-domain-beta-kubernetes-io-region) node label.
+Kilo will try to infer each node's location from the [topology.kubernetes.io/region](https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#topologykubernetesioregion) node label.
 If the label is not present for a node, for example if running a bare-metal cluster or on an unsupported cloud provider, then the location annotation should be specified.
 
 _Note_: all nodes without a defined location will be considered to be in the default location `""`.

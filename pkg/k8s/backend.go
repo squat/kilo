@@ -58,7 +58,7 @@ const (
 	locationAnnotationKey        = "kilo.squat.ai/location"
 	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
 
-	regionLabelKey  = "failure-domain.beta.kubernetes.io/region"
+	regionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
 	jsonRemovePatch = `{"op": "remove", "path": "%s"}`
 )

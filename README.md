@@ -45,7 +45,7 @@ By default, Kilo uses UDP port 51820.
 
 By default, Kilo creates a mesh between the different logical locations in the cluster, e.g. data-centers, cloud providers, etc.
 For this, Kilo needs to know which groups of nodes are in each location.
-If the cluster does not automatically set the [failure-domain.beta.kubernetes.io/region](https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#failure-domain-beta-kubernetes-io-region) node label, then the [kilo.squat.ai/location](./docs/annotations.md#location) annotation can be used.
+If the cluster does not automatically set the [topology.kubernetes.io/region](https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#topologykubernetesioregion) node label, then the [kilo.squat.ai/location](./docs/annotations.md#location) annotation can be used.
 For example, the following snippet could be used to annotate all nodes with `GCP` in the name:
 
 ```shell
