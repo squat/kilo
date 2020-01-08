@@ -13,6 +13,9 @@ go:
 env:
   - GO111MODULE=on DOCKER_CLI_EXPERIMENTAL=enabled
 
+before_install:
+  - sudo apt-get update && sudo apt-get -y install jq
+
 install: true
 
 script:
