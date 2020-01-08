@@ -20,6 +20,7 @@ install: true
 
 script:
   - make
+  - make clean
   - make unit
   - make lint
   - make container

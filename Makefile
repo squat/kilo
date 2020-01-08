@@ -267,10 +267,10 @@ push-name:
 	@echo "pushed: $(IMAGE):$(ARCH)-$(VERSION)"
 
 clean: container-clean bin-clean
-	rm -r .cache
+	rm -rf .cache
 
 container-clean:
-	rm -rf .container-* .push-*
+	rm -rf .container-* .manifest-* .push-*
 
 bin-clean:
 	rm -rf bin
