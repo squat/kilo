@@ -16,6 +16,7 @@ data:
              "type":"bridge",
              "bridge":"kube-bridge",
              "isDefaultGateway":true,
+             "forceAddress":true,
              "ipam":{
                 "type":"host-local"
              }
