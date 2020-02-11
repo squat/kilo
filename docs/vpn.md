@@ -60,6 +60,9 @@ for ip in $(kgctl showconf peer $PEER | grep AllowedIPs | cut -f 3- -d ' ' | tr 
 done
 ```
 
+When using the official Mac OS WireGuard client, the routes from `AllowedIPs` will be automatically
+routed to the VPN tunnel. You do not need to manually register routes there.
+
 Once the routes are in place, the connection to the cluster can be tested.
 For example, try connecting to the API server:
 
@@ -105,3 +108,22 @@ EOF
 ```
 
 [See the multi-cluster services docs for more details on connecting clusters to external services](./multi-cluster-services.md).
+
+## Accessing Service IPs via the VPN
+
+Service IPs are usually assigned to a separate IP address range compared to the Pod IPs. Kilo will only
+output the Pod IP range in the WireGuard Client configuration when running `kgctl showconf peer`. This is
+because Service IPs can be sent to any Kubernetes node, and then routing happens internally towards
+the pods.
+
+To access service IPs via the VPN client, simply add them in your WireGuard client configuration
+to the `AllowedIPs` list, f.e. like `10.43.0.0/15` (if your services are allocated from the `10.43` IP
+range).
+
+## Using Kilo only as VPN server
+
+You can also use Kilo only for accessing your cluster pods and services via VPN client; and not as
+CNI Plugin.
+
+This is documented [in the docs for vpn-only](./vpn-only.md), because this is easier to configure
+and deploy.

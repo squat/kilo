@@ -130,6 +130,9 @@ sudo wg setconf wg0 peer.ini
 
 [See the VPN docs for more details](./docs/vpn.md).
 
+In case you want to only run Kilo as VPN server, [see the VPN-only walkthrough](./docs/vpn-only.md)
+for details.
+
 ## Multi-cluster Services
 
 A logical application of Kilo's VPN is to connect two different Kubernetes clusters.
