@@ -263,9 +263,9 @@ func translateNode(node *v1.Node) *mesh.Node {
 	if !ok {
 		internalIP = node.ObjectMeta.Annotations[internalIPAnnotationKey]
 	}
-	// Set Wireguard PersistentKeepAliveKey.
+	// Set Wireguard PersistentKeepAlive setting for the node.
 	var wireGuardPersistentKeepAlive int64
-	if wgKeepAlive, ok := node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]; !ok {
+	if wgKeepAlive, ok := node.ObjectMeta.Annotations[wireGuardPersistentKeepAliveKey]; !ok {
 		wireGuardPersistentKeepAlive = 0
 	} else {
 		if wireGuardPersistentKeepAlive, err = strconv.ParseInt(wgKeepAlive, 10, 64); err != nil {
@@ -297,7 +297,7 @@ func translateNode(node *v1.Node) *mesh.Node {
 		// the node's agent has not yet reconciled. In either case, the IP
 		// will parse as nil.
 		WireGuardIP:                  normalizeIP(node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]),
-		WireGuardPersistentKeepAlive: wireGuardPersistentKeepAlive,
+		WireGuardPersistentKeepAlive: int(wireGuardPersistentKeepAlive),
 	}
 }
 

@@ -84,7 +84,7 @@ type Node struct {
 	Name                         string
 	Subnet                       *net.IPNet
 	WireGuardIP                  *net.IPNet
-	WireGuardPersistentKeepAlive int64
+	WireGuardPersistentKeepAlive int
 }
 
 // Ready indicates whether or not the node is ready.
