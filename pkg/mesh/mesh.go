@@ -82,7 +82,7 @@ type Node struct {
 	Leader              bool
 	Location            string
 	Name                string
-	PersistentKeepAlive int
+	PersistentKeepalive int
 	Subnet              *net.IPNet
 	WireGuardIP         *net.IPNet
 }

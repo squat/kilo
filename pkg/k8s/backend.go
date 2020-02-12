@@ -56,7 +56,7 @@ const (
 	lastSeenAnnotationKey        = "kilo.squat.ai/last-seen"
 	leaderAnnotationKey          = "kilo.squat.ai/leader"
 	locationAnnotationKey        = "kilo.squat.ai/location"
-	persistentKeepAliveKey       = "kilo.squat.ai/persistent-keepalive"
+	persistentKeepaliveKey       = "kilo.squat.ai/persistent-keepalive"
 	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
 
 	regionLabelKey  = "topology.kubernetes.io/region"
@@ -263,13 +263,13 @@ func translateNode(node *v1.Node) *mesh.Node {
 	if !ok {
 		internalIP = node.ObjectMeta.Annotations[internalIPAnnotationKey]
 	}
-	// Set Wireguard PersistentKeepAlive setting for the node.
-	var persistentKeepAlive int64
-	if keepAlive, ok := node.ObjectMeta.Annotations[persistentKeepAliveKey]; !ok {
-		persistentKeepAlive = 0
+	// Set Wireguard PersistentKeepalive setting for the node.
+	var persistentKeepalive int64
+	if keepAlive, ok := node.ObjectMeta.Annotations[persistentKeepaliveKey]; !ok {
+		persistentKeepalive = 0
 	} else {
-		if persistentKeepAlive, err = strconv.ParseInt(keepAlive, 10, 64); err != nil {
-			persistentKeepAlive = 0
+		if persistentKeepalive, err = strconv.ParseInt(keepAlive, 10, 64); err != nil {
+			persistentKeepalive = 0
 		}
 	}
 	var lastSeen int64
@@ -292,7 +292,7 @@ func translateNode(node *v1.Node) *mesh.Node {
 		Leader:              leader,
 		Location:            location,
 		Name:                node.Name,
-		PersistentKeepAlive: int(persistentKeepAlive),
+		PersistentKeepalive: int(persistentKeepalive),
 		Subnet:              subnet,
 		// WireGuardIP can fail to parse if the node is not a leader or if
 		// the node's agent has not yet reconciled. In either case, the IP

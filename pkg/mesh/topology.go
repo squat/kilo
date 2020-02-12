@@ -64,9 +64,9 @@ type segment struct {
 	hostnames []string
 	// leader is the index of the leader of the segment.
 	leader int
-	// persistentKeepAlive is the interval in seconds of the emission
+	// persistentKeepalive is the interval in seconds of the emission
 	// of keepalive packets to the peer.
-	persistentKeepAlive int
+	persistentKeepalive int
 	// privateIPs is a slice of private IPs of all peers in the segment.
 	privateIPs []net.IP
 	// wireGuardIP is the allocated IP address of the WireGuard
@@ -128,7 +128,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			hostnames:           hostnames,
 			leader:              leader,
 			privateIPs:          privateIPs,
-			persistentKeepAlive: topoMap[location][leader].PersistentKeepAlive,
+			persistentKeepalive: topoMap[location][leader].PersistentKeepalive,
 		})
 	}
 	// Sort the Topology segments so the result is stable.
@@ -339,7 +339,7 @@ func (t *Topology) Conf() *wireguard.Conf {
 				Port: uint32(t.port),
 			},
 			PublicKey:           s.key,
-			PersistentKeepalive: s.persistentKeepAlive,
+			PersistentKeepalive: s.persistentKeepalive,
 		}
 		c.Peers = append(c.Peers, peer)
 	}

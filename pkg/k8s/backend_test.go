@@ -114,10 +114,10 @@ func TestTranslateNode(t *testing.T) {
 		{
 			name: "wireguard persistent keepalive override",
 			annotations: map[string]string{
-				persistentKeepAliveKey: "25",
+				persistentKeepaliveKey: "25",
 			},
 			out: &mesh.Node{
-				PersistentKeepAlive: 25,
+				PersistentKeepalive: 25,
 			},
 		},
 		{
@@ -148,7 +148,7 @@ func TestTranslateNode(t *testing.T) {
 				lastSeenAnnotationKey:        "1000000000",
 				leaderAnnotationKey:          "",
 				locationAnnotationKey:        "b",
-				persistentKeepAliveKey:       "25",
+				persistentKeepaliveKey:       "25",
 				wireGuardIPAnnotationKey:     "10.4.0.1/16",
 			},
 			labels: map[string]string{
@@ -161,7 +161,7 @@ func TestTranslateNode(t *testing.T) {
 				LastSeen:            1000000000,
 				Leader:              true,
 				Location:            "b",
-				PersistentKeepAlive: 25,
+				PersistentKeepalive: 25,
 				Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
 				WireGuardIP:         &net.IPNet{IP: net.ParseIP("10.4.0.1"), Mask: net.CIDRMask(16, 32)},
 			},
