@@ -47,17 +47,17 @@ import (
 
 const (
 	// Backend is the name of this mesh backend.
-	Backend                         = "kubernetes"
-	externalIPAnnotationKey         = "kilo.squat.ai/external-ip"
-	forceExternalIPAnnotationKey    = "kilo.squat.ai/force-external-ip"
-	forceInternalIPAnnotationKey    = "kilo.squat.ai/force-internal-ip"
-	internalIPAnnotationKey         = "kilo.squat.ai/internal-ip"
-	keyAnnotationKey                = "kilo.squat.ai/key"
-	lastSeenAnnotationKey           = "kilo.squat.ai/last-seen"
-	leaderAnnotationKey             = "kilo.squat.ai/leader"
-	locationAnnotationKey           = "kilo.squat.ai/location"
-	wireGuardIPAnnotationKey        = "kilo.squat.ai/wireguard-ip"
-	wireGuardPersistentKeepAliveKey = "kilo.squat.ai/wireguard-persistent-keepalive"
+	Backend                      = "kubernetes"
+	externalIPAnnotationKey      = "kilo.squat.ai/external-ip"
+	forceExternalIPAnnotationKey = "kilo.squat.ai/force-external-ip"
+	forceInternalIPAnnotationKey = "kilo.squat.ai/force-internal-ip"
+	internalIPAnnotationKey      = "kilo.squat.ai/internal-ip"
+	keyAnnotationKey             = "kilo.squat.ai/key"
+	lastSeenAnnotationKey        = "kilo.squat.ai/last-seen"
+	leaderAnnotationKey          = "kilo.squat.ai/leader"
+	locationAnnotationKey        = "kilo.squat.ai/location"
+	persistentKeepAliveKey       = "kilo.squat.ai/persistent-keepalive"
+	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
 
 	regionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
@@ -264,12 +264,12 @@ func translateNode(node *v1.Node) *mesh.Node {
 		internalIP = node.ObjectMeta.Annotations[internalIPAnnotationKey]
 	}
 	// Set Wireguard PersistentKeepAlive setting for the node.
-	var wireGuardPersistentKeepAlive int64
-	if wgKeepAlive, ok := node.ObjectMeta.Annotations[wireGuardPersistentKeepAliveKey]; !ok {
-		wireGuardPersistentKeepAlive = 0
+	var persistentKeepAlive int64
+	if keepAlive, ok := node.ObjectMeta.Annotations[persistentKeepAliveKey]; !ok {
+		persistentKeepAlive = 0
 	} else {
-		if wireGuardPersistentKeepAlive, err = strconv.ParseInt(wgKeepAlive, 10, 64); err != nil {
-			wireGuardPersistentKeepAlive = 0
+		if persistentKeepAlive, err = strconv.ParseInt(keepAlive, 10, 64); err != nil {
+			persistentKeepAlive = 0
 		}
 	}
 	var lastSeen int64
@@ -285,19 +285,19 @@ func translateNode(node *v1.Node) *mesh.Node {
 		// remote node's agent has not yet set its IP address;
 		// in this case the IP will be nil and
 		// the mesh can wait for the node to be updated.
-		ExternalIP: normalizeIP(externalIP),
-		InternalIP: normalizeIP(internalIP),
-		Key:        []byte(node.ObjectMeta.Annotations[keyAnnotationKey]),
-		LastSeen:   lastSeen,
-		Leader:     leader,
-		Location:   location,
-		Name:       node.Name,
-		Subnet:     subnet,
+		ExternalIP:          normalizeIP(externalIP),
+		InternalIP:          normalizeIP(internalIP),
+		Key:                 []byte(node.ObjectMeta.Annotations[keyAnnotationKey]),
+		LastSeen:            lastSeen,
+		Leader:              leader,
+		Location:            location,
+		Name:                node.Name,
+		PersistentKeepAlive: int(persistentKeepAlive),
+		Subnet:              subnet,
 		// WireGuardIP can fail to parse if the node is not a leader or if
 		// the node's agent has not yet reconciled. In either case, the IP
 		// will parse as nil.
-		WireGuardIP:                  normalizeIP(node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]),
-		WireGuardPersistentKeepAlive: int(wireGuardPersistentKeepAlive),
+		WireGuardIP: normalizeIP(node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]),
 	}
 }
 

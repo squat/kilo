@@ -64,14 +64,14 @@ type segment struct {
 	hostnames []string
 	// leader is the index of the leader of the segment.
 	leader int
+	// persistentKeepAlive is the interval in seconds of the emission
+	// of keepalive packets to the peer.
+	persistentKeepAlive int
 	// privateIPs is a slice of private IPs of all peers in the segment.
 	privateIPs []net.IP
 	// wireGuardIP is the allocated IP address of the WireGuard
 	// interface on the leader of the segment.
 	wireGuardIP net.IP
-	// wireGuardPersistentKeepAlive is the interval in seconds of the emission
-	// of keepalive packets to the peer.
-	wireGuardPersistentKeepAlive int
 }
 
 // NewTopology creates a new Topology struct from a given set of nodes and peers.
@@ -120,15 +120,15 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			privateIPs = append(privateIPs, node.InternalIP.IP)
 		}
 		t.segments = append(t.segments, &segment{
-			allowedIPs:                   allowedIPs,
-			endpoint:                     topoMap[location][leader].ExternalIP.IP,
-			key:                          topoMap[location][leader].Key,
-			location:                     location,
-			cidrs:                        cidrs,
-			hostnames:                    hostnames,
-			leader:                       leader,
-			privateIPs:                   privateIPs,
-			wireGuardPersistentKeepAlive: topoMap[location][leader].WireGuardPersistentKeepAlive,
+			allowedIPs:          allowedIPs,
+			endpoint:            topoMap[location][leader].ExternalIP.IP,
+			key:                 topoMap[location][leader].Key,
+			location:            location,
+			cidrs:               cidrs,
+			hostnames:           hostnames,
+			leader:              leader,
+			privateIPs:          privateIPs,
+			persistentKeepAlive: topoMap[location][leader].PersistentKeepAlive,
 		})
 	}
 	// Sort the Topology segments so the result is stable.
@@ -339,7 +339,7 @@ func (t *Topology) Conf() *wireguard.Conf {
 				Port: uint32(t.port),
 			},
 			PublicKey:           s.key,
-			PersistentKeepalive: s.wireGuardPersistentKeepAlive,
+			PersistentKeepalive: s.persistentKeepAlive,
 		}
 		c.Peers = append(c.Peers, peer)
 	}
