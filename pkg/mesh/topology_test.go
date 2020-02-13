@@ -39,12 +39,13 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 	i2 := &net.IPNet{IP: net.ParseIP("192.168.0.2").To4(), Mask: net.CIDRMask(32, 32)}
 	nodes := map[string]*Node{
 		"a": {
-			Name:       "a",
-			ExternalIP: e1,
-			InternalIP: i1,
-			Location:   "1",
-			Subnet:     &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
-			Key:        []byte("key1"),
+			Name:                "a",
+			ExternalIP:          e1,
+			InternalIP:          i1,
+			Location:            "1",
+			Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
+			Key:                 []byte("key1"),
+			PersistentKeepalive: 25,
 		},
 		"b": {
 			Name:       "b",
@@ -117,14 +118,15 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["a"].ExternalIP.IP,
-						key:         nodes["a"].Key,
-						location:    nodes["a"].Location,
-						cidrs:       []*net.IPNet{nodes["a"].Subnet},
-						hostnames:   []string{"a"},
-						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
-						wireGuardIP: w1,
+						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["a"].ExternalIP.IP,
+						key:                 nodes["a"].Key,
+						location:            nodes["a"].Location,
+						cidrs:               []*net.IPNet{nodes["a"].Subnet},
+						hostnames:           []string{"a"},
+						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
+						persistentKeepalive: nodes["a"].PersistentKeepalive,
+						wireGuardIP:         w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -153,14 +155,15 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["a"].ExternalIP.IP,
-						key:         nodes["a"].Key,
-						location:    nodes["a"].Location,
-						cidrs:       []*net.IPNet{nodes["a"].Subnet},
-						hostnames:   []string{"a"},
-						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
-						wireGuardIP: w1,
+						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["a"].ExternalIP.IP,
+						key:                 nodes["a"].Key,
+						location:            nodes["a"].Location,
+						cidrs:               []*net.IPNet{nodes["a"].Subnet},
+						hostnames:           []string{"a"},
+						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
+						persistentKeepalive: nodes["a"].PersistentKeepalive,
+						wireGuardIP:         w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -189,14 +192,15 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: nil,
 				segments: []*segment{
 					{
-						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["a"].ExternalIP.IP,
-						key:         nodes["a"].Key,
-						location:    nodes["a"].Location,
-						cidrs:       []*net.IPNet{nodes["a"].Subnet},
-						hostnames:   []string{"a"},
-						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
-						wireGuardIP: w1,
+						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["a"].ExternalIP.IP,
+						key:                 nodes["a"].Key,
+						location:            nodes["a"].Location,
+						cidrs:               []*net.IPNet{nodes["a"].Subnet},
+						hostnames:           []string{"a"},
+						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
+						persistentKeepalive: nodes["a"].PersistentKeepalive,
+						wireGuardIP:         w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -225,14 +229,15 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["a"].ExternalIP.IP,
-						key:         nodes["a"].Key,
-						location:    nodes["a"].Name,
-						cidrs:       []*net.IPNet{nodes["a"].Subnet},
-						hostnames:   []string{"a"},
-						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
-						wireGuardIP: w1,
+						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["a"].ExternalIP.IP,
+						key:                 nodes["a"].Key,
+						location:            nodes["a"].Name,
+						cidrs:               []*net.IPNet{nodes["a"].Subnet},
+						hostnames:           []string{"a"},
+						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
+						persistentKeepalive: nodes["a"].PersistentKeepalive,
+						wireGuardIP:         w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -271,14 +276,15 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["a"].ExternalIP.IP,
-						key:         nodes["a"].Key,
-						location:    nodes["a"].Name,
-						cidrs:       []*net.IPNet{nodes["a"].Subnet},
-						hostnames:   []string{"a"},
-						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
-						wireGuardIP: w1,
+						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["a"].ExternalIP.IP,
+						key:                 nodes["a"].Key,
+						location:            nodes["a"].Name,
+						cidrs:               []*net.IPNet{nodes["a"].Subnet},
+						hostnames:           []string{"a"},
+						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
+						persistentKeepalive: nodes["a"].PersistentKeepalive,
+						wireGuardIP:         w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -317,14 +323,15 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w3, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["a"].ExternalIP.IP,
-						key:         nodes["a"].Key,
-						location:    nodes["a"].Name,
-						cidrs:       []*net.IPNet{nodes["a"].Subnet},
-						hostnames:   []string{"a"},
-						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
-						wireGuardIP: w1,
+						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["a"].ExternalIP.IP,
+						key:                 nodes["a"].Key,
+						location:            nodes["a"].Name,
+						cidrs:               []*net.IPNet{nodes["a"].Subnet},
+						hostnames:           []string{"a"},
+						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
+						persistentKeepalive: nodes["a"].PersistentKeepalive,
+						wireGuardIP:         w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -1027,6 +1034,7 @@ AllowedIPs = 10.5.0.3/24
 		[Peer]
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
+		PersistentKeepalive = 25
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
 		[Peer]
@@ -1051,6 +1059,7 @@ AllowedIPs = 10.5.0.3/24
 		[Peer]
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
+		PersistentKeepalive = 25
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
 		[Peer]
@@ -1104,6 +1113,7 @@ AllowedIPs = 10.5.0.3/24
 		[Peer]
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
+		PersistentKeepalive = 25
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
 		[Peer]
@@ -1133,6 +1143,7 @@ AllowedIPs = 10.5.0.3/24
 		[Peer]
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
+		PersistentKeepalive = 25
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
 		[Peer]

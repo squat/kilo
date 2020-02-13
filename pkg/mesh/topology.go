@@ -368,7 +368,8 @@ func (t *Topology) AsPeer() *wireguard.Peer {
 				IP:   s.endpoint,
 				Port: uint32(t.port),
 			},
-			PublicKey: s.key,
+			PersistentKeepalive: s.persistentKeepalive,
+			PublicKey:           s.key,
 		}
 	}
 	return nil
@@ -384,7 +385,8 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 				IP:   s.endpoint,
 				Port: uint32(t.port),
 			},
-			PublicKey: s.key,
+			PersistentKeepalive: s.persistentKeepalive,
+			PublicKey:           s.key,
 		}
 		c.Peers = append(c.Peers, peer)
 	}
