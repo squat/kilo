@@ -112,6 +112,15 @@ func TestTranslateNode(t *testing.T) {
 			},
 		},
 		{
+			name: "wireguard persistent keepalive override",
+			annotations: map[string]string{
+				persistentKeepaliveKey: "25",
+			},
+			out: &mesh.Node{
+				PersistentKeepalive: 25,
+			},
+		},
+		{
 			name: "internal IP override",
 			annotations: map[string]string{
 				internalIPAnnotationKey:      "10.1.0.1/24",
@@ -139,20 +148,22 @@ func TestTranslateNode(t *testing.T) {
 				lastSeenAnnotationKey:        "1000000000",
 				leaderAnnotationKey:          "",
 				locationAnnotationKey:        "b",
+				persistentKeepaliveKey:       "25",
 				wireGuardIPAnnotationKey:     "10.4.0.1/16",
 			},
 			labels: map[string]string{
 				regionLabelKey: "a",
 			},
 			out: &mesh.Node{
-				ExternalIP:  &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
-				InternalIP:  &net.IPNet{IP: net.ParseIP("10.1.0.2"), Mask: net.CIDRMask(32, 32)},
-				Key:         []byte("foo"),
-				LastSeen:    1000000000,
-				Leader:      true,
-				Location:    "b",
-				Subnet:      &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
-				WireGuardIP: &net.IPNet{IP: net.ParseIP("10.4.0.1"), Mask: net.CIDRMask(16, 32)},
+				ExternalIP:          &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
+				InternalIP:          &net.IPNet{IP: net.ParseIP("10.1.0.2"), Mask: net.CIDRMask(32, 32)},
+				Key:                 []byte("foo"),
+				LastSeen:            1000000000,
+				Leader:              true,
+				Location:            "b",
+				PersistentKeepalive: 25,
+				Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
+				WireGuardIP:         &net.IPNet{IP: net.ParseIP("10.4.0.1"), Mask: net.CIDRMask(16, 32)},
 			},
 			subnet: "10.2.1.0/24",
 		},

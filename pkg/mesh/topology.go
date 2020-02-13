@@ -64,6 +64,9 @@ type segment struct {
 	hostnames []string
 	// leader is the index of the leader of the segment.
 	leader int
+	// persistentKeepalive is the interval in seconds of the emission
+	// of keepalive packets to the peer.
+	persistentKeepalive int
 	// privateIPs is a slice of private IPs of all peers in the segment.
 	privateIPs []net.IP
 	// wireGuardIP is the allocated IP address of the WireGuard
@@ -117,14 +120,15 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			privateIPs = append(privateIPs, node.InternalIP.IP)
 		}
 		t.segments = append(t.segments, &segment{
-			allowedIPs: allowedIPs,
-			endpoint:   topoMap[location][leader].ExternalIP.IP,
-			key:        topoMap[location][leader].Key,
-			location:   location,
-			cidrs:      cidrs,
-			hostnames:  hostnames,
-			leader:     leader,
-			privateIPs: privateIPs,
+			allowedIPs:          allowedIPs,
+			endpoint:            topoMap[location][leader].ExternalIP.IP,
+			key:                 topoMap[location][leader].Key,
+			location:            location,
+			cidrs:               cidrs,
+			hostnames:           hostnames,
+			leader:              leader,
+			privateIPs:          privateIPs,
+			persistentKeepalive: topoMap[location][leader].PersistentKeepalive,
 		})
 	}
 	// Sort the Topology segments so the result is stable.
@@ -334,7 +338,8 @@ func (t *Topology) Conf() *wireguard.Conf {
 				IP:   s.endpoint,
 				Port: uint32(t.port),
 			},
-			PublicKey: s.key,
+			PublicKey:           s.key,
+			PersistentKeepalive: s.persistentKeepalive,
 		}
 		c.Peers = append(c.Peers, peer)
 	}
@@ -363,7 +368,8 @@ func (t *Topology) AsPeer() *wireguard.Peer {
 				IP:   s.endpoint,
 				Port: uint32(t.port),
 			},
-			PublicKey: s.key,
+			PersistentKeepalive: s.persistentKeepalive,
+			PublicKey:           s.key,
 		}
 	}
 	return nil
@@ -379,7 +385,8 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 				IP:   s.endpoint,
 				Port: uint32(t.port),
 			},
-			PublicKey: s.key,
+			PersistentKeepalive: s.persistentKeepalive,
+			PublicKey:           s.key,
 		}
 		c.Peers = append(c.Peers, peer)
 	}

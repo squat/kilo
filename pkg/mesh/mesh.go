@@ -79,11 +79,12 @@ type Node struct {
 	LastSeen int64
 	// Leader is a suggestion to Kilo that
 	// the node wants to lead its segment.
-	Leader      bool
-	Location    string
-	Name        string
-	Subnet      *net.IPNet
-	WireGuardIP *net.IPNet
+	Leader              bool
+	Location            string
+	Name                string
+	PersistentKeepalive int
+	Subnet              *net.IPNet
+	WireGuardIP         *net.IPNet
 }
 
 // Ready indicates whether or not the node is ready.
