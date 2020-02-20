@@ -163,18 +163,6 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 	return &t, nil
 }
 
-// RemoteSubnets identifies the subnets of the hosts in segments different than the host's.
-func (t *Topology) RemoteSubnets() []*net.IPNet {
-	var remote []*net.IPNet
-	for _, s := range t.segments {
-		if s == nil || s.location == t.location {
-			continue
-		}
-		remote = append(remote, s.cidrs...)
-	}
-	return remote
-}
-
 // Routes generates a slice of routes for a given Topology.
 func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, enc encapsulation.Encapsulator) []*netlink.Route {
 	var routes []*netlink.Route

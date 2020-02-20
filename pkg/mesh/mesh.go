@@ -605,12 +605,13 @@ func (m *Mesh) applyTopology() {
 		return
 	}
 	rules := iptables.ForwardRules(m.subnet)
-	var peerCIDRs []*net.IPNet
-	for _, p := range peers {
-		rules = append(rules, iptables.ForwardRules(p.AllowedIPs...)...)
-		peerCIDRs = append(peerCIDRs, p.AllowedIPs...)
+	// Finx the Kilo interface name.
+	link, err := linkByIndex(m.kiloIface)
+	if err != nil {
+		level.Error(m.logger).Log("error", err)
+		m.errorCounter.WithLabelValues("apply").Inc()
+		return
 	}
-	rules = append(rules, iptables.MasqueradeRules(m.subnet, oneAddressCIDR(t.privateIP.IP), nodes[m.hostname].Subnet, t.RemoteSubnets(), peerCIDRs)...)
 	// If we are handling local routes, ensure the local
 	// tunnel has an IP address and IPIP traffic is allowed.
 	if m.enc.Strategy() != encapsulation.Never && m.local {
@@ -640,12 +641,6 @@ func (m *Mesh) applyTopology() {
 	}
 	if t.leader {
 		if err := iproute.SetAddress(m.kiloIface, t.wireGuardCIDR); err != nil {
-			level.Error(m.logger).Log("error", err)
-			m.errorCounter.WithLabelValues("apply").Inc()
-			return
-		}
-		link, err := linkByIndex(m.kiloIface)
-		if err != nil {
 			level.Error(m.logger).Log("error", err)
 			m.errorCounter.WithLabelValues("apply").Inc()
 			return

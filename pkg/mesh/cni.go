@@ -68,6 +68,7 @@ func (m *Mesh) updateCNIConfig() {
 		level.Info(m.logger).Log("msg", "CIDR in CNI file is not empty; overwriting", "old", cidr.String(), "new", n.Subnet.String())
 	}
 
+	level.Info(m.logger).Log("msg", "setting CIDR in CNI file", "CIDR", n.Subnet.String())
 	if err := setCIDRInCNI(m.cniPath, n.Subnet); err != nil {
 		level.Warn(m.logger).Log("msg", "failed to set CIDR in CNI file", "err", err.Error())
 	}

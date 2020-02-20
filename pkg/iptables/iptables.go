@@ -24,39 +24,47 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 )
 
-type iptablesClient interface {
-	AppendUnique(string, string, ...string) error
-	Delete(string, string, ...string) error
-	Exists(string, string, ...string) (bool, error)
-	ClearChain(string, string) error
-	DeleteChain(string, string) error
-	NewChain(string, string) error
+// Client represents any type that can administer iptables rules.
+type Client interface {
+	AppendUnique(table string, chain string, rule ...string) error
+	Delete(table string, chain string, rule ...string) error
+	Exists(table string, chain string, rule ...string) (bool, error)
+	ClearChain(table string, chain string) error
+	DeleteChain(table string, chain string) error
+	NewChain(table string, chain string) error
+}
+
+// Rule is an interface for interacting with iptables objects.
+type Rule interface {
+	Add(Client) error
+	Delete(Client) error
+	Exists(Client) (bool, error)
+	String() string
 }
 
 // rule represents an iptables rule.
 type rule struct {
-	table  string
-	chain  string
-	spec   []string
-	client iptablesClient
+	table string
+	chain string
+	spec  []string
 }
 
-func (r *rule) Add() error {
-	if err := r.client.AppendUnique(r.table, r.chain, r.spec...); err != nil {
+func (r *rule) Add(client Client) error {
+	if err := client.AppendUnique(r.table, r.chain, r.spec...); err != nil {
 		return fmt.Errorf("failed to add iptables rule: %v", err)
 	}
 	return nil
 }
 
-func (r *rule) Delete() error {
+func (r *rule) Delete(client Client) error {
 	// Ignore the returned error as an error likely means
 	// that the rule doesn't exist, which is fine.
-	r.client.Delete(r.table, r.chain, r.spec...)
+	client.Delete(r.table, r.chain, r.spec...)
 	return nil
 }
 
-func (r *rule) Exists() (bool, error) {
-	return r.client.Exists(r.table, r.chain, r.spec...)
+func (r *rule) Exists(client Client) (bool, error) {
+	return client.Exists(r.table, r.chain, r.spec...)
 }
 
 func (r *rule) String() string {
@@ -68,39 +76,38 @@ func (r *rule) String() string {
 
 // chain represents an iptables chain.
 type chain struct {
-	table  string
-	chain  string
-	client iptablesClient
+	table string
+	chain string
 }
 
-func (c *chain) Add() error {
-	if err := c.client.ClearChain(c.table, c.chain); err != nil {
+func (c *chain) Add(client Client) error {
+	if err := client.ClearChain(c.table, c.chain); err != nil {
 		return fmt.Errorf("failed to add iptables chain: %v", err)
 	}
 	return nil
 }
 
-func (c *chain) Delete() error {
+func (c *chain) Delete(client Client) error {
 	// The chain must be empty before it can be deleted.
-	if err := c.client.ClearChain(c.table, c.chain); err != nil {
+	if err := client.ClearChain(c.table, c.chain); err != nil {
 		return fmt.Errorf("failed to clear iptables chain: %v", err)
 	}
 	// Ignore the returned error as an error likely means
 	// that the chain doesn't exist, which is fine.
-	c.client.DeleteChain(c.table, c.chain)
+	client.DeleteChain(c.table, c.chain)
 	return nil
 }
 
-func (c *chain) Exists() (bool, error) {
+func (c *chain) Exists(client Client) (bool, error) {
 	// The code for "chain already exists".
 	existsErr := 1
-	err := c.client.NewChain(c.table, c.chain)
+	err := client.NewChain(c.table, c.chain)
 	se, ok := err.(statusExiter)
 	switch {
 	case err == nil:
 		// If there was no error adding a new chain, then it did not exist.
 		// Delete it and return false.
-		c.client.DeleteChain(c.table, c.chain)
+		client.DeleteChain(c.table, c.chain)
 		return false, nil
 	case ok && se.ExitStatus() == existsErr:
 		return true, nil
@@ -116,17 +123,9 @@ func (c *chain) String() string {
 	return fmt.Sprintf("%s_%s", c.table, c.chain)
 }
 
-// Rule is an interface for interacting with iptables objects.
-type Rule interface {
-	Add() error
-	Delete() error
-	Exists() (bool, error)
-	String() string
-}
-
 // Controller is able to reconcile a given set of iptables rules.
 type Controller struct {
-	client iptablesClient
+	client Client
 	errors chan error
 
 	sync.Mutex
@@ -187,12 +186,12 @@ func (c *Controller) reconcile() error {
 	c.Lock()
 	defer c.Unlock()
 	for i, r := range c.rules {
-		ok, err := r.Exists()
+		ok, err := r.Exists(c.client)
 		if err != nil {
 			return fmt.Errorf("failed to check if rule exists: %v", err)
 		}
 		if !ok {
-			if err := resetFromIndex(i, c.rules); err != nil {
+			if err := c.resetFromIndex(i, c.rules); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
 			break
@@ -202,15 +201,15 @@ func (c *Controller) reconcile() error {
 }
 
 // resetFromIndex re-adds all rules starting from the given index.
-func resetFromIndex(i int, rules []Rule) error {
+func (c *Controller) resetFromIndex(i int, rules []Rule) error {
 	if i >= len(rules) {
 		return nil
 	}
 	for j := i; j < len(rules); j++ {
-		if err := rules[j].Delete(); err != nil {
+		if err := rules[j].Delete(c.client); err != nil {
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
-		if err := rules[j].Add(); err != nil {
+		if err := rules[j].Add(c.client); err != nil {
 			return fmt.Errorf("failed to add rule: %v", err)
 		}
 	}
@@ -218,12 +217,12 @@ func resetFromIndex(i int, rules []Rule) error {
 }
 
 // deleteFromIndex deletes all rules starting from the given index.
-func deleteFromIndex(i int, rules *[]Rule) error {
+func (c *Controller) deleteFromIndex(i int, rules *[]Rule) error {
 	if i >= len(*rules) {
 		return nil
 	}
 	for j := i; j < len(*rules); j++ {
-		if err := (*rules)[j].Delete(); err != nil {
+		if err := (*rules)[j].Delete(c.client); err != nil {
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
 		(*rules)[j] = nil
@@ -241,42 +240,41 @@ func (c *Controller) Set(rules []Rule) error {
 	for ; i < len(rules); i++ {
 		if i < len(c.rules) {
 			if rules[i].String() != c.rules[i].String() {
-				if err := deleteFromIndex(i, &c.rules); err != nil {
+				if err := c.deleteFromIndex(i, &c.rules); err != nil {
 					return err
 				}
 			}
 		}
 		if i >= len(c.rules) {
-			setRuleClient(rules[i], c.client)
-			if err := rules[i].Add(); err != nil {
+			if err := rules[i].Add(c.client); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
 			c.rules = append(c.rules, rules[i])
 		}
 
 	}
-	return deleteFromIndex(i, &c.rules)
+	return c.deleteFromIndex(i, &c.rules)
 }
 
 // CleanUp will clean up any rules created by the controller.
 func (c *Controller) CleanUp() error {
 	c.Lock()
 	defer c.Unlock()
-	return deleteFromIndex(0, &c.rules)
+	return c.deleteFromIndex(0, &c.rules)
 }
 
 // IPIPRules returns a set of iptables rules that are necessary
 // when traffic between nodes must be encapsulated with IPIP.
 func IPIPRules(nodes []*net.IPNet) []Rule {
 	var rules []Rule
-	rules = append(rules, &chain{"filter", "KILO-IPIP", nil})
-	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: jump to IPIP chain", "-p", "4", "-j", "KILO-IPIP"}, nil})
+	rules = append(rules, &chain{"filter", "KILO-IPIP"})
+	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: jump to IPIP chain", "-p", "4", "-j", "KILO-IPIP"}})
 	for _, n := range nodes {
 		// Accept encapsulated traffic from peers.
-		rules = append(rules, &rule{"filter", "KILO-IPIP", []string{"-m", "comment", "--comment", "Kilo: allow IPIP traffic", "-s", n.IP.String(), "-j", "ACCEPT"}, nil})
+		rules = append(rules, &rule{"filter", "KILO-IPIP", []string{"-m", "comment", "--comment", "Kilo: allow IPIP traffic", "-s", n.IP.String(), "-j", "ACCEPT"}})
 	}
 	// Drop all other IPIP traffic.
-	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: reject other IPIP traffic", "-p", "4", "-j", "DROP"}, nil})
+	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: reject other IPIP traffic", "-p", "4", "-j", "DROP"}})
 
 	return rules
 }
@@ -289,35 +287,10 @@ func ForwardRules(subnets ...*net.IPNet) []Rule {
 		s := subnet.String()
 		rules = append(rules, []Rule{
 			// Forward traffic to and from the overlay.
-			&rule{"filter", "FORWARD", []string{"-s", s, "-j", "ACCEPT"}, nil},
-			&rule{"filter", "FORWARD", []string{"-d", s, "-j", "ACCEPT"}, nil},
+			&rule{"filter", "FORWARD", []string{"-s", s, "-j", "ACCEPT"}},
+			&rule{"filter", "FORWARD", []string{"-d", s, "-j", "ACCEPT"}},
 		}...)
 	}
-	return rules
-}
-
-// MasqueradeRules returns a set of iptables rules that are necessary
-// to NAT traffic from the local Pod subnet to the Internet and out of the Kilo interface.
-func MasqueradeRules(kilo, private, localPodSubnet *net.IPNet, remotePodSubnet, peers []*net.IPNet) []Rule {
-	var rules []Rule
-	rules = append(rules, &chain{"nat", "KILO-NAT", nil})
-
-	// NAT packets from Kilo interface.
-	rules = append(rules, &rule{"mangle", "PREROUTING", []string{"-m", "comment", "--comment", "Kilo: jump to mark chain", "-i", "kilo+", "-j", "MARK", "--set-xmark", "0x1107/0x1107"}, nil})
-	rules = append(rules, &rule{"nat", "POSTROUTING", []string{"-m", "comment", "--comment", "Kilo: NAT packets from Kilo interface", "-m", "mark", "--mark", "0x1107/0x1107", "-j", "KILO-NAT"}, nil})
-
-	// NAT packets from pod subnet.
-	rules = append(rules, &rule{"nat", "POSTROUTING", []string{"-m", "comment", "--comment", "Kilo: jump to NAT chain", "-s", localPodSubnet.String(), "-j", "KILO-NAT"}, nil})
-	rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets destined for the local Pod subnet", "-d", localPodSubnet.String(), "-j", "RETURN"}, nil})
-	rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets destined for the Kilo subnet", "-d", kilo.String(), "-j", "RETURN"}, nil})
-	rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets destined for the local private IP", "-d", private.String(), "-j", "RETURN"}, nil})
-	for _, r := range remotePodSubnet {
-		rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets from local pod subnet to remote pod subnets", "-s", localPodSubnet.String(), "-d", r.String(), "-j", "RETURN"}, nil})
-	}
-	for _, p := range peers {
-		rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: do not NAT packets from local pod subnet to peers", "-s", localPodSubnet.String(), "-d", p.String(), "-j", "RETURN"}, nil})
-	}
-	rules = append(rules, &rule{"nat", "KILO-NAT", []string{"-m", "comment", "--comment", "Kilo: NAT remaining packets", "-j", "MASQUERADE"}, nil})
 	return rules
 }
 
@@ -325,15 +298,5 @@ func nonBlockingSend(errors chan<- error, err error) {
 	select {
 	case errors <- err:
 	default:
-	}
-}
-
-// setRuleClient is a helper to set the iptables client on different kinds of rules.
-func setRuleClient(r Rule, c iptablesClient) {
-	switch v := r.(type) {
-	case *rule:
-		v.client = c
-	case *chain:
-		v.client = c
 	}
 }

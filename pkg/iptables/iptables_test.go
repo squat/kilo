@@ -19,8 +19,8 @@ import (
 )
 
 var rules = []Rule{
-	&rule{"filter", "FORWARD", []string{"-s", "10.4.0.0/16", "-j", "ACCEPT"}, nil},
-	&rule{"filter", "FORWARD", []string{"-d", "10.4.0.0/16", "-j", "ACCEPT"}, nil},
+	&rule{"filter", "FORWARD", []string{"-s", "10.4.0.0/16", "-j", "ACCEPT"}},
+	&rule{"filter", "FORWARD", []string{"-d", "10.4.0.0/16", "-j", "ACCEPT"}},
 }
 
 func TestSet(t *testing.T) {
@@ -28,7 +28,7 @@ func TestSet(t *testing.T) {
 		name    string
 		sets    [][]Rule
 		out     []Rule
-		actions []func(iptablesClient) error
+		actions []func(Client) error
 	}{
 		{
 			name: "empty",
@@ -61,14 +61,12 @@ func TestSet(t *testing.T) {
 				{rules[0], rules[1]},
 			},
 			out: []Rule{rules[0], rules[1]},
-			actions: []func(c iptablesClient) error{
-				func(c iptablesClient) error {
-					setRuleClient(rules[0], c)
-					return rules[0].Delete()
+			actions: []func(c Client) error{
+				func(c Client) error {
+					return rules[0].Delete(c)
 				},
-				func(c iptablesClient) error {
-					setRuleClient(rules[1], c)
-					return rules[1].Delete()
+				func(c Client) error {
+					return rules[1].Delete(c)
 				},
 			},
 		},
@@ -78,10 +76,9 @@ func TestSet(t *testing.T) {
 				{rules[0], rules[1]},
 			},
 			out: []Rule{rules[0], rules[1]},
-			actions: []func(c iptablesClient) error{
-				func(c iptablesClient) error {
-					setRuleClient(rules[0], c)
-					return rules[0].Delete()
+			actions: []func(c Client) error{
+				func(c Client) error {
+					return rules[0].Delete(c)
 				},
 			},
 		},
