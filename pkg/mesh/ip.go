@@ -337,12 +337,13 @@ func defaultInterface() (*net.Interface, error) {
 
 type allocator struct {
 	bits    int
+	ones    int
 	cidr    *net.IPNet
 	current net.IP
 }
 
 func newAllocator(cidr net.IPNet) *allocator {
-	_, bits := cidr.Mask.Size()
+	ones, bits := cidr.Mask.Size()
 	current := make(net.IP, len(cidr.IP))
 	copy(current, cidr.IP)
 	if ip4 := current.To4(); ip4 != nil {
@@ -351,6 +352,7 @@ func newAllocator(cidr net.IPNet) *allocator {
 
 	return &allocator{
 		bits:    bits,
+		ones:    ones,
 		cidr:    &cidr,
 		current: current,
 	}
@@ -373,5 +375,5 @@ func (a *allocator) next() *net.IPNet {
 	ip := make(net.IP, len(a.current))
 	copy(ip, a.current)
 
-	return &net.IPNet{IP: ip, Mask: net.CIDRMask(a.bits, a.bits)}
+	return &net.IPNet{IP: ip, Mask: net.CIDRMask(a.ones, a.bits)}
 }

@@ -154,7 +154,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			return nil, errors.New("failed to allocate an IP address; ran out of IP addresses")
 		}
 		segment.wireGuardIP = ipNet.IP
-		segment.allowedIPs = append(segment.allowedIPs, ipNet)
+		segment.allowedIPs = append(segment.allowedIPs, oneAddressCIDR(ipNet.IP))
 		if t.leader && segment.location == t.location {
 			t.wireGuardCIDR = &net.IPNet{IP: ipNet.IP, Mask: t.subnet.Mask}
 		}

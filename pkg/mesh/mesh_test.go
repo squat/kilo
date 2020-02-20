@@ -20,60 +20,6 @@ import (
 	"time"
 )
 
-func TestNewAllocator(t *testing.T) {
-	_, c1, err := net.ParseCIDR("10.1.0.0/16")
-	if err != nil {
-		t.Fatalf("failed to parse CIDR: %v", err)
-	}
-	a1 := newAllocator(*c1)
-	_, c2, err := net.ParseCIDR("10.1.0.0/32")
-	if err != nil {
-		t.Fatalf("failed to parse CIDR: %v", err)
-	}
-	a2 := newAllocator(*c2)
-	_, c3, err := net.ParseCIDR("10.1.0.0/31")
-	if err != nil {
-		t.Fatalf("failed to parse CIDR: %v", err)
-	}
-	a3 := newAllocator(*c3)
-	for _, tc := range []struct {
-		name string
-		a    *allocator
-		next string
-	}{
-		{
-			name: "10.1.0.0/16 first",
-			a:    a1,
-			next: "10.1.0.1/32",
-		},
-		{
-			name: "10.1.0.0/16 second",
-			a:    a1,
-			next: "10.1.0.2/32",
-		},
-		{
-			name: "10.1.0.0/32",
-			a:    a2,
-			next: "<nil>",
-		},
-		{
-			name: "10.1.0.0/31 first",
-			a:    a3,
-			next: "10.1.0.1/32",
-		},
-		{
-			name: "10.1.0.0/31 second",
-			a:    a3,
-			next: "<nil>",
-		},
-	} {
-		next := tc.a.next()
-		if next.String() != tc.next {
-			t.Errorf("test case %q: expected %s, got %s", tc.name, tc.next, next.String())
-		}
-	}
-}
-
 func TestReady(t *testing.T) {
 	internalIP := oneAddressCIDR(net.ParseIP("1.1.1.1"))
 	externalIP := oneAddressCIDR(net.ParseIP("2.2.2.2"))
