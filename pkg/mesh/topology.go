@@ -25,6 +25,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const kiloTableIndex = 1107
+
 // Topology represents the logical structure of the overlay network.
 type Topology struct {
 	// key is the private key of the node creating the topology.
@@ -40,8 +42,7 @@ type Topology struct {
 	// leader represents whether or not the local host
 	// is the segment leader.
 	leader bool
-	// subnet is the entire subnet from which IPs
-	// for the WireGuard interfaces will be allocated.
+	// subnet is the Pod subnet of the local node.
 	subnet *net.IPNet
 	// privateIP is the private IP address  of the local node.
 	privateIP *net.IPNet
@@ -95,7 +96,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		localLocation = hostname
 	}
 
-	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, subnet: subnet, privateIP: nodes[hostname].InternalIP}
+	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, subnet: nodes[hostname].Subnet, privateIP: nodes[hostname].InternalIP}
 	for location := range topoMap {
 		// Sort the location so the result is stable.
 		sort.Slice(topoMap[location], func(i, j int) bool {
@@ -156,7 +157,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		segment.wireGuardIP = ipNet.IP
 		segment.allowedIPs = append(segment.allowedIPs, oneAddressCIDR(ipNet.IP))
 		if t.leader && segment.location == t.location {
-			t.wireGuardCIDR = &net.IPNet{IP: ipNet.IP, Mask: t.subnet.Mask}
+			t.wireGuardCIDR = &net.IPNet{IP: ipNet.IP, Mask: subnet.Mask}
 		}
 	}
 
@@ -164,8 +165,9 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 }
 
 // Routes generates a slice of routes for a given Topology.
-func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, enc encapsulation.Encapsulator) []*netlink.Route {
+func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface int, local bool, enc encapsulation.Encapsulator) ([]*netlink.Route, []*netlink.Rule) {
 	var routes []*netlink.Route
+	var rules []*netlink.Rule
 	if !t.leader {
 		// Find the GW for this segment.
 		// This will be the an IP of the leader.
@@ -201,6 +203,23 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, enc e
 							LinkIndex: privIface,
 							Protocol:  unix.RTPROT_STATIC,
 						}, enc.Strategy(), t.privateIP, tunlIface))
+						// Encapsulate packets from the host's Pod subnet headed
+						// to private IPs.
+						if enc.Strategy() == encapsulation.Always || (enc.Strategy() == encapsulation.CrossSubnet && !t.privateIP.Contains(segment.privateIPs[i])) {
+							routes = append(routes, &netlink.Route{
+								Dst:       oneAddressCIDR(segment.privateIPs[i]),
+								Flags:     int(netlink.FLAG_ONLINK),
+								Gw:        segment.privateIPs[i],
+								LinkIndex: tunlIface,
+								Protocol:  unix.RTPROT_STATIC,
+								Table:     kiloTableIndex,
+							})
+							rules = append(rules, defaultRule(&netlink.Rule{
+								Src:   t.subnet,
+								Dst:   oneAddressCIDR(segment.privateIPs[i]),
+								Table: kiloTableIndex,
+							}))
+						}
 					}
 				}
 				continue
@@ -238,7 +257,7 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, enc e
 				}, enc.Strategy(), t.privateIP, tunlIface))
 			}
 		}
-		return routes
+		return routes, rules
 	}
 	for _, segment := range t.segments {
 		// Add routes for the current segment if local is true.
@@ -256,6 +275,30 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, enc e
 						LinkIndex: privIface,
 						Protocol:  unix.RTPROT_STATIC,
 					}, enc.Strategy(), t.privateIP, tunlIface))
+					// Encapsulate packets from the host's Pod subnet headed
+					// to private IPs.
+					if enc.Strategy() == encapsulation.Always || (enc.Strategy() == encapsulation.CrossSubnet && !t.privateIP.Contains(segment.privateIPs[i])) {
+						routes = append(routes, &netlink.Route{
+							Dst:       oneAddressCIDR(segment.privateIPs[i]),
+							Flags:     int(netlink.FLAG_ONLINK),
+							Gw:        segment.privateIPs[i],
+							LinkIndex: tunlIface,
+							Protocol:  unix.RTPROT_STATIC,
+							Table:     kiloTableIndex,
+						})
+						rules = append(rules, defaultRule(&netlink.Rule{
+							Src:   t.subnet,
+							Dst:   oneAddressCIDR(segment.privateIPs[i]),
+							Table: kiloTableIndex,
+						}))
+						// Also encapsulate packets from the Kilo interface
+						// headed to private IPs.
+						rules = append(rules, defaultRule(&netlink.Rule{
+							Dst:     oneAddressCIDR(segment.privateIPs[i]),
+							Table:   kiloTableIndex,
+							IifName: kiloIfaceName,
+						}))
+					}
 				}
 			}
 			continue
@@ -298,7 +341,7 @@ func (t *Topology) Routes(kiloIface, privIface, tunlIface int, local bool, enc e
 			})
 		}
 	}
-	return routes
+	return routes, rules
 }
 
 func encapsulateRoute(route *netlink.Route, encapsulate encapsulation.Strategy, subnet *net.IPNet, tunlIface int) *netlink.Route {
@@ -447,4 +490,13 @@ func deduplicatePeerIPs(peers []*Peer) []*Peer {
 		ps[i] = &p
 	}
 	return ps
+}
+
+func defaultRule(rule *netlink.Rule) *netlink.Rule {
+	base := netlink.NewRule()
+	base.Src = rule.Src
+	base.Dst = rule.Dst
+	base.IifName = rule.IifName
+	base.Table = rule.Table
+	return base
 }

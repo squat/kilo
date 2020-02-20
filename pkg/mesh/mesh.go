@@ -604,14 +604,7 @@ func (m *Mesh) applyTopology() {
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	rules := iptables.ForwardRules(m.subnet)
-	// Finx the Kilo interface name.
-	link, err := linkByIndex(m.kiloIface)
-	if err != nil {
-		level.Error(m.logger).Log("error", err)
-		m.errorCounter.WithLabelValues("apply").Inc()
-		return
-	}
+	ipRules := iptables.ForwardRules(m.subnet)
 	// If we are handling local routes, ensure the local
 	// tunnel has an IP address and IPIP traffic is allowed.
 	if m.enc.Strategy() != encapsulation.Never && m.local {
@@ -624,7 +617,7 @@ func (m *Mesh) applyTopology() {
 				break
 			}
 		}
-		rules = append(rules, m.enc.Rules(cidrs)...)
+		ipRules = append(ipRules, m.enc.Rules(cidrs)...)
 
 		// If we are handling local routes, ensure the local
 		// tunnel has an IP address.
@@ -634,7 +627,14 @@ func (m *Mesh) applyTopology() {
 			return
 		}
 	}
-	if err := m.ipTables.Set(rules); err != nil {
+	if err := m.ipTables.Set(ipRules); err != nil {
+		level.Error(m.logger).Log("error", err)
+		m.errorCounter.WithLabelValues("apply").Inc()
+		return
+	}
+	// Find the Kilo interface name.
+	link, err := linkByIndex(m.kiloIface)
+	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
@@ -677,8 +677,8 @@ func (m *Mesh) applyTopology() {
 	}
 	// We need to add routes last since they may depend
 	// on the WireGuard interface.
-	routes := t.Routes(m.kiloIface, m.privIface, m.enc.Index(), m.local, m.enc)
-	if err := m.table.Set(routes); err != nil {
+	routes, rules := t.Routes(link.Attrs().Name, m.kiloIface, m.privIface, m.enc.Index(), m.local, m.enc)
+	if err := m.table.Set(routes, rules); err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 	}

@@ -31,36 +31,54 @@ func TestSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse CIDR: %v", err)
 	}
-	add := func(backend map[string]*netlink.Route) func(*netlink.Route) error {
+	addRoute := func(backend map[string]interface{}) func(*netlink.Route) error {
 		return func(r *netlink.Route) error {
 			backend[routeToString(r)] = r
 			return nil
 		}
 	}
-	del := func(backend map[string]*netlink.Route) func(*netlink.Route) error {
+	delRoute := func(backend map[string]interface{}) func(*netlink.Route) error {
 		return func(r *netlink.Route) error {
 			delete(backend, routeToString(r))
 			return nil
 		}
 	}
-	adderr := func(backend map[string]*netlink.Route) func(*netlink.Route) error {
+	addRule := func(backend map[string]interface{}) func(*netlink.Rule) error {
+		return func(r *netlink.Rule) error {
+			backend[ruleToString(r)] = r
+			return nil
+		}
+	}
+	delRule := func(backend map[string]interface{}) func(*netlink.Rule) error {
+		return func(r *netlink.Rule) error {
+			delete(backend, ruleToString(r))
+			return nil
+		}
+	}
+	adderr := func(backend map[string]interface{}) func(*netlink.Route) error {
 		return func(r *netlink.Route) error {
 			return errors.New(routeToString(r))
 		}
 	}
 	for _, tc := range []struct {
-		name   string
-		routes []*netlink.Route
-		err    bool
-		add    func(map[string]*netlink.Route) func(*netlink.Route) error
-		del    func(map[string]*netlink.Route) func(*netlink.Route) error
+		name     string
+		routes   []*netlink.Route
+		rules    []*netlink.Rule
+		err      bool
+		addRoute func(map[string]interface{}) func(*netlink.Route) error
+		delRoute func(map[string]interface{}) func(*netlink.Route) error
+		addRule  func(map[string]interface{}) func(*netlink.Rule) error
+		delRule  func(map[string]interface{}) func(*netlink.Rule) error
 	}{
 		{
-			name:   "empty",
-			routes: nil,
-			err:    false,
-			add:    add,
-			del:    del,
+			name:     "empty",
+			routes:   nil,
+			rules:    nil,
+			err:      false,
+			addRoute: addRoute,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 		{
 			name: "single",
@@ -70,9 +88,17 @@ func TestSet(t *testing.T) {
 					Gw:  net.ParseIP("10.1.0.1"),
 				},
 			},
-			err: false,
-			add: add,
-			del: del,
+			rules: []*netlink.Rule{
+				{
+					Src:   c1,
+					Table: 1,
+				},
+			},
+			err:      false,
+			addRoute: addRoute,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 		{
 			name: "multiple",
@@ -86,16 +112,30 @@ func TestSet(t *testing.T) {
 					Gw:  net.ParseIP("127.0.0.1"),
 				},
 			},
-			err: false,
-			add: add,
-			del: del,
+			rules: []*netlink.Rule{
+				{
+					Src:   c1,
+					Table: 1,
+				},
+				{
+					Src:   c2,
+					Table: 2,
+				},
+			},
+			err:      false,
+			addRoute: addRoute,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 		{
-			name:   "err empty",
-			routes: nil,
-			err:    false,
-			add:    adderr,
-			del:    del,
+			name:     "err empty",
+			routes:   nil,
+			err:      false,
+			addRoute: adderr,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 		{
 			name: "err",
@@ -109,18 +149,30 @@ func TestSet(t *testing.T) {
 					Gw:  net.ParseIP("127.0.0.1"),
 				},
 			},
-			err: true,
-			add: adderr,
-			del: del,
+			rules: []*netlink.Rule{
+				{
+					Src:   c1,
+					Table: 1,
+				},
+				{
+					Src:   c2,
+					Table: 2,
+				},
+			},
+			err:      true,
+			addRoute: adderr,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 	} {
-		backend := make(map[string]*netlink.Route)
-		a := tc.add(backend)
-		d := tc.del(backend)
+		backend := make(map[string]interface{})
 		table := NewTable()
-		table.add = a
-		table.del = d
-		if err := table.Set(tc.routes); (err != nil) != tc.err {
+		table.addRoute = tc.addRoute(backend)
+		table.delRoute = tc.delRoute(backend)
+		table.addRule = tc.addRule(backend)
+		table.delRule = tc.delRule(backend)
+		if err := table.Set(tc.routes, tc.rules); (err != nil) != tc.err {
 			no := "no"
 			if tc.err {
 				no = "an"
@@ -131,9 +183,16 @@ func TestSet(t *testing.T) {
 		if !tc.err {
 			for _, r := range tc.routes {
 				r1 := backend[routeToString(r)]
-				r2 := table.routes[routeToString(r)]
+				r2 := table.rs[routeToString(r)]
 				if r != r1 || r != r2 {
 					t.Errorf("test case %q: expected all routes to be equal: expected %v, got %v and %v", tc.name, r, r1, r2)
+				}
+			}
+			for _, r := range tc.rules {
+				r1 := backend[ruleToString(r)]
+				r2 := table.rs[ruleToString(r)]
+				if r != r1 || r != r2 {
+					t.Errorf("test case %q: expected all rules to be equal: expected %v, got %v and %v", tc.name, r, r1, r2)
 				}
 			}
 		}
@@ -149,36 +208,53 @@ func TestCleanUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse CIDR: %v", err)
 	}
-	add := func(backend map[string]*netlink.Route) func(*netlink.Route) error {
+	addRoute := func(backend map[string]interface{}) func(*netlink.Route) error {
 		return func(r *netlink.Route) error {
 			backend[routeToString(r)] = r
 			return nil
 		}
 	}
-	del := func(backend map[string]*netlink.Route) func(*netlink.Route) error {
+	delRoute := func(backend map[string]interface{}) func(*netlink.Route) error {
 		return func(r *netlink.Route) error {
 			delete(backend, routeToString(r))
 			return nil
 		}
 	}
-	delerr := func(backend map[string]*netlink.Route) func(*netlink.Route) error {
+	addRule := func(backend map[string]interface{}) func(*netlink.Rule) error {
+		return func(r *netlink.Rule) error {
+			backend[ruleToString(r)] = r
+			return nil
+		}
+	}
+	delRule := func(backend map[string]interface{}) func(*netlink.Rule) error {
+		return func(r *netlink.Rule) error {
+			delete(backend, ruleToString(r))
+			return nil
+		}
+	}
+	delerr := func(backend map[string]interface{}) func(*netlink.Route) error {
 		return func(r *netlink.Route) error {
 			return errors.New(routeToString(r))
 		}
 	}
 	for _, tc := range []struct {
-		name   string
-		routes []*netlink.Route
-		err    bool
-		add    func(map[string]*netlink.Route) func(*netlink.Route) error
-		del    func(map[string]*netlink.Route) func(*netlink.Route) error
+		name     string
+		routes   []*netlink.Route
+		rules    []*netlink.Rule
+		err      bool
+		addRoute func(map[string]interface{}) func(*netlink.Route) error
+		delRoute func(map[string]interface{}) func(*netlink.Route) error
+		addRule  func(map[string]interface{}) func(*netlink.Rule) error
+		delRule  func(map[string]interface{}) func(*netlink.Rule) error
 	}{
 		{
-			name:   "empty",
-			routes: nil,
-			err:    false,
-			add:    add,
-			del:    del,
+			name:     "empty",
+			routes:   nil,
+			err:      false,
+			addRoute: addRoute,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 		{
 			name: "single",
@@ -188,9 +264,17 @@ func TestCleanUp(t *testing.T) {
 					Gw:  net.ParseIP("10.1.0.1"),
 				},
 			},
-			err: false,
-			add: add,
-			del: del,
+			rules: []*netlink.Rule{
+				{
+					Src:   c1,
+					Table: 1,
+				},
+			},
+			err:      false,
+			addRoute: addRoute,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 		{
 			name: "multiple",
@@ -204,16 +288,30 @@ func TestCleanUp(t *testing.T) {
 					Gw:  net.ParseIP("127.0.0.1"),
 				},
 			},
-			err: false,
-			add: add,
-			del: del,
+			rules: []*netlink.Rule{
+				{
+					Src:   c1,
+					Table: 1,
+				},
+				{
+					Src:   c2,
+					Table: 2,
+				},
+			},
+			err:      false,
+			addRoute: addRoute,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 		{
-			name:   "err empty",
-			routes: nil,
-			err:    false,
-			add:    add,
-			del:    delerr,
+			name:     "err empty",
+			routes:   nil,
+			err:      false,
+			addRoute: addRoute,
+			delRoute: delRoute,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 		{
 			name: "err",
@@ -227,18 +325,30 @@ func TestCleanUp(t *testing.T) {
 					Gw:  net.ParseIP("127.0.0.1"),
 				},
 			},
-			err: true,
-			add: add,
-			del: delerr,
+			rules: []*netlink.Rule{
+				{
+					Src:   c1,
+					Table: 1,
+				},
+				{
+					Src:   c2,
+					Table: 2,
+				},
+			},
+			err:      true,
+			addRoute: addRoute,
+			delRoute: delerr,
+			addRule:  addRule,
+			delRule:  delRule,
 		},
 	} {
-		backend := make(map[string]*netlink.Route)
-		a := tc.add(backend)
-		d := tc.del(backend)
+		backend := make(map[string]interface{})
 		table := NewTable()
-		table.add = a
-		table.del = d
-		if err := table.Set(tc.routes); err != nil {
+		table.addRoute = tc.addRoute(backend)
+		table.delRoute = tc.delRoute(backend)
+		table.addRule = tc.addRule(backend)
+		table.delRule = tc.delRule(backend)
+		if err := table.Set(tc.routes, tc.rules); err != nil {
 			t.Fatalf("test case %q: Set should not fail: %v", tc.name, err)
 		}
 		if err := table.CleanUp(); (err != nil) != tc.err {
@@ -252,9 +362,18 @@ func TestCleanUp(t *testing.T) {
 		if !tc.err {
 			for _, r := range tc.routes {
 				r1 := backend[routeToString(r)]
-				r2 := table.routes[routeToString(r)]
+				r2 := table.rs[routeToString(r)]
 				if r1 != nil || r2 != nil {
-					t.Errorf("test case %q: expected all routes to be nil: expected got %v and %v", tc.name, r1, r2)
+					t.Errorf("test case %q: expected all routes to be nil: expected nil, got %v and %v", tc.name, r1, r2)
+				}
+			}
+		}
+		if !tc.err {
+			for _, r := range tc.rules {
+				r1 := backend[ruleToString(r)]
+				r2 := table.rs[ruleToString(r)]
+				if r1 != nil || r2 != nil {
+					t.Errorf("test case %q: expected all rules to be nil: expected nil, got %v and %v", tc.name, r1, r2)
 				}
 			}
 		}
