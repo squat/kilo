@@ -17,6 +17,7 @@ data:
              "bridge":"kube-bridge",
              "isDefaultGateway":true,
              "forceAddress":true,
+             "mtu": 1420,
              "ipam":{
                 "type":"host-local"
              }
