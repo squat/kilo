@@ -72,7 +72,7 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 				continue
 			}
 			ip.Mask = mask
-			if isPublic(ip) {
+			if isPublic(ip.IP) {
 				hostPub = append(hostPub, ip)
 				continue
 			}
@@ -97,7 +97,7 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 			if isLocal(ip.IP) {
 				continue
 			}
-			if isPublic(ip) {
+			if isPublic(ip.IP) {
 				defaultPub = append(defaultPub, ip)
 				continue
 			}
@@ -118,7 +118,7 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 			if isLocal(ip.IP) {
 				continue
 			}
-			if isPublic(ip) {
+			if isPublic(ip.IP) {
 				interfacePub = append(interfacePub, ip)
 				continue
 			}
@@ -206,9 +206,9 @@ func isLocal(ip net.IP) bool {
 	return ip.IsLoopback() || ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()
 }
 
-func isPublic(ip *net.IPNet) bool {
+func isPublic(ip net.IP) bool {
 	// Check RFC 1918 addresses.
-	if ip4 := ip.IP.To4(); ip4 != nil {
+	if ip4 := ip.To4(); ip4 != nil {
 		switch true {
 		// Check for 10.0.0.0/8.
 		case ip4[0] == 10:
@@ -224,10 +224,10 @@ func isPublic(ip *net.IPNet) bool {
 		}
 	}
 	// Check RFC 4193 addresses.
-	if len(ip.IP) == net.IPv6len {
+	if len(ip) == net.IPv6len {
 		switch true {
 		// Check for fd00::/8.
-		case ip.IP[0] == 0xfd && ip.IP[1] == 0x00:
+		case ip[0] == 0xfd && ip[1] == 0x00:
 			return false
 		default:
 			return true

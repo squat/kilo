@@ -40,7 +40,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 	nodes := map[string]*Node{
 		"a": {
 			Name:                "a",
-			ExternalIP:          e1,
+			Endpoint:            &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e1.IP}, Port: DefaultKiloPort},
 			InternalIP:          i1,
 			Location:            "1",
 			Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
@@ -49,7 +49,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 		},
 		"b": {
 			Name:       "b",
-			ExternalIP: e2,
+			Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
 			InternalIP: i1,
 			Location:   "2",
 			Subnet:     &net.IPNet{IP: net.ParseIP("10.2.2.0"), Mask: net.CIDRMask(24, 32)},
@@ -57,7 +57,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 		},
 		"c": {
 			Name:       "c",
-			ExternalIP: e3,
+			Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e3.IP}, Port: DefaultKiloPort},
 			InternalIP: i2,
 			// Same location a node b.
 			Location: "2",
@@ -83,8 +83,8 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 					{IP: net.ParseIP("10.5.0.3"), Mask: net.CIDRMask(24, 32)},
 				},
 				Endpoint: &wireguard.Endpoint{
-					IP:   net.ParseIP("192.168.0.1"),
-					Port: DefaultKiloPort,
+					DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("192.168.0.1")},
+					Port:    DefaultKiloPort,
 				},
 				PublicKey: []byte("key5"),
 			},
@@ -119,7 +119,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].ExternalIP.IP,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						location:            nodes["a"].Location,
 						cidrs:               []*net.IPNet{nodes["a"].Subnet},
@@ -130,7 +130,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["b"].ExternalIP.IP,
+						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
 						location:    nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
@@ -156,7 +156,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].ExternalIP.IP,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						location:            nodes["a"].Location,
 						cidrs:               []*net.IPNet{nodes["a"].Subnet},
@@ -167,7 +167,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["b"].ExternalIP.IP,
+						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
 						location:    nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
@@ -193,7 +193,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].ExternalIP.IP,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						location:            nodes["a"].Location,
 						cidrs:               []*net.IPNet{nodes["a"].Subnet},
@@ -204,7 +204,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["b"].ExternalIP.IP,
+						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
 						location:    nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
@@ -230,7 +230,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].ExternalIP.IP,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						location:            nodes["a"].Name,
 						cidrs:               []*net.IPNet{nodes["a"].Subnet},
@@ -241,7 +241,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["b"].ExternalIP.IP,
+						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
 						location:    nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
@@ -251,7 +251,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["c"].ExternalIP.IP,
+						endpoint:    nodes["c"].Endpoint,
 						key:         nodes["c"].Key,
 						location:    nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
@@ -277,7 +277,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].ExternalIP.IP,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						location:            nodes["a"].Name,
 						cidrs:               []*net.IPNet{nodes["a"].Subnet},
@@ -288,7 +288,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["b"].ExternalIP.IP,
+						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
 						location:    nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
@@ -298,7 +298,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["c"].ExternalIP.IP,
+						endpoint:    nodes["c"].Endpoint,
 						key:         nodes["c"].Key,
 						location:    nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
@@ -324,7 +324,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].ExternalIP.IP,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						location:            nodes["a"].Name,
 						cidrs:               []*net.IPNet{nodes["a"].Subnet},
@@ -335,7 +335,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["b"].ExternalIP.IP,
+						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
 						location:    nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
@@ -345,7 +345,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						endpoint:    nodes["c"].ExternalIP.IP,
+						endpoint:    nodes["c"].Endpoint,
 						key:         nodes["c"].Key,
 						location:    nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
@@ -1400,26 +1400,26 @@ func TestFindLeader(t *testing.T) {
 
 	nodes := []*Node{
 		{
-			Name:       "a",
-			ExternalIP: e1,
+			Name:     "a",
+			Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e1.IP}, Port: DefaultKiloPort},
 		},
 		{
-			Name:       "b",
-			ExternalIP: e2,
+			Name:     "b",
+			Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
 		},
 		{
-			Name:       "c",
-			ExternalIP: e2,
+			Name:     "c",
+			Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
 		},
 		{
-			Name:       "d",
-			ExternalIP: e1,
-			Leader:     true,
+			Name:     "d",
+			Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e1.IP}, Port: DefaultKiloPort},
+			Leader:   true,
 		},
 		{
-			Name:       "2",
-			ExternalIP: e2,
-			Leader:     true,
+			Name:     "2",
+			Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
+			Leader:   true,
 		},
 	}
 	for _, tc := range []struct {

@@ -57,8 +57,9 @@ Kilo allows the topology of the encrypted network to be completely customized.
 
 ### Step 4: ensure nodes have public IP
 
-At least one node in each location must have a public IP address.
-If the public IP address is not automatically configured on the node's Ethernet device, it can be manually specified using the [kilo.squat.ai/force-external-ip](./docs/annotations.md#force-external-ip) annotation.
+At least one node in each location must have an IP address that is routable from the other locations.
+If the locations are in different clouds or private networks, then this must be a public IP address.
+If this IP address is not automatically configured on the node's Ethernet device, it can be manually specified using the [kilo.squat.ai/force-endpoint](./docs/annotations.md#force-endpoint) annotation.
 
 ### Step 5: install Kilo!
 

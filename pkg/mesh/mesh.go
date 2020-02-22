@@ -71,7 +71,7 @@ const (
 
 // Node represents a node in the network.
 type Node struct {
-	ExternalIP *net.IPNet
+	Endpoint   *wireguard.Endpoint
 	Key        []byte
 	InternalIP *net.IPNet
 	// LastSeen is a Unix time for the last time
@@ -90,7 +90,7 @@ type Node struct {
 // Ready indicates whether or not the node is ready.
 func (n *Node) Ready() bool {
 	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
-	return n != nil && n.ExternalIP != nil && n.Key != nil && n.InternalIP != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(resyncPeriod)*2/int64(time.Second)
+	return n != nil && n.Endpoint != nil && !(n.Endpoint.IP == nil && n.Endpoint.DNS == "") && n.Endpoint.Port != 0 && n.Key != nil && n.InternalIP != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(resyncPeriod)*2/int64(time.Second)
 }
 
 // Peer represents a peer in the network.
@@ -100,6 +100,10 @@ type Peer struct {
 }
 
 // Ready indicates whether or not the peer is ready.
+// Peers can have empty endpoints because they may not have an
+// IP, for example if they are behind a NAT, and thus
+// will not declare their endpoint and instead allow it to be
+// discovered.
 func (p *Peer) Ready() bool {
 	return p != nil && p.AllowedIPs != nil && len(p.AllowedIPs) != 0 && p.PublicKey != nil
 }
@@ -186,7 +190,6 @@ type Mesh struct {
 	priv         []byte
 	privIface    int
 	pub          []byte
-	pubIface     int
 	stop         chan struct{}
 	subnet       *net.IPNet
 	table        *route.Table
@@ -238,11 +241,6 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		return nil, fmt.Errorf("failed to find interface for private IP: %v", err)
 	}
 	privIface := ifaces[0].Index
-	ifaces, err = interfacesForIP(publicIP)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find interface for public IP: %v", err)
-	}
-	pubIface := ifaces[0].Index
 	kiloIface, _, err := wireguard.New(iface)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WireGuard interface: %v", err)
@@ -276,7 +274,6 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		priv:         private,
 		privIface:    privIface,
 		pub:          public,
-		pubIface:     pubIface,
 		local:        local,
 		stop:         make(chan struct{}),
 		subnet:       subnet,
@@ -511,8 +508,8 @@ func (m *Mesh) checkIn() {
 
 func (m *Mesh) handleLocal(n *Node) {
 	// Allow the IPs to be overridden.
-	if n.ExternalIP == nil {
-		n.ExternalIP = m.externalIP
+	if n.Endpoint == nil || (n.Endpoint.DNS == "" && n.Endpoint.IP == nil) {
+		n.Endpoint = &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: m.externalIP.IP}, Port: m.port}
 	}
 	if n.InternalIP == nil {
 		n.InternalIP = m.internalIP
@@ -521,7 +518,7 @@ func (m *Mesh) handleLocal(n *Node) {
 	// Take leader, location, and subnet from the argument, as these
 	// are not determined by kilo.
 	local := &Node{
-		ExternalIP:  n.ExternalIP,
+		Endpoint:    n.Endpoint,
 		Key:         m.pub,
 		InternalIP:  n.InternalIP,
 		LastSeen:    time.Now().Unix(),
@@ -559,6 +556,12 @@ func (m *Mesh) applyTopology() {
 	m.reconcileCounter.Inc()
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// If we can't resolve an endpoint, then fail and retry later.
+	if err := m.resolveEndpoints(); err != nil {
+		level.Error(m.logger).Log("error", err)
+		m.errorCounter.WithLabelValues("apply").Inc()
+		return
+	}
 	// Ensure only ready nodes are considered.
 	nodes := make(map[string]*Node)
 	var readyNodes float64
@@ -585,7 +588,7 @@ func (m *Mesh) applyTopology() {
 	if nodes[m.hostname] == nil {
 		return
 	}
-	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, m.port, m.priv, m.subnet)
+	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
@@ -598,6 +601,7 @@ func (m *Mesh) applyTopology() {
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
+		return
 	}
 	if err := ioutil.WriteFile(ConfPath, buf, 0600); err != nil {
 		level.Error(m.logger).Log("error", err)
@@ -733,6 +737,57 @@ func (m *Mesh) cleanUp() {
 	}
 }
 
+func (m *Mesh) resolveEndpoints() error {
+	for k := range m.nodes {
+		// Skip unready nodes, since they will not be used
+		// in the topology anyways.
+		if !m.nodes[k].Ready() {
+			continue
+		}
+		// If the node is ready, then the endpoint is not nil
+		// but it may not have a DNS name.
+		if m.nodes[k].Endpoint.DNS == "" {
+			continue
+		}
+		if err := resolveEndpoint(m.nodes[k].Endpoint); err != nil {
+			return err
+		}
+	}
+	for k := range m.peers {
+		// Skip unready peers, since they will not be used
+		// in the topology anyways.
+		if !m.peers[k].Ready() {
+			continue
+		}
+		// If the peer is ready, then the endpoint is not nil
+		// but it may not have a DNS name.
+		if m.peers[k].Endpoint.DNS == "" {
+			continue
+		}
+		if err := resolveEndpoint(m.peers[k].Endpoint); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func resolveEndpoint(endpoint *wireguard.Endpoint) error {
+	ips, err := net.LookupIP(endpoint.DNS)
+	if err != nil {
+		return fmt.Errorf("failed to look up DNS name %q: %v", endpoint.DNS, err)
+	}
+	nets := make([]*net.IPNet, len(ips), len(ips))
+	for i := range ips {
+		nets[i] = oneAddressCIDR(ips[i])
+	}
+	sortIPs(nets)
+	if len(nets) == 0 {
+		return fmt.Errorf("did not find any addresses for DNS name %q", endpoint.DNS)
+	}
+	endpoint.IP = nets[0].IP
+	return nil
+}
+
 func isSelf(hostname string, node *Node) bool {
 	return node != nil && node.Name == hostname
 }
@@ -744,10 +799,26 @@ func nodesAreEqual(a, b *Node) bool {
 	if a == b {
 		return true
 	}
+	if !(a.Endpoint != nil) == (b.Endpoint != nil) {
+		return false
+	}
+	if a.Endpoint != nil {
+		if a.Endpoint.Port != b.Endpoint.Port {
+			return false
+		}
+		// Check the DNS name first since this package
+		// is doing the DNS resolution.
+		if a.Endpoint.DNS != b.Endpoint.DNS {
+			return false
+		}
+		if a.Endpoint.DNS == "" && !a.Endpoint.IP.Equal(b.Endpoint.IP) {
+			return false
+		}
+	}
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
 	// equivalent. However, we do want to check if LastSeen has transitioned
 	// between valid and invalid.
-	return ipNetsEqual(a.ExternalIP, b.ExternalIP) && string(a.Key) == string(b.Key) && ipNetsEqual(a.WireGuardIP, b.WireGuardIP) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready()
+	return string(a.Key) == string(b.Key) && ipNetsEqual(a.WireGuardIP, b.WireGuardIP) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready()
 }
 
 func peersAreEqual(a, b *Peer) bool {
@@ -761,7 +832,15 @@ func peersAreEqual(a, b *Peer) bool {
 		return false
 	}
 	if a.Endpoint != nil {
-		if !a.Endpoint.IP.Equal(b.Endpoint.IP) || a.Endpoint.Port != b.Endpoint.Port {
+		if a.Endpoint.Port != b.Endpoint.Port {
+			return false
+		}
+		// Check the DNS name first since this package
+		// is doing the DNS resolution.
+		if a.Endpoint.DNS != b.Endpoint.DNS {
+			return false
+		}
+		if a.Endpoint.DNS == "" && !a.Endpoint.IP.Equal(b.Endpoint.IP) {
 			return false
 		}
 	}

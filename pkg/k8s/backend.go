@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/apimachinery/pkg/util/validation"
 	v1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	v1listers "k8s.io/client-go/listers/core/v1"
@@ -48,8 +49,8 @@ import (
 const (
 	// Backend is the name of this mesh backend.
 	Backend                      = "kubernetes"
-	externalIPAnnotationKey      = "kilo.squat.ai/external-ip"
-	forceExternalIPAnnotationKey = "kilo.squat.ai/force-external-ip"
+	endpointAnnotationKey        = "kilo.squat.ai/endpoint"
+	forceEndpointAnnotationKey   = "kilo.squat.ai/force-endpoint"
 	forceInternalIPAnnotationKey = "kilo.squat.ai/force-internal-ip"
 	internalIPAnnotationKey      = "kilo.squat.ai/internal-ip"
 	keyAnnotationKey             = "kilo.squat.ai/key"
@@ -119,7 +120,7 @@ func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Inter
 // CleanUp removes configuration applied to the backend.
 func (nb *nodeBackend) CleanUp(name string) error {
 	patch := []byte("[" + strings.Join([]string{
-		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(externalIPAnnotationKey, "/", jsonPatchSlash, 1))),
+		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(endpointAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(internalIPAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(keyAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(lastSeenAnnotationKey, "/", jsonPatchSlash, 1))),
@@ -205,7 +206,7 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 		return fmt.Errorf("failed to find node: %v", err)
 	}
 	n := old.DeepCopy()
-	n.ObjectMeta.Annotations[externalIPAnnotationKey] = node.ExternalIP.String()
+	n.ObjectMeta.Annotations[endpointAnnotationKey] = node.Endpoint.String()
 	n.ObjectMeta.Annotations[internalIPAnnotationKey] = node.InternalIP.String()
 	n.ObjectMeta.Annotations[keyAnnotationKey] = string(node.Key)
 	n.ObjectMeta.Annotations[lastSeenAnnotationKey] = strconv.FormatInt(node.LastSeen, 10)
@@ -254,14 +255,15 @@ func translateNode(node *v1.Node) *mesh.Node {
 	if !ok {
 		location = node.ObjectMeta.Labels[regionLabelKey]
 	}
-	// Allow the IPs to be overridden.
-	externalIP, ok := node.ObjectMeta.Annotations[forceExternalIPAnnotationKey]
-	if !ok {
-		externalIP = node.ObjectMeta.Annotations[externalIPAnnotationKey]
+	// Allow the endpoint to be overridden.
+	endpoint := parseEndpoint(node.ObjectMeta.Annotations[forceEndpointAnnotationKey])
+	if endpoint == nil {
+		endpoint = parseEndpoint(node.ObjectMeta.Annotations[endpointAnnotationKey])
 	}
-	internalIP, ok := node.ObjectMeta.Annotations[forceInternalIPAnnotationKey]
-	if !ok {
-		internalIP = node.ObjectMeta.Annotations[internalIPAnnotationKey]
+	// Allow the internal IP to be overridden.
+	internalIP := normalizeIP(node.ObjectMeta.Annotations[forceInternalIPAnnotationKey])
+	if internalIP == nil {
+		internalIP = normalizeIP(node.ObjectMeta.Annotations[internalIPAnnotationKey])
 	}
 	// Set Wireguard PersistentKeepalive setting for the node.
 	var persistentKeepalive int64
@@ -281,12 +283,12 @@ func translateNode(node *v1.Node) *mesh.Node {
 		}
 	}
 	return &mesh.Node{
-		// ExternalIP and InternalIP should only ever fail to parse if the
+		// Endpoint and InternalIP should only ever fail to parse if the
 		// remote node's agent has not yet set its IP address;
 		// in this case the IP will be nil and
 		// the mesh can wait for the node to be updated.
-		ExternalIP:          normalizeIP(externalIP),
-		InternalIP:          normalizeIP(internalIP),
+		Endpoint:            endpoint,
+		InternalIP:          internalIP,
 		Key:                 []byte(node.ObjectMeta.Annotations[keyAnnotationKey]),
 		LastSeen:            lastSeen,
 		Leader:              leader,
@@ -325,8 +327,8 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		}
 		if peer.Spec.Endpoint.Port > 0 && ip != nil {
 			endpoint = &wireguard.Endpoint{
-				IP:   ip,
-				Port: peer.Spec.Endpoint.Port,
+				DNSOrIP: wireguard.DNSOrIP{IP: ip},
+				Port:    peer.Spec.Endpoint.Port,
 			}
 		}
 	}
@@ -486,4 +488,36 @@ func normalizeIP(ip string) *net.IPNet {
 	}
 	ipNet.IP = i.To16()
 	return ipNet
+}
+
+func parseEndpoint(endpoint string) *wireguard.Endpoint {
+	if len(endpoint) == 0 {
+		return nil
+	}
+	parts := strings.Split(endpoint, ":")
+	if len(parts) < 2 {
+		return nil
+	}
+	portRaw := parts[len(parts)-1]
+	hostRaw := strings.Trim(strings.Join(parts[:len(parts)-1], ":"), "[]")
+	port, err := strconv.ParseUint(portRaw, 10, 32)
+	if err != nil {
+		return nil
+	}
+	if len(validation.IsValidPortNum(int(port))) != 0 {
+		return nil
+	}
+	ip := net.ParseIP(hostRaw)
+	if ip == nil {
+		if len(validation.IsDNS1123Subdomain(hostRaw)) == 0 {
+			return &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{DNS: hostRaw}, Port: uint32(port)}
+		}
+		return nil
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		ip = ip4
+	} else {
+		ip = ip.To16()
+	}
+	return &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: ip}, Port: uint32(port)}
 }
