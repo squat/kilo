@@ -759,9 +759,8 @@ func (m *Mesh) resolveEndpoints() error {
 		if !m.peers[k].Ready() {
 			continue
 		}
-		// If the peer is ready, then the endpoint is not nil
-		// but it may not have a DNS name.
-		if m.peers[k].Endpoint.DNS == "" {
+		// Peers may have nil endpoints.
+		if m.peers[k].Endpoint == nil || m.peers[k].Endpoint.DNS == "" {
 			continue
 		}
 		if err := resolveEndpoint(m.peers[k].Endpoint); err != nil {
