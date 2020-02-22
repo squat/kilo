@@ -304,10 +304,12 @@ func (m *Mesh) Run() error {
 		return fmt.Errorf("failed to initialize node backend: %v", err)
 	}
 	// Try to set the CNI config quickly.
-	if n, err := m.Nodes().Get(m.hostname); err == nil {
-		if n != nil && n.Subnet != nil {
+	if m.cni {
+		if n, err := m.Nodes().Get(m.hostname); err == nil {
 			m.nodes[m.hostname] = n
 			m.updateCNIConfig()
+		} else {
+			level.Warn(m.logger).Log("error", fmt.Errorf("failed to get node %q: %v", m.hostname, err))
 		}
 	}
 	if err := m.Peers().Init(m.stop); err != nil {
