@@ -96,6 +96,28 @@ func TestCompareConf(t *testing.T) {
 			out: false,
 		},
 		{
+			name: "different value",
+			a: []byte(`[Interface]
+		PrivateKey = private
+		ListenPort = 51820
+
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
+			b: []byte(`[Interface]
+		PrivateKey = private
+		ListenPort = 51820
+
+		[Peer]
+		Endpoint = 10.1.0.2:51820
+		PublicKey = key2
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+		`),
+			out: false,
+		},
+		{
 			name: "section order",
 			a: []byte(`[Interface]
 		PrivateKey = private

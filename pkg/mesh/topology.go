@@ -54,7 +54,7 @@ type Topology struct {
 
 type segment struct {
 	allowedIPs []*net.IPNet
-	endpoint   net.IP
+	endpoint   *wireguard.Endpoint
 	key        []byte
 	// Location is the logical location of this segment.
 	location string
@@ -122,7 +122,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		}
 		t.segments = append(t.segments, &segment{
 			allowedIPs:          allowedIPs,
-			endpoint:            topoMap[location][leader].ExternalIP.IP,
+			endpoint:            topoMap[location][leader].Endpoint,
 			key:                 topoMap[location][leader].Key,
 			location:            location,
 			cidrs:               cidrs,
@@ -175,7 +175,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		var gw net.IP
 		for _, segment := range t.segments {
 			if segment.location == t.location {
-				gw = enc.Gw(segment.endpoint, segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
+				gw = enc.Gw(segment.endpoint.IP, segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
 				break
 			}
 		}
@@ -316,7 +316,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 			// equals the external IP. This means that the node
 			// is only accessible through an external IP and we
 			// cannot encapsulate traffic to an IP through the IP.
-			if segment.privateIPs[i].Equal(segment.endpoint) {
+			if segment.privateIPs[i].Equal(segment.endpoint.IP) {
 				continue
 			}
 			// Add routes to the private IPs of nodes in other segments.
@@ -364,11 +364,8 @@ func (t *Topology) Conf() *wireguard.Conf {
 			continue
 		}
 		peer := &wireguard.Peer{
-			AllowedIPs: s.allowedIPs,
-			Endpoint: &wireguard.Endpoint{
-				IP:   s.endpoint,
-				Port: uint32(t.port),
-			},
+			AllowedIPs:          s.allowedIPs,
+			Endpoint:            s.endpoint,
 			PublicKey:           s.key,
 			PersistentKeepalive: s.persistentKeepalive,
 		}
@@ -394,11 +391,8 @@ func (t *Topology) AsPeer() *wireguard.Peer {
 			continue
 		}
 		return &wireguard.Peer{
-			AllowedIPs: s.allowedIPs,
-			Endpoint: &wireguard.Endpoint{
-				IP:   s.endpoint,
-				Port: uint32(t.port),
-			},
+			AllowedIPs:          s.allowedIPs,
+			Endpoint:            s.endpoint,
 			PersistentKeepalive: s.persistentKeepalive,
 			PublicKey:           s.key,
 		}
@@ -411,11 +405,8 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 	c := &wireguard.Conf{}
 	for _, s := range t.segments {
 		peer := &wireguard.Peer{
-			AllowedIPs: s.allowedIPs,
-			Endpoint: &wireguard.Endpoint{
-				IP:   s.endpoint,
-				Port: uint32(t.port),
-			},
+			AllowedIPs:          s.allowedIPs,
+			Endpoint:            s.endpoint,
 			PersistentKeepalive: s.persistentKeepalive,
 			PublicKey:           s.key,
 		}
@@ -450,12 +441,13 @@ func findLeader(nodes []*Node) int {
 	var leaders, public []int
 	for i := range nodes {
 		if nodes[i].Leader {
-			if isPublic(nodes[i].ExternalIP) {
+			if isPublic(nodes[i].Endpoint.IP) {
 				return i
 			}
 			leaders = append(leaders, i)
+
 		}
-		if isPublic(nodes[i].ExternalIP) {
+		if isPublic(nodes[i].Endpoint.IP) {
 			public = append(public, i)
 		}
 	}

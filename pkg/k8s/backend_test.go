@@ -42,7 +42,7 @@ func TestTranslateNode(t *testing.T) {
 		{
 			name: "invalid ips",
 			annotations: map[string]string{
-				externalIPAnnotationKey: "10.0.0.1",
+				endpointAnnotationKey:   "10.0.0.1",
 				internalIPAnnotationKey: "foo",
 			},
 			out: &mesh.Node{},
@@ -50,11 +50,11 @@ func TestTranslateNode(t *testing.T) {
 		{
 			name: "valid ips",
 			annotations: map[string]string{
-				externalIPAnnotationKey: "10.0.0.1/24",
+				endpointAnnotationKey:   "10.0.0.1:51820",
 				internalIPAnnotationKey: "10.0.0.2/32",
 			},
 			out: &mesh.Node{
-				ExternalIP: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)},
+				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: mesh.DefaultKiloPort},
 				InternalIP: &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(32, 32)},
 			},
 		},
@@ -102,13 +102,23 @@ func TestTranslateNode(t *testing.T) {
 			},
 		},
 		{
-			name: "external IP override",
+			name: "invalid endpoint override",
 			annotations: map[string]string{
-				externalIPAnnotationKey:      "10.0.0.1/24",
-				forceExternalIPAnnotationKey: "10.0.0.2/24",
+				endpointAnnotationKey:      "10.0.0.1:51820",
+				forceEndpointAnnotationKey: "-10.0.0.2:51821",
 			},
 			out: &mesh.Node{
-				ExternalIP: &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
+				Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: mesh.DefaultKiloPort},
+			},
+		},
+		{
+			name: "endpoint override",
+			annotations: map[string]string{
+				endpointAnnotationKey:      "10.0.0.1:51820",
+				forceEndpointAnnotationKey: "10.0.0.2:51821",
+			},
+			out: &mesh.Node{
+				Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.2")}, Port: 51821},
 			},
 		},
 		{
@@ -118,6 +128,16 @@ func TestTranslateNode(t *testing.T) {
 			},
 			out: &mesh.Node{
 				PersistentKeepalive: 25,
+			},
+		},
+		{
+			name: "invalid internal IP override",
+			annotations: map[string]string{
+				internalIPAnnotationKey:      "10.1.0.1/24",
+				forceInternalIPAnnotationKey: "-10.1.0.2/24",
+			},
+			out: &mesh.Node{
+				InternalIP: &net.IPNet{IP: net.ParseIP("10.1.0.1"), Mask: net.CIDRMask(24, 32)},
 			},
 		},
 		{
@@ -140,8 +160,8 @@ func TestTranslateNode(t *testing.T) {
 		{
 			name: "complete",
 			annotations: map[string]string{
-				externalIPAnnotationKey:      "10.0.0.1/24",
-				forceExternalIPAnnotationKey: "10.0.0.2/24",
+				endpointAnnotationKey:        "10.0.0.1:51820",
+				forceEndpointAnnotationKey:   "10.0.0.2:51821",
 				forceInternalIPAnnotationKey: "10.1.0.2/32",
 				internalIPAnnotationKey:      "10.1.0.1/32",
 				keyAnnotationKey:             "foo",
@@ -155,7 +175,7 @@ func TestTranslateNode(t *testing.T) {
 				regionLabelKey: "a",
 			},
 			out: &mesh.Node{
-				ExternalIP:          &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)},
+				Endpoint:            &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.2")}, Port: 51821},
 				InternalIP:          &net.IPNet{IP: net.ParseIP("10.1.0.2"), Mask: net.CIDRMask(32, 32)},
 				Key:                 []byte("foo"),
 				LastSeen:            1000000000,
@@ -237,8 +257,8 @@ func TestTranslatePeer(t *testing.T) {
 			out: &mesh.Peer{
 				Peer: wireguard.Peer{
 					Endpoint: &wireguard.Endpoint{
-						IP:   net.ParseIP("10.0.0.1"),
-						Port: mesh.DefaultKiloPort,
+						DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")},
+						Port:    mesh.DefaultKiloPort,
 					},
 				},
 			},
@@ -284,6 +304,55 @@ func TestTranslatePeer(t *testing.T) {
 		p.Spec = tc.spec
 		peer := translatePeer(p)
 		if diff := pretty.Compare(peer, tc.out); diff != "" {
+			t.Errorf("test case %q: got diff: %v", tc.name, diff)
+		}
+	}
+}
+
+func TestParseEndpoint(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		endpoint string
+		out      *wireguard.Endpoint
+	}{
+		{
+			name:     "empty",
+			endpoint: "",
+			out:      nil,
+		},
+		{
+			name:     "invalid IP",
+			endpoint: "10.0.0.:51820",
+			out:      nil,
+		},
+		{
+			name:     "invalid hostname",
+			endpoint: "foo-:51820",
+			out:      nil,
+		},
+		{
+			name:     "invalid port",
+			endpoint: "10.0.0.1:100000000",
+			out:      nil,
+		},
+		{
+			name:     "valid IP",
+			endpoint: "10.0.0.1:51820",
+			out:      &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: mesh.DefaultKiloPort},
+		},
+		{
+			name:     "valid IPv6",
+			endpoint: "[ff02::114]:51820",
+			out:      &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("ff02::114")}, Port: mesh.DefaultKiloPort},
+		},
+		{
+			name:     "valid hostname",
+			endpoint: "foo:51821",
+			out:      &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{DNS: "foo"}, Port: 51821},
+		},
+	} {
+		endpoint := parseEndpoint(tc.endpoint)
+		if diff := pretty.Compare(endpoint, tc.out); diff != "" {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}
 	}

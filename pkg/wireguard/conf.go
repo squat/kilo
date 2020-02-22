@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 type section string
@@ -75,8 +77,32 @@ func (p *Peer) DeduplicateIPs() {
 
 // Endpoint represents an `endpoint` key of a `peer` section.
 type Endpoint struct {
-	IP   net.IP
+	DNSOrIP
 	Port uint32
+}
+
+// String prints the string representation of the endpoint.
+func (e *Endpoint) String() string {
+	dnsOrIP := e.DNSOrIP.String()
+	if e.IP != nil && len(e.IP) == net.IPv6len {
+		dnsOrIP = "[" + dnsOrIP + "]"
+	}
+	return dnsOrIP + ":" + strconv.FormatUint(uint64(e.Port), 10)
+}
+
+// DNSOrIP represents either a DNS name or an IP address.
+// IPs, as they are more specific, are preferred.
+type DNSOrIP struct {
+	DNS string
+	IP  net.IP
+}
+
+// String prints the string representation of the struct.
+func (d DNSOrIP) String() string {
+	if d.IP != nil {
+		return d.IP.String()
+	}
+	return d.DNS
 }
 
 // Parse parses a given WireGuard configuration file and produces a Conf struct.
@@ -160,25 +186,30 @@ func Parse(buf []byte) *Conf {
 			case endpointKey:
 				// Reuse string slice.
 				kv = strings.Split(v, ":")
-				if len(kv) != 2 {
+				if len(kv) < 2 {
 					continue
 				}
-				ip = net.ParseIP(kv[0])
-				if ip == nil {
-					continue
-				}
-				port, err = strconv.ParseUint(kv[1], 10, 32)
+				port, err = strconv.ParseUint(kv[len(kv)-1], 10, 32)
 				if err != nil {
 					continue
 				}
-				if ip4 = ip.To4(); ip4 != nil {
-					ip = ip4
+				d := DNSOrIP{}
+				ip = net.ParseIP(strings.Trim(strings.Join(kv[:len(kv)-1], ":"), "[]"))
+				if ip == nil {
+					if len(validation.IsDNS1123Subdomain(kv[0])) != 0 {
+						continue
+					}
+					d.DNS = kv[0]
 				} else {
-					ip = ip.To16()
+					if ip4 = ip.To4(); ip4 != nil {
+						d.IP = ip4
+					} else {
+						d.IP = ip.To16()
+					}
 				}
 				peer.Endpoint = &Endpoint{
-					IP:   ip,
-					Port: uint32(port),
+					DNSOrIP: d,
+					Port:    uint32(port),
 				}
 			case persistentKeepaliveKey:
 				i, err = strconv.Atoi(v)
@@ -242,7 +273,7 @@ func (c *Conf) Bytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// Equal checks if two WireGuare configurations are equivalent.
+// Equal checks if two WireGuard configurations are equivalent.
 func (c *Conf) Equal(b *Conf) bool {
 	if (c.Interface == nil) != (b.Interface == nil) {
 		return false
@@ -272,7 +303,15 @@ func (c *Conf) Equal(b *Conf) bool {
 			return false
 		}
 		if c.Peers[i].Endpoint != nil {
-			if !c.Peers[i].Endpoint.IP.Equal(b.Peers[i].Endpoint.IP) || c.Peers[i].Endpoint.Port != b.Peers[i].Endpoint.Port {
+			if c.Peers[i].Endpoint.Port != b.Peers[i].Endpoint.Port {
+				return false
+			}
+			// IPs take priority, so check them first.
+			if !c.Peers[i].Endpoint.IP.Equal(b.Peers[i].Endpoint.IP) {
+				return false
+			}
+			// Only check the DNS name if the IP is empty.
+			if c.Peers[i].Endpoint.IP == nil && c.Peers[i].Endpoint.DNS != b.Peers[i].Endpoint.DNS {
 				return false
 			}
 		}
@@ -352,13 +391,7 @@ func writeEndpoint(buf *bytes.Buffer, e *Endpoint) error {
 	if err = writeKey(buf, endpointKey); err != nil {
 		return err
 	}
-	if _, err = buf.WriteString(e.IP.String()); err != nil {
-		return err
-	}
-	if err = buf.WriteByte(':'); err != nil {
-		return err
-	}
-	if _, err = buf.WriteString(strconv.FormatUint(uint64(e.Port), 10)); err != nil {
+	if _, err = buf.WriteString(e.String()); err != nil {
 		return err
 	}
 	return buf.WriteByte('\n')

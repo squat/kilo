@@ -17,8 +17,10 @@ package mesh
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/awalterschulze/gographviz"
+	"github.com/squat/kilo/pkg/wireguard"
 )
 
 // Dot generates a Graphviz graph of the Topology in DOT fomat.
@@ -60,13 +62,15 @@ func (t *Topology) Dot() (string, error) {
 				return "", fmt.Errorf("failed to add node to subgraph")
 			}
 			var wg net.IP
+			var endpoint *wireguard.Endpoint
 			if j == s.leader {
 				wg = s.wireGuardIP
+				endpoint = s.endpoint
 				if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Rank), "1"); err != nil {
 					return "", fmt.Errorf("failed to add rank to node")
 				}
 			}
-			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], s.privateIPs[j], wg)); err != nil {
+			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], s.privateIPs[j], wg, endpoint)); err != nil {
 				return "", fmt.Errorf("failed to add label to node")
 			}
 		}
@@ -146,14 +150,22 @@ func subGraphName(name string) string {
 	return graphEscape(fmt.Sprintf("cluster_location_%s", name))
 }
 
-func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP) string {
-	var wg string
-	if wgIP != nil {
-		wg = wgIP.String()
+func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP, endpoint *wireguard.Endpoint) string {
+	label := []string{
+		location,
+		name,
+		cidr.String(),
+		priv.String(),
 	}
-	return graphEscape(fmt.Sprintf("%s\n%s\n%s\n%s\n%s", location, name, cidr.String(), priv.String(), wg))
+	if wgIP != nil {
+		label = append(label, wgIP.String())
+	}
+	if endpoint != nil {
+		label = append(label, endpoint.String())
+	}
+	return graphEscape(strings.Join(label, "\n"))
 }
 
 func peerLabel(peer *Peer) string {
-	return graphEscape(fmt.Sprintf("%s\n%s\n", peer.Name, peer.Endpoint.IP.String()))
+	return graphEscape(fmt.Sprintf("%s\n%s\n", peer.Name, peer.Endpoint.String()))
 }

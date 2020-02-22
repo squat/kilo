@@ -2,19 +2,22 @@
 
 The following annotations can be added to any Kubernetes Node object to configure the Kilo network.
 
-|Name|type|example|
+|Name|type|examples|
 |----|----|-------|
-|[kilo.squat.ai/force-external-ip](#force-external-ip)|CIDR|`"55.55.55.55/32"`|
-|[kilo.squat.ai/force-internal-ip](#force-internal-ip)|CIDR|`"55.55.55.55/32"`|
-|[kilo.squat.ai/leader](#leader)|string|`""`|
-|[kilo.squat.ai/location](#location)|string|`"gcp-east"`|
+|[kilo.squat.ai/force-endpoint](#force-endpoint)|host:port|`55.55.55.55:51820`, `example.com:1337|
+|[kilo.squat.ai/force-internal-ip](#force-internal-ip)|CIDR|`55.55.55.55/32`|
+|[kilo.squat.ai/leader](#leader)|string|`""`, `true`|
+|[kilo.squat.ai/location](#location)|string|`gcp-east`, `lab`|
 
-### force-external-ip
-Kilo requires at least one node in each location to have a publicly accessible IP address in order to create links to other locations.
-The Kilo agent running on each node will use heuristics to automatically detect an external IP address for the node; however, in some circumstances it may be necessary to explicitly configure the IP address, for example:
+### force-endpoint
+In order to create links between locations, Kilo requires at least one node in each location to have an endpoint, ie a `host:port` combination, that is routable from the other locations.
+If the locations are in different cloud providers or in different private networks, then the `host` portion of the endpoint should be a publicly accessible IP address, or a DNS name that resolves to a public IP, so that the other locations can route packets to it.
+The Kilo agent running on each node will use heuristics to automatically detect an external IP address for the node and correctly configure its endpoint; however, in some circumstances it may be necessary to explicitly configure the endpoint to use, for example:
  * _no automatic public IP on ethernet device_: on some cloud providers it is common for nodes to be allocated a public IP address but for the Ethernet devices to only be automatically configured with the private network address; in this case the allocated public IP address should be specified;
  * _multiple public IP addresses_: if a node has multiple public IPs but one is preferred, then the preferred IP address should be specified;
- * _IPv6_: if a node has both public IPv4 and IPv6 addresses and the Kilo network should operate over IPv6, then the IPv6 address should be specified.
+ * _IPv6_: if a node has both public IPv4 and IPv6 addresses and the Kilo network should operate over IPv6, then the IPv6 address should be specified;
+ * _dynamic IP address_: if a node has a dynamically allocated public IP address, for example an IP leased from a network provider, then a dynamic DNS name can be given can be given and Kilo will periodically lookup the IP to keep the endpoint up-to-date;
+ * _override port_: if a node should listen on a specific port that is different from the mesh's default WireGuard port, then this annotation can be used to override the port; this can be useful, for example, to ensure that two nodes operating behind the same port-forwarded NAT gateway can each be allocated a different port.
 
 ### force-internal-ip
 Kilo routes packets destined for nodes inside the same logical location using the node's internal IP address.
