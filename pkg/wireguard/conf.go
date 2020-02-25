@@ -302,7 +302,7 @@ func (c *Conf) Equal(b *Conf) bool {
 		if (c.Peers[i].Endpoint == nil) != (b.Peers[i].Endpoint == nil) {
 			return false
 		}
-		if c.Peers[i].Endpoint != nil {
+		if c.Peers[i].Endpoint != nil && c.Peers[i].PersistentKeepalive == 0 {
 			if c.Peers[i].Endpoint.Port != b.Peers[i].Endpoint.Port {
 				return false
 			}
