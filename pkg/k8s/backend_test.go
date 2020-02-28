@@ -240,17 +240,30 @@ func TestTranslatePeer(t *testing.T) {
 			name: "invalid endpoint ip",
 			spec: v1alpha1.PeerSpec{
 				Endpoint: &v1alpha1.PeerEndpoint{
-					IP:   "foo",
+					DNSOrIP: v1alpha1.DNSOrIP{
+						IP: "foo",
+					},
 					Port: mesh.DefaultKiloPort,
 				},
 			},
 			out: &mesh.Peer{},
 		},
 		{
-			name: "valid endpoint",
+			name: "only endpoint port",
 			spec: v1alpha1.PeerSpec{
 				Endpoint: &v1alpha1.PeerEndpoint{
-					IP:   "10.0.0.1",
+					Port: mesh.DefaultKiloPort,
+				},
+			},
+			out: &mesh.Peer{},
+		},
+		{
+			name: "valid endpoint ip",
+			spec: v1alpha1.PeerSpec{
+				Endpoint: &v1alpha1.PeerEndpoint{
+					DNSOrIP: v1alpha1.DNSOrIP{
+						IP: "10.0.0.1",
+					},
 					Port: mesh.DefaultKiloPort,
 				},
 			},
@@ -258,6 +271,25 @@ func TestTranslatePeer(t *testing.T) {
 				Peer: wireguard.Peer{
 					Endpoint: &wireguard.Endpoint{
 						DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")},
+						Port:    mesh.DefaultKiloPort,
+					},
+				},
+			},
+		},
+		{
+			name: "valid endpoint DNS",
+			spec: v1alpha1.PeerSpec{
+				Endpoint: &v1alpha1.PeerEndpoint{
+					DNSOrIP: v1alpha1.DNSOrIP{
+						DNS: "example.com",
+					},
+					Port: mesh.DefaultKiloPort,
+				},
+			},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					Endpoint: &wireguard.Endpoint{
+						DNSOrIP: wireguard.DNSOrIP{DNS: "example.com"},
 						Port:    mesh.DefaultKiloPort,
 					},
 				},

@@ -289,9 +289,16 @@ func translatePeer(peer *wireguard.Peer) *v1alpha1.Peer {
 		aips = append(aips, aip.String())
 	}
 	var endpoint *v1alpha1.PeerEndpoint
-	if peer.Endpoint != nil && peer.Endpoint.Port > 0 && peer.Endpoint.IP != nil {
+	if peer.Endpoint != nil && peer.Endpoint.Port > 0 && (peer.Endpoint.IP != nil || peer.Endpoint.DNS != "") {
+		var ip string
+		if peer.Endpoint.IP != nil {
+			ip = peer.Endpoint.IP.String()
+		}
 		endpoint = &v1alpha1.PeerEndpoint{
-			IP:   peer.Endpoint.IP.String(),
+			DNSOrIP: v1alpha1.DNSOrIP{
+				DNS: peer.Endpoint.DNS,
+				IP:  ip,
+			},
 			Port: peer.Endpoint.Port,
 		}
 	}

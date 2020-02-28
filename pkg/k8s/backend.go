@@ -325,10 +325,13 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		} else {
 			ip = ip.To16()
 		}
-		if peer.Spec.Endpoint.Port > 0 && ip != nil {
+		if peer.Spec.Endpoint.Port > 0 && (ip != nil || peer.Spec.Endpoint.DNS != "") {
 			endpoint = &wireguard.Endpoint{
-				DNSOrIP: wireguard.DNSOrIP{IP: ip},
-				Port:    peer.Spec.Endpoint.Port,
+				DNSOrIP: wireguard.DNSOrIP{
+					DNS: peer.Spec.Endpoint.DNS,
+					IP:  ip,
+				},
+				Port: peer.Spec.Endpoint.Port,
 			}
 		}
 	}
@@ -464,8 +467,15 @@ func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
 		p.Spec.AllowedIPs[i] = peer.AllowedIPs[i].String()
 	}
 	if peer.Endpoint != nil {
+		var ip string
+		if peer.Endpoint.IP != nil {
+			ip = peer.Endpoint.IP.String()
+		}
 		p.Spec.Endpoint = &v1alpha1.PeerEndpoint{
-			IP:   peer.Endpoint.IP.String(),
+			DNSOrIP: v1alpha1.DNSOrIP{
+				IP:  ip,
+				DNS: peer.Endpoint.DNS,
+			},
 			Port: peer.Endpoint.Port,
 		}
 	}
