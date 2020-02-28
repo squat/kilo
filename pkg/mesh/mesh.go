@@ -355,52 +355,10 @@ func (m *Mesh) Run() error {
 			if m.cni {
 				m.updateCNIConfig()
 			}
-			m.syncEndpoints()
 			m.applyTopology()
 			t.Reset(resyncPeriod)
 		case <-m.stop:
 			return nil
-		}
-	}
-}
-
-// WireGuard updates the endpoints of peers to match the
-// last place a valid packet was received from.
-// Periodically we need to syncronize the endpoints
-// of peers in the backend to match the WireGuard configuration.
-func (m *Mesh) syncEndpoints() {
-	link, err := linkByIndex(m.kiloIface)
-	if err != nil {
-		level.Error(m.logger).Log("error", err)
-		m.errorCounter.WithLabelValues("endpoints").Inc()
-		return
-	}
-	conf, err := wireguard.ShowConf(link.Attrs().Name)
-	if err != nil {
-		level.Error(m.logger).Log("error", err)
-		m.errorCounter.WithLabelValues("endpoints").Inc()
-		return
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	c := wireguard.Parse(conf)
-	var key string
-	var tmp *Peer
-	for i := range c.Peers {
-		// Peers are indexed by public key.
-		key = string(c.Peers[i].PublicKey)
-		if p, ok := m.peers[key]; ok {
-			tmp = &Peer{
-				Name: p.Name,
-				Peer: *c.Peers[i],
-			}
-			if !peersAreEqual(tmp, p) {
-				p.Endpoint = tmp.Endpoint
-				if err := m.Peers().Set(p.Name, p); err != nil {
-					level.Error(m.logger).Log("error", err)
-					m.errorCounter.WithLabelValues("endpoints").Inc()
-				}
-			}
 		}
 	}
 }
