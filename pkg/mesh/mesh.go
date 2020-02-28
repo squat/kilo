@@ -659,7 +659,7 @@ func (m *Mesh) applyTopology() {
 		}
 		// Setting the WireGuard configuration interrupts existing connections
 		// so only set the configuration if it has changed.
-		equal := conf.Equal(wireguard.Parse(oldConf))
+		equal := conf.EqualWithPeerCheck(wireguard.Parse(oldConf), peersAreEqualIgnoreNAT)
 		if !equal {
 			level.Info(m.logger).Log("msg", "WireGuard configurations are different")
 			if err := wireguard.SetConf(link.Attrs().Name, ConfPath); err != nil {
@@ -854,6 +854,41 @@ func peersAreEqual(a, b *Peer) bool {
 		}
 	}
 	return string(a.PublicKey) == string(b.PublicKey) && a.PersistentKeepalive == b.PersistentKeepalive
+}
+
+// Basic nil checks and checking the lengths of the allowed IPs is
+// done by the WireGuard package.
+func peersAreEqualIgnoreNAT(a, b *wireguard.Peer) bool {
+	for j := range a.AllowedIPs {
+		if a.AllowedIPs[j].String() != b.AllowedIPs[j].String() {
+			return false
+		}
+	}
+	if a.PersistentKeepalive != b.PersistentKeepalive || !bytes.Equal(a.PublicKey, b.PublicKey) {
+		return false
+	}
+	// If a persistent keepalive is set, then the peer is behind NAT
+	// and we want to ignore changes in endpoints, since it may roam.
+	if a.PersistentKeepalive != 0 {
+		return true
+	}
+	if (a.Endpoint == nil) != (b.Endpoint == nil) {
+		return false
+	}
+	if a.Endpoint != nil {
+		if a.Endpoint.Port != b.Endpoint.Port {
+			return false
+		}
+		// IPs take priority, so check them first.
+		if !a.Endpoint.IP.Equal(b.Endpoint.IP) {
+			return false
+		}
+		// Only check the DNS name if the IP is empty.
+		if a.Endpoint.IP == nil && a.Endpoint.DNS != b.Endpoint.DNS {
+			return false
+		}
+	}
+	return true
 }
 
 func ipNetsEqual(a, b *net.IPNet) bool {
