@@ -118,15 +118,14 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].Endpoint,
-						key:                 nodes["a"].Key,
-						location:            nodes["a"].Location,
-						cidrs:               []*net.IPNet{nodes["a"].Subnet},
-						hostnames:           []string{"a"},
-						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
-						persistentKeepalive: nodes["a"].PersistentKeepalive,
-						wireGuardIP:         w1,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].Endpoint,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Location,
+						cidrs:       []*net.IPNet{nodes["a"].Subnet},
+						hostnames:   []string{"a"},
+						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP: w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -155,15 +154,14 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].Endpoint,
-						key:                 nodes["a"].Key,
-						location:            nodes["a"].Location,
-						cidrs:               []*net.IPNet{nodes["a"].Subnet},
-						hostnames:           []string{"a"},
-						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
-						persistentKeepalive: nodes["a"].PersistentKeepalive,
-						wireGuardIP:         w1,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].Endpoint,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Location,
+						cidrs:       []*net.IPNet{nodes["a"].Subnet},
+						hostnames:   []string{"a"},
+						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP: w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -192,15 +190,14 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: nil,
 				segments: []*segment{
 					{
-						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].Endpoint,
-						key:                 nodes["a"].Key,
-						location:            nodes["a"].Location,
-						cidrs:               []*net.IPNet{nodes["a"].Subnet},
-						hostnames:           []string{"a"},
-						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
-						persistentKeepalive: nodes["a"].PersistentKeepalive,
-						wireGuardIP:         w1,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].Endpoint,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Location,
+						cidrs:       []*net.IPNet{nodes["a"].Subnet},
+						hostnames:   []string{"a"},
+						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP: w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -229,15 +226,14 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].Endpoint,
-						key:                 nodes["a"].Key,
-						location:            nodes["a"].Name,
-						cidrs:               []*net.IPNet{nodes["a"].Subnet},
-						hostnames:           []string{"a"},
-						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
-						persistentKeepalive: nodes["a"].PersistentKeepalive,
-						wireGuardIP:         w1,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].Endpoint,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Name,
+						cidrs:       []*net.IPNet{nodes["a"].Subnet},
+						hostnames:   []string{"a"},
+						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP: w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -276,15 +272,14 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].Endpoint,
-						key:                 nodes["a"].Key,
-						location:            nodes["a"].Name,
-						cidrs:               []*net.IPNet{nodes["a"].Subnet},
-						hostnames:           []string{"a"},
-						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
-						persistentKeepalive: nodes["a"].PersistentKeepalive,
-						wireGuardIP:         w1,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].Endpoint,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Name,
+						cidrs:       []*net.IPNet{nodes["a"].Subnet},
+						hostnames:   []string{"a"},
+						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP: w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -323,15 +318,14 @@ func TestNewTopology(t *testing.T) {
 				wireGuardCIDR: &net.IPNet{IP: w3, Mask: net.CIDRMask(16, 32)},
 				segments: []*segment{
 					{
-						allowedIPs:          []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						endpoint:            nodes["a"].Endpoint,
-						key:                 nodes["a"].Key,
-						location:            nodes["a"].Name,
-						cidrs:               []*net.IPNet{nodes["a"].Subnet},
-						hostnames:           []string{"a"},
-						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
-						persistentKeepalive: nodes["a"].PersistentKeepalive,
-						wireGuardIP:         w1,
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].Endpoint,
+						key:         nodes["a"].Key,
+						location:    nodes["a"].Name,
+						cidrs:       []*net.IPNet{nodes["a"].Subnet},
+						hostnames:   []string{"a"},
+						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP: w1,
 					},
 					{
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
@@ -360,7 +354,7 @@ func TestNewTopology(t *testing.T) {
 	} {
 		tc.result.key = key
 		tc.result.port = port
-		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, DefaultKiloSubnet)
+		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, DefaultKiloSubnet, 0)
 		if err != nil {
 			t.Errorf("test case %q: failed to generate Topology: %v", tc.name, err)
 		}
@@ -370,8 +364,8 @@ func TestNewTopology(t *testing.T) {
 	}
 }
 
-func mustTopo(t *testing.T, nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port uint32, key []byte, subnet *net.IPNet) *Topology {
-	topo, err := NewTopology(nodes, peers, granularity, hostname, port, key, subnet)
+func mustTopo(t *testing.T, nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port uint32, key []byte, subnet *net.IPNet, persistentKeepalive int) *Topology {
+	topo, err := NewTopology(nodes, peers, granularity, hostname, port, key, subnet, persistentKeepalive)
 	if err != nil {
 		t.Errorf("failed to generate Topology: %v", err)
 	}
@@ -384,7 +378,7 @@ func TestRoutes(t *testing.T) {
 	privIface := 1
 	tunlIface := 2
 	mustTopoForGranularityAndHost := func(granularity Granularity, hostname string) *Topology {
-		return mustTopo(t, nodes, peers, granularity, hostname, port, key, DefaultKiloSubnet)
+		return mustTopo(t, nodes, peers, granularity, hostname, port, key, DefaultKiloSubnet, 0)
 	}
 
 	for _, tc := range []struct {
@@ -1213,7 +1207,7 @@ func TestConf(t *testing.T) {
 	}{
 		{
 			name:     "logical from a",
-			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["a"].Name, port, key, DefaultKiloSubnet),
+			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["a"].Name, port, key, DefaultKiloSubnet, nodes["a"].PersistentKeepalive),
 			result: `[Interface]
 PrivateKey = private
 ListenPort = 51820
@@ -1222,22 +1216,23 @@ ListenPort = 51820
 PublicKey = key2
 Endpoint = 10.1.0.2:51820
 AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+PersistentKeepalive = 25
 
 [Peer]
 PublicKey = key4
-PersistentKeepalive = 0
 AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+PersistentKeepalive = 25
 
 [Peer]
 PublicKey = key5
 Endpoint = 192.168.0.1:51820
-PersistentKeepalive = 0
 AllowedIPs = 10.5.0.3/24
+PersistentKeepalive = 25
 `,
 		},
 		{
 			name:     "logical from b",
-			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["b"].Name, port, key, DefaultKiloSubnet),
+			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["b"].Name, port, key, DefaultKiloSubnet, nodes["b"].PersistentKeepalive),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1245,24 +1240,21 @@ AllowedIPs = 10.5.0.3/24
 		[Peer]
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
-		PersistentKeepalive = 25
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
 		[Peer]
 		PublicKey = key4
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
 
 		[Peer]
 		PublicKey = key5
 		Endpoint = 192.168.0.1:51820
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.3/24
 		`,
 		},
 		{
 			name:     "logical from c",
-			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["c"].Name, port, key, DefaultKiloSubnet),
+			topology: mustTopo(t, nodes, peers, LogicalGranularity, nodes["c"].Name, port, key, DefaultKiloSubnet, nodes["c"].PersistentKeepalive),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1270,24 +1262,21 @@ AllowedIPs = 10.5.0.3/24
 		[Peer]
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
-		PersistentKeepalive = 25
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
 		[Peer]
 		PublicKey = key4
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
 
 		[Peer]
 		PublicKey = key5
 		Endpoint = 192.168.0.1:51820
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.3/24
 		`,
 		},
 		{
 			name:     "full from a",
-			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["a"].Name, port, key, DefaultKiloSubnet),
+			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["a"].Name, port, key, DefaultKiloSubnet, nodes["a"].PersistentKeepalive),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1296,27 +1285,29 @@ AllowedIPs = 10.5.0.3/24
 		PublicKey = key2
 		Endpoint = 10.1.0.2:51820
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
+		PersistentKeepalive = 25
 
 		[Peer]
 		PublicKey = key3
 		Endpoint = 10.1.0.3:51820
 		AllowedIPs = 10.2.3.0/24, 192.168.0.2/32, 10.4.0.3/32
+		PersistentKeepalive = 25
 
 		[Peer]
 		PublicKey = key4
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+		PersistentKeepalive = 25
 
 		[Peer]
 		PublicKey = key5
 		Endpoint = 192.168.0.1:51820
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.3/24
+		PersistentKeepalive = 25
 		`,
 		},
 		{
 			name:     "full from b",
-			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["b"].Name, port, key, DefaultKiloSubnet),
+			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["b"].Name, port, key, DefaultKiloSubnet, nodes["b"].PersistentKeepalive),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1324,7 +1315,6 @@ AllowedIPs = 10.5.0.3/24
 		[Peer]
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
-		PersistentKeepalive = 25
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
 		[Peer]
@@ -1334,19 +1324,17 @@ AllowedIPs = 10.5.0.3/24
 
 		[Peer]
 		PublicKey = key4
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
 
 		[Peer]
 		PublicKey = key5
 		Endpoint = 192.168.0.1:51820
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.3/24
 		`,
 		},
 		{
 			name:     "full from c",
-			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["c"].Name, port, key, DefaultKiloSubnet),
+			topology: mustTopo(t, nodes, peers, FullGranularity, nodes["c"].Name, port, key, DefaultKiloSubnet, nodes["c"].PersistentKeepalive),
 			result: `[Interface]
 		PrivateKey = private
 		ListenPort = 51820
@@ -1354,7 +1342,6 @@ AllowedIPs = 10.5.0.3/24
 		[Peer]
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
-		PersistentKeepalive = 25
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
 
 		[Peer]
@@ -1364,13 +1351,11 @@ AllowedIPs = 10.5.0.3/24
 
 		[Peer]
 		PublicKey = key4
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
 
 		[Peer]
 		PublicKey = key5
 		Endpoint = 192.168.0.1:51820
-		PersistentKeepalive = 0
 		AllowedIPs = 10.5.0.3/24
 		`,
 		},

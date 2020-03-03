@@ -147,7 +147,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, opts.port, []byte{}, subnet)
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, opts.port, []byte{}, subnet, nodes[hostname].PersistentKeepalive)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
@@ -236,7 +236,7 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("did not find any peer named %q in the cluster", peer)
 	}
 
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, []byte{}, subnet)
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, []byte{}, subnet, peers[peer].PersistentKeepalive)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
