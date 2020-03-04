@@ -68,7 +68,7 @@ type PeerSpec struct {
 	// +optional
 	Endpoint *PeerEndpoint `json:"endpoint,omitempty"`
 	// PersistentKeepalive is the interval in seconds of the emission
-	// of keepalive packets to the peer. This defaults to 0, which
+	// of keepalive packets by the peer. This defaults to 0, which
 	// disables the feature.
 	// +optional
 	PersistentKeepalive int `json:"persistentKeepalive,omitempty"`

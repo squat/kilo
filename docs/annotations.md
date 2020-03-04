@@ -4,10 +4,11 @@ The following annotations can be added to any Kubernetes Node object to configur
 
 |Name|type|examples|
 |----|----|-------|
-|[kilo.squat.ai/force-endpoint](#force-endpoint)|host:port|`55.55.55.55:51820`, `example.com:1337|
+|[kilo.squat.ai/force-endpoint](#force-endpoint)|host:port|`55.55.55.55:51820`, `example.com:1337`|
 |[kilo.squat.ai/force-internal-ip](#force-internal-ip)|CIDR|`55.55.55.55/32`|
 |[kilo.squat.ai/leader](#leader)|string|`""`, `true`|
 |[kilo.squat.ai/location](#location)|string|`gcp-east`, `lab`|
+|[kilo.squat.ai/persistent-keepalive](#persistent-keepalive)|uint|`10`|
 
 ### force-endpoint
 In order to create links between locations, Kilo requires at least one node in each location to have an endpoint, ie a `host:port` combination, that is routable from the other locations.
@@ -42,3 +43,11 @@ Kilo will try to infer each node's location from the [topology.kubernetes.io/reg
 If the label is not present for a node, for example if running a bare-metal cluster or on an unsupported cloud provider, then the location annotation should be specified.
 
 _Note_: all nodes without a defined location will be considered to be in the default location `""`.
+
+### persistent-keepalive
+In certain deployments, cluster nodes may be located behind NAT or a firewall, e.g. edge nodes located behind a commodity router.
+In these scenarios, the nodes behind NAT can send packets to the nodes outside of the NATed network, however the outside nodes can only send packets into the NATed network as long as the NAT mapping remains valid.
+In order for a node behind NAT to receive packets from nodes outside of the NATed network, it must maintain the NAT mapping by regularly sending packets to those nodes, ie by sending _keepalives_.
+The frequency of emission of these keepalive packets can be controlled by setting the persistent-keepalive annotation on the node behind NAT.
+The annotated node will use the specified value will as the persistent-keepalive interval for all of its peers.
+For more background, [see the WireGuard documentation on NAT and firewall traversal](https://www.wireguard.com/quickstart/#nat-and-firewall-traversal-persistence).

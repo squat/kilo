@@ -299,7 +299,7 @@ func schema_k8s_apis_kilo_v1alpha1_PeerSpec(ref common.ReferenceCallback) common
 					},
 					"persistentKeepalive": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PersistentKeepalive is the interval in seconds of the emission of keepalive packets to the peer. This defaults to 0, which disables the feature.",
+							Description: "PersistentKeepalive is the interval in seconds of the emission of keepalive packets by the peer. This defaults to 0, which disables the feature.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
