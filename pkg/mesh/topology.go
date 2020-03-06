@@ -400,22 +400,19 @@ func (t *Topology) AsPeer() *wireguard.Peer {
 
 // PeerConf generates a WireGuard configuration file for a given peer in a Topology.
 func (t *Topology) PeerConf(name string) *wireguard.Conf {
-	var p *Peer
+	var pka int
 	for i := range t.peers {
 		if t.peers[i].Name == name {
-			p = t.peers[i]
+			pka = t.peers[i].PersistentKeepalive
 			break
 		}
-	}
-	if p == nil {
-		return nil
 	}
 	c := &wireguard.Conf{}
 	for _, s := range t.segments {
 		peer := &wireguard.Peer{
 			AllowedIPs:          s.allowedIPs,
 			Endpoint:            s.endpoint,
-			PersistentKeepalive: p.PersistentKeepalive,
+			PersistentKeepalive: pka,
 			PublicKey:           s.key,
 		}
 		c.Peers = append(c.Peers, peer)
@@ -426,7 +423,7 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 		}
 		peer := &wireguard.Peer{
 			AllowedIPs:          t.peers[i].AllowedIPs,
-			PersistentKeepalive: p.PersistentKeepalive,
+			PersistentKeepalive: pka,
 			PublicKey:           t.peers[i].PublicKey,
 			Endpoint:            t.peers[i].Endpoint,
 		}
