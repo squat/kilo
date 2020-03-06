@@ -49,6 +49,11 @@ type rule struct {
 	spec  []string
 }
 
+// NewRule creates a new iptables rule in the given table and chain.
+func NewRule(table, chain string, spec ...string) Rule {
+	return &rule{table, chain, spec}
+}
+
 func (r *rule) Add(client Client) error {
 	if err := client.AppendUnique(r.table, r.chain, r.spec...); err != nil {
 		return fmt.Errorf("failed to add iptables rule: %v", err)
@@ -78,6 +83,11 @@ func (r *rule) String() string {
 type chain struct {
 	table string
 	chain string
+}
+
+// NewChain creates a new iptables chain in the given table.
+func NewChain(table, name string) Rule {
+	return &chain{table, name}
 }
 
 func (c *chain) Add(client Client) error {
@@ -261,22 +271,6 @@ func (c *Controller) CleanUp() error {
 	c.Lock()
 	defer c.Unlock()
 	return c.deleteFromIndex(0, &c.rules)
-}
-
-// IPIPRules returns a set of iptables rules that are necessary
-// when traffic between nodes must be encapsulated with IPIP.
-func IPIPRules(nodes []*net.IPNet) []Rule {
-	var rules []Rule
-	rules = append(rules, &chain{"filter", "KILO-IPIP"})
-	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: jump to IPIP chain", "-p", "4", "-j", "KILO-IPIP"}})
-	for _, n := range nodes {
-		// Accept encapsulated traffic from peers.
-		rules = append(rules, &rule{"filter", "KILO-IPIP", []string{"-m", "comment", "--comment", "Kilo: allow IPIP traffic", "-s", n.IP.String(), "-j", "ACCEPT"}})
-	}
-	// Drop all other IPIP traffic.
-	rules = append(rules, &rule{"filter", "INPUT", []string{"-m", "comment", "--comment", "Kilo: reject other IPIP traffic", "-p", "4", "-j", "DROP"}})
-
-	return rules
 }
 
 // ForwardRules returns a set of iptables rules that are necessary

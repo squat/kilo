@@ -66,7 +66,17 @@ func (i *ipip) Init(base int) error {
 // Rules returns a set of iptables rules that are necessary
 // when traffic between nodes must be encapsulated.
 func (i *ipip) Rules(nodes []*net.IPNet) []iptables.Rule {
-	return iptables.IPIPRules(nodes)
+	var rules []iptables.Rule
+	rules = append(rules, iptables.NewChain("filter", "KILO-IPIP"))
+	rules = append(rules, iptables.NewRule("filter", "INPUT", "-m", "comment", "--comment", "Kilo: jump to IPIP chain", "-p", "4", "-j", "KILO-IPIP"))
+	for _, n := range nodes {
+		// Accept encapsulated traffic from peers.
+		rules = append(rules, iptables.NewRule("filter", "KILO-IPIP", "-m", "comment", "--comment", "Kilo: allow IPIP traffic", "-s", n.IP.String(), "-j", "ACCEPT"))
+	}
+	// Drop all other IPIP traffic.
+	rules = append(rules, iptables.NewRule("filter", "INPUT", "-m", "comment", "--comment", "Kilo: reject other IPIP traffic", "-p", "4", "-j", "DROP"))
+
+	return rules
 }
 
 // Set sets the IP address of the IPIP interface.
