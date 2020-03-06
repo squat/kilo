@@ -83,6 +83,9 @@ type Endpoint struct {
 
 // String prints the string representation of the endpoint.
 func (e *Endpoint) String() string {
+	if e == nil {
+		return ""
+	}
 	dnsOrIP := e.DNSOrIP.String()
 	if e.IP != nil && len(e.IP) == net.IPv6len {
 		dnsOrIP = "[" + dnsOrIP + "]"
