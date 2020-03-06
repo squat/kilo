@@ -174,7 +174,7 @@ Now, `important-service` can be used on `cluster2` just like any other Kubernete
 
 ## Analysis
 
-The topology and configuration of a Kilo network can be analyzed using the `kgctl` binary.
+The topology and configuration of a Kilo network can be analyzed using the [`kgctl` command line tool](./docs/kgctl.md).
 For example, the `graph` command can be used to generate a graph of the network in Graphviz format:
 
 ```shell
