@@ -4,6 +4,7 @@
 # Production
 /docs
 /build
+/static/img/graphs
 
 # Generated files
 .docusaurus
