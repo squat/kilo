@@ -1,10 +1,15 @@
+---
+id: kgctl
+hide_title: true
+---
+
 # kgctl
 
 Kilo provides a command line tool for inspecting and interacting with clusters: `kgctl`.
 This tool can be used to understand a mesh's topology, get the WireGuard configuration for a peer, or graph a cluster.
 `kgctl` requires a Kubernetes configuration file to be provided, either by setting the `KUBECONFIG` environment variable or by providing the `--kubeconfig` flag.
 
-## Getting Started
+## Installation
 
 Installing `kgctl` currently requires building the binary from source.
 *Note*: the [Go toolchain must be installed](https://golang.org/doc/install) in order to build the binary.
@@ -60,7 +65,7 @@ kgctl graph | circo -Tsvg > cluster.svg
 
 This will generate an SVG like:
 
-<img src="./graphs/location.svg">
+<img src="./graphs/location.svg" />
 
 ### showconf
 

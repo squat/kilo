@@ -1,3 +1,9 @@
+---
+id: topology
+title: Topology
+hide_title: true
+---
+
 # Topology
 
 Kilo allows the topology of the encrypted network to be customized.
@@ -30,7 +36,7 @@ Analyzing the cluster with `kgctl` would produce a result like:
 kgctl graph | circo -Tsvg > cluster.svg
 ```
 
-<img src="./graphs/location.svg">
+<img src="./graphs/location.svg" />
 
 ## Full Mesh
 
@@ -44,7 +50,7 @@ Analyzing the cluster with `kgctl` would produce a result like:
 kgctl graph | circo -Tsvg > cluster.svg
 ```
 
-<img src="./graphs/full-mesh.svg">
+<img src="./graphs/full-mesh.svg" />
 
 ## Mixed 
 
@@ -64,7 +70,7 @@ Analyzing the cluster with `kgctl` would produce a result like:
 kgctl graph | circo -Tsvg > cluster.svg
 ```
 
-<img src="./graphs/mixed.svg">
+<img src="./graphs/mixed.svg" />
 
 If the cluster also had nodes in AWS, then the following snippet could be used:
 
@@ -80,4 +86,4 @@ This would in turn produce a graph like:
 kgctl graph | circo -Tsvg > cluster.svg
 ```
 
-<img src="./graphs/complex.svg">
+<img src="./graphs/complex.svg" />

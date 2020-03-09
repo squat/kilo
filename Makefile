@@ -200,6 +200,21 @@ header: .header
 		exit 1; \
 	fi
 
+website/docs/README.md: README.md
+	rm -rf website/docs
+	mkdir website/docs
+	find docs  -type f -name '*.md' | xargs -I{} ln {} website/{}
+	rm -rf website/static/img/graphs
+	cp -r docs/graphs website/static/img/
+	cp README.md website/docs/
+	sed -i 's/\.\/docs\///g' $@
+	find $(@D)  -type f -name '*.md' | xargs -I{} sed -i 's/\.\//\/img\//g' {}
+	sed -i 's/graphs\//\/img\/graphs\//g' $@
+
+website/build/index.html: website/docs/README.md
+	yarn --cwd website install
+	yarn --cwd website build
+
 container: .container-$(ARCH)-$(VERSION) container-name
 .container-$(ARCH)-$(VERSION): $(BINS) Dockerfile
 	@i=0; for a in $(ALL_ARCH); do [ "$$a" = $(ARCH) ] && break; i=$$((i+1)); done; \
