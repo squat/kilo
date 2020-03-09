@@ -64,7 +64,7 @@ Once the routes are in place, the connection to the cluster can be tested.
 For example, try connecting to the API server:
 
 ```shell
-curl -k https://10.0.27.179:6443
+curl -k https://$(kubectl get endpoints kubernetes | tail -n +2 | tr , \\t | awk '{print $2}')
 ```
 
 Likewise, the cluster now also has layer 3 access to the newly added peer.
@@ -105,3 +105,5 @@ EOF
 ```
 
 [See the multi-cluster services docs for more details on connecting clusters to external services](./multi-cluster-services.md).
+
+Although it is not a primary goal of the project, the VPN created by Kilo can also be [used by peers as a gateway to the Internet; for more details, see the VPN server docs](./vpn-server.md).
