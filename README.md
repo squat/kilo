@@ -1,4 +1,11 @@
-<p align="center"><img src="./kilo.svg" width="150"></p>
+---
+id: introduction
+title: Introduction
+hide_title: true
+custom_edit_url: https://github.com/squat/kilo/edit/master/README.md
+---
+
+<p align="center"><img src="./kilo.svg" width="150" /></p>
 
 # Kilo
 
@@ -101,7 +108,7 @@ For example, to run Kilo on a Typhoon cluster running Flannel:
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon-flannel.yaml
 ```
 
-[See the manifests directory for more examples](./manifests).
+[See the manifests directory for more examples](https://github.com/squat/kilo/tree/master/manifests).
 
 ## VPN
 
@@ -181,4 +188,4 @@ For example, the `graph` command can be used to generate a graph of the network 
 kgctl graph | circo -Tsvg > cluster.svg
 ```
 
-<img src="./docs/graphs/location.svg">
+<img src="./docs/graphs/location.svg" />

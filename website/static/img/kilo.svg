@@ -1,0 +1,14 @@
+<svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+  <title>Kilo</title>
+  <style>.text { font: italic bold 80px sans-serif}</style>
+  <circle cx="300" cy="300" fill="#ffffff" fill-opacity="100" id="xl" r="290" stroke="#000000" stroke-width="20"/>
+  <circle cx="300" cy="300" fill="#ffffff" fill-opacity="0" id="l" r="250" stroke="#000000" stroke-width="20"/>
+  <circle cx="300" cy="300" fill="#ffffff" fill-opacity="0" id="m" r="80" stroke="#000000" stroke-width="20"/>
+  <circle cx="300" cy="300" fill="#ffffff" fill-opacity="0" id="s" r="40" stroke="#000000" stroke-width="20"/>
+  <line fill="none" id="tl" stroke="#000000" stroke-linecap="round" stroke-width="20" x1="160" x2="240" y1="160" y2="240"/>
+  <line fill="none" id="bl" stroke="#000000" stroke-linecap="round" stroke-width="20" x1="160" x2="240" y1="440" y2="360"/>
+  <line fill="none" id="tr" stroke="#000000" stroke-linecap="round" stroke-width="20" x1="440" x2="360" y1="160" y2="240"/>
+  <line fill="none" id="br" stroke="#000000" stroke-linecap="round" stroke-width="20" x1="440" x2="360" y1="440" y2="360"/>
+  <text x="260" y="170" class="text">kg</text>
+  <text x="340" y="430" class="text" transform="rotate(180, 340, 430)">kg</text>
+</svg>
