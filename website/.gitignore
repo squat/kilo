@@ -2,7 +2,7 @@
 /node_modules
 
 # Production
-/docs
+/docs/*.md
 /build
 /static/img/graphs
 

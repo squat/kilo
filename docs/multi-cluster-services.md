@@ -1,9 +1,3 @@
----
-id: multi-cluster-services
-title: Multi-cluster Services
-hide_title: true
----
-
 # Multi-cluster Services
 
 Just as Kilo can connect a Kubernetes cluster to external services over WireGuard, it can connect multiple independent Kubernetes clusters.

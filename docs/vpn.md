@@ -1,9 +1,3 @@
----
-id: vpn
-title: VPN
-hide_title: true
----
-
 # VPN
 
 Kilo enables peers outside of a Kubernetes cluster to connect to the created WireGuard network.

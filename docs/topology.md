@@ -1,9 +1,3 @@
----
-id: topology
-title: Topology
-hide_title: true
----
-
 # Topology
 
 Kilo allows the topology of the encrypted network to be customized.

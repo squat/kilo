@@ -1,10 +1,3 @@
----
-id: introduction
-title: Introduction
-hide_title: true
-custom_edit_url: https://github.com/squat/kilo/edit/master/README.md
----
-
 <p align="center"><img src="./kilo.svg" width="150" /></p>
 
 # Kilo

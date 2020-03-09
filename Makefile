@@ -201,12 +201,12 @@ header: .header
 	fi
 
 website/docs/README.md: README.md
-	rm -rf website/docs
-	mkdir website/docs
-	find docs  -type f -name '*.md' | xargs -I{} ln {} website/{}
 	rm -rf website/static/img/graphs
+	find docs  -type f -name '*.md' | xargs -I{} sh -c 'cat $(@D)/$$(basename {} .md) > website/{}'
+	find docs  -type f -name '*.md' | xargs -I{} sh -c 'cat {} >> website/{}'
+	cat $(@D)/$$(basename $@ .md) > $@
+	cat README.md >> $@
 	cp -r docs/graphs website/static/img/
-	cp README.md website/docs/
 	sed -i 's/\.\/docs\///g' $@
 	find $(@D)  -type f -name '*.md' | xargs -I{} sed -i 's/\.\//\/img\//g' {}
 	sed -i 's/graphs\//\/img\/graphs\//g' $@

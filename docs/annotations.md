@@ -1,9 +1,3 @@
----
-id: annotations
-title: Annotations
-hide_title: true
----
-
 # Annotations
 
 The following annotations can be added to any Kubernetes Node object to configure the Kilo network.

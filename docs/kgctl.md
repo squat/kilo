@@ -1,8 +1,3 @@
----
-id: kgctl
-hide_title: true
----
-
 # kgctl
 
 Kilo provides a command line tool for inspecting and interacting with clusters: `kgctl`.

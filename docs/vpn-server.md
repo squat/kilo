@@ -1,9 +1,3 @@
----
-id: vpn-server
-title: VPN Sever
-hide_title: true
----
-
 # VPN Server
 
 The cluster VPN created by Kilo can also be used by peers as a gateway to access the Internet.
