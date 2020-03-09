@@ -588,7 +588,10 @@ func (m *Mesh) applyTopology() {
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	ipRules := iptables.ForwardRules(m.subnet)
+	var ipRules []iptables.Rule
+	if m.cni {
+		ipRules = append(ipRules, t.Rules(m.cni)...)
+	}
 	// If we are handling local routes, ensure the local
 	// tunnel has an IP address and IPIP traffic is allowed.
 	if m.enc.Strategy() != encapsulation.Never && m.local {
