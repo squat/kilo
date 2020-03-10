@@ -27,6 +27,7 @@ const features = [
       </>
     ),
     clip: true,
+    width: "187px",
   },
   {
     title: <>Advanced Features</>,
