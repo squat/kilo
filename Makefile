@@ -208,7 +208,7 @@ website/docs/README.md: README.md
 	cat README.md >> $@
 	cp -r docs/graphs website/static/img/
 	sed -i 's/\.\/docs\///g' $@
-	find $(@D)  -type f -name '*.md' | xargs -I{} sed -i 's/\.\//\/img\//g' {}
+	find $(@D)  -type f -name '*.md' | xargs -I{} sed -i 's/\.\/\(.\+\.svg\)/\/img\/\1/g' {}
 	sed -i 's/graphs\//\/img\/graphs\//g' $@
 
 website/build/index.html: website/docs/README.md

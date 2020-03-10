@@ -33,7 +33,7 @@ const features = [
     imageUrl: 'img/kilo.svg',
     description: (
       <>
-        Kilo brings advanced networking functionality to Kubernetes clusters, like <a href="docs/vpn">accessing Pods via VPN</a> and creating <a href="docs/multi-cluster-services">multi-cluster servics</a>.
+        Kilo brings advanced networking functionality to Kubernetes clusters, like <a href="docs/vpn">accessing Pods via VPN</a> and creating <a href="docs/multi-cluster-services">multi-cluster services</a>.
       </>
     ),
   },
