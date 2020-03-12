@@ -9,7 +9,7 @@ FROM $FROM
 ARG GOARCH
 LABEL maintainer="squat <lserven@gmail.com>"
 RUN echo -e "https://dl-3.alpinelinux.org/alpine/edge/main\nhttps://dl-3.alpinelinux.org/alpine/edge/community" > /etc/apk/repositories && \
-    apk add --no-cache ipset iptables wireguard-tools
+    apk add --no-cache ipset iptables ip6tables wireguard-tools
 COPY --from=cni bridge host-local loopback portmap /opt/cni/bin/
 COPY bin/$GOARCH/kg /opt/bin/
 ENTRYPOINT ["/opt/bin/kg"]

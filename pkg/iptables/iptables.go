@@ -24,6 +24,24 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 )
 
+// Protocol represents an IP protocol.
+type Protocol byte
+
+const (
+	// ProtocolIPv4 represents the IPv4 protocol.
+	ProtocolIPv4 Protocol = iota
+	// ProtocolIPv6 represents the IPv6 protocol.
+	ProtocolIPv6
+)
+
+// GetProtocol will return a protocol from the length of an IP address.
+func GetProtocol(length int) Protocol {
+	if length == net.IPv6len {
+		return ProtocolIPv6
+	}
+	return ProtocolIPv4
+}
+
 // Client represents any type that can administer iptables rules.
 type Client interface {
 	AppendUnique(table string, chain string, rule ...string) error
@@ -40,6 +58,7 @@ type Rule interface {
 	Delete(Client) error
 	Exists(Client) (bool, error)
 	String() string
+	Proto() Protocol
 }
 
 // rule represents an iptables rule.
@@ -47,11 +66,23 @@ type rule struct {
 	table string
 	chain string
 	spec  []string
+	proto Protocol
 }
 
-// NewRule creates a new iptables rule in the given table and chain.
-func NewRule(table, chain string, spec ...string) Rule {
-	return &rule{table, chain, spec}
+// NewRule creates a new iptables or ip6tables rule in the given table and chain
+// depending on the given protocol.
+func NewRule(proto Protocol, table, chain string, spec ...string) Rule {
+	return &rule{table, chain, spec, proto}
+}
+
+// NewIPv4Rule creates a new iptables rule in the given table and chain.
+func NewIPv4Rule(table, chain string, spec ...string) Rule {
+	return &rule{table, chain, spec, ProtocolIPv4}
+}
+
+// NewIPv6Rule creates a new ip6tables rule in the given table and chain.
+func NewIPv6Rule(table, chain string, spec ...string) Rule {
+	return &rule{table, chain, spec, ProtocolIPv6}
 }
 
 func (r *rule) Add(client Client) error {
@@ -79,15 +110,25 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%s_%s_%s", r.table, r.chain, strings.Join(r.spec, "_"))
 }
 
+func (r *rule) Proto() Protocol {
+	return r.proto
+}
+
 // chain represents an iptables chain.
 type chain struct {
 	table string
 	chain string
+	proto Protocol
 }
 
-// NewChain creates a new iptables chain in the given table.
-func NewChain(table, name string) Rule {
-	return &chain{table, name}
+// NewIPv4Chain creates a new iptables chain in the given table.
+func NewIPv4Chain(table, name string) Rule {
+	return &chain{table, name, ProtocolIPv4}
+}
+
+// NewIPv6Chain creates a new ip6tables chain in the given table.
+func NewIPv6Chain(table, name string) Rule {
+	return &chain{table, name, ProtocolIPv6}
 }
 
 func (c *chain) Add(client Client) error {
@@ -133,9 +174,14 @@ func (c *chain) String() string {
 	return fmt.Sprintf("%s_%s", c.table, c.chain)
 }
 
+func (c *chain) Proto() Protocol {
+	return c.proto
+}
+
 // Controller is able to reconcile a given set of iptables rules.
 type Controller struct {
-	client Client
+	v4     Client
+	v6     Client
 	errors chan error
 
 	sync.Mutex
@@ -146,17 +192,18 @@ type Controller struct {
 // New generates a new iptables rules controller.
 // It expects an IP address length to determine
 // whether to operate in IPv4 or IPv6 mode.
-func New(ipLength int) (*Controller, error) {
-	p := iptables.ProtocolIPv4
-	if ipLength == net.IPv6len {
-		p = iptables.ProtocolIPv6
-	}
-	client, err := iptables.NewWithProtocol(p)
+func New() (*Controller, error) {
+	v4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create iptables client: %v", err)
+		return nil, fmt.Errorf("failed to create iptables IPv4 client: %v", err)
+	}
+	v6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
 	}
 	return &Controller{
-		client: client,
+		v4:     v4,
+		v6:     v6,
 		errors: make(chan error),
 	}, nil
 }
@@ -196,7 +243,7 @@ func (c *Controller) reconcile() error {
 	c.Lock()
 	defer c.Unlock()
 	for i, r := range c.rules {
-		ok, err := r.Exists(c.client)
+		ok, err := r.Exists(c.client(r.Proto()))
 		if err != nil {
 			return fmt.Errorf("failed to check if rule exists: %v", err)
 		}
@@ -216,10 +263,10 @@ func (c *Controller) resetFromIndex(i int, rules []Rule) error {
 		return nil
 	}
 	for j := i; j < len(rules); j++ {
-		if err := rules[j].Delete(c.client); err != nil {
+		if err := rules[j].Delete(c.client(rules[j].Proto())); err != nil {
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
-		if err := rules[j].Add(c.client); err != nil {
+		if err := rules[j].Add(c.client(rules[j].Proto())); err != nil {
 			return fmt.Errorf("failed to add rule: %v", err)
 		}
 	}
@@ -232,7 +279,7 @@ func (c *Controller) deleteFromIndex(i int, rules *[]Rule) error {
 		return nil
 	}
 	for j := i; j < len(*rules); j++ {
-		if err := (*rules)[j].Delete(c.client); err != nil {
+		if err := (*rules)[j].Delete(c.client((*rules)[j].Proto())); err != nil {
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
 		(*rules)[j] = nil
@@ -256,7 +303,7 @@ func (c *Controller) Set(rules []Rule) error {
 			}
 		}
 		if i >= len(c.rules) {
-			if err := rules[i].Add(c.client); err != nil {
+			if err := rules[i].Add(c.client(rules[i].Proto())); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
 			c.rules = append(c.rules, rules[i])
@@ -271,6 +318,17 @@ func (c *Controller) CleanUp() error {
 	c.Lock()
 	defer c.Unlock()
 	return c.deleteFromIndex(0, &c.rules)
+}
+
+func (c *Controller) client(p Protocol) Client {
+	switch p {
+	case ProtocolIPv4:
+		return c.v4
+	case ProtocolIPv6:
+		return c.v6
+	default:
+		panic("unknown protocol")
+	}
 }
 
 func nonBlockingSend(errors chan<- error, err error) {

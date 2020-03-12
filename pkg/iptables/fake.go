@@ -51,12 +51,12 @@ func (f *fakeClient) AppendUnique(table, chain string, spec ...string) error {
 	if exists {
 		return nil
 	}
-	f.storage = append(f.storage, &rule{table, chain, spec})
+	f.storage = append(f.storage, &rule{table: table, chain: chain, spec: spec})
 	return nil
 }
 
 func (f *fakeClient) Delete(table, chain string, spec ...string) error {
-	r := &rule{table, chain, spec}
+	r := &rule{table: table, chain: chain, spec: spec}
 	for i := range f.storage {
 		if f.storage[i].String() == r.String() {
 			copy(f.storage[i:], f.storage[i+1:])
@@ -69,7 +69,7 @@ func (f *fakeClient) Delete(table, chain string, spec ...string) error {
 }
 
 func (f *fakeClient) Exists(table, chain string, spec ...string) (bool, error) {
-	r := &rule{table, chain, spec}
+	r := &rule{table: table, chain: chain, spec: spec}
 	for i := range f.storage {
 		if f.storage[i].String() == r.String() {
 			return true, nil
@@ -103,7 +103,7 @@ func (f *fakeClient) DeleteChain(table, name string) error {
 			return fmt.Errorf("cannot delete chain %s; rules exist", name)
 		}
 	}
-	c := &chain{table, name}
+	c := &chain{table: table, chain: name}
 	for i := range f.storage {
 		if f.storage[i].String() == c.String() {
 			copy(f.storage[i:], f.storage[i+1:])
@@ -116,7 +116,7 @@ func (f *fakeClient) DeleteChain(table, name string) error {
 }
 
 func (f *fakeClient) NewChain(table, name string) error {
-	c := &chain{table, name}
+	c := &chain{table: table, chain: name}
 	for i := range f.storage {
 		if f.storage[i].String() == c.String() {
 			return statusError(1)

@@ -19,8 +19,8 @@ import (
 )
 
 var rules = []Rule{
-	&rule{"filter", "FORWARD", []string{"-s", "10.4.0.0/16", "-j", "ACCEPT"}},
-	&rule{"filter", "FORWARD", []string{"-d", "10.4.0.0/16", "-j", "ACCEPT"}},
+	NewIPv4Rule("filter", "FORWARD", "-s", "10.4.0.0/16", "-j", "ACCEPT"),
+	NewIPv4Rule("filter", "FORWARD", "-d", "10.4.0.0/16", "-j", "ACCEPT"),
 }
 
 func TestSet(t *testing.T) {
@@ -85,14 +85,15 @@ func TestSet(t *testing.T) {
 	} {
 		controller := &Controller{}
 		client := &fakeClient{}
-		controller.client = client
+		controller.v4 = client
+		controller.v6 = client
 		for i := range tc.sets {
 			if err := controller.Set(tc.sets[i]); err != nil {
 				t.Fatalf("test case %q: got unexpected error seting rule set %d: %v", tc.name, i, err)
 			}
 		}
 		for i, f := range tc.actions {
-			if err := f(controller.client); err != nil {
+			if err := f(controller.v4); err != nil {
 				t.Fatalf("test case %q action %d: got unexpected error %v", tc.name, i, err)
 			}
 		}
@@ -140,7 +141,8 @@ func TestCleanUp(t *testing.T) {
 	} {
 		controller := &Controller{}
 		client := &fakeClient{}
-		controller.client = client
+		controller.v4 = client
+		controller.v6 = client
 		if err := controller.Set(tc.rules); err != nil {
 			t.Fatalf("test case %q: Set should not fail: %v", tc.name, err)
 		}
