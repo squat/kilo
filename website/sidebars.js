@@ -7,7 +7,7 @@ module.exports = {
     {
       type: 'category',
       label: 'Guides',
-      items: ['topology', 'vpn', 'vpn-server', 'multi-cluster-services'],
+      items: ['topology', 'vpn', 'vpn-server', 'multi-cluster-services', 'network-policies'],
     },
     {
       type: 'category',
