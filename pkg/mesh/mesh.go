@@ -478,15 +478,16 @@ func (m *Mesh) handleLocal(n *Node) {
 	// Take leader, location, and subnet from the argument, as these
 	// are not determined by kilo.
 	local := &Node{
-		Endpoint:    n.Endpoint,
-		Key:         m.pub,
-		InternalIP:  n.InternalIP,
-		LastSeen:    time.Now().Unix(),
-		Leader:      n.Leader,
-		Location:    n.Location,
-		Name:        m.hostname,
-		Subnet:      n.Subnet,
-		WireGuardIP: m.wireGuardIP,
+		Endpoint:            n.Endpoint,
+		Key:                 m.pub,
+		InternalIP:          n.InternalIP,
+		LastSeen:            time.Now().Unix(),
+		Leader:              n.Leader,
+		Location:            n.Location,
+		Name:                m.hostname,
+		PersistentKeepalive: n.PersistentKeepalive,
+		Subnet:              n.Subnet,
+		WireGuardIP:         m.wireGuardIP,
 	}
 	if !nodesAreEqual(n, local) {
 		level.Debug(m.logger).Log("msg", "local node differs from backend")
