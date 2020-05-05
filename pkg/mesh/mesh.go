@@ -821,7 +821,7 @@ func peersAreEqual(a, b *Peer) bool {
 			return false
 		}
 	}
-	return string(a.PublicKey) == string(b.PublicKey) && a.PersistentKeepalive == b.PersistentKeepalive
+	return string(a.PublicKey) == string(b.PublicKey) && string(a.PresharedKey) == string(b.PresharedKey) && a.PersistentKeepalive == b.PersistentKeepalive
 }
 
 func ipNetsEqual(a, b *net.IPNet) bool {

@@ -304,9 +304,16 @@ func schema_k8s_apis_kilo_v1alpha1_PeerSpec(ref common.ReferenceCallback) common
 							Format:      "int32",
 						},
 					},
+					"presharedKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PresharedKey is the optional symmetric encryption key for the peer.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"publicKey": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PublicKey is the WireGuard public key for the node.",
+							Description: "PublicKey is the WireGuard public key for the peer.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

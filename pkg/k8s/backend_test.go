@@ -299,6 +299,17 @@ func TestTranslatePeer(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "valid preshared key",
+			spec: v1alpha1.PeerSpec{
+				PresharedKey: "psk",
+			},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PresharedKey: []byte("psk"),
+				},
+			},
+		},
 	} {
 		p := &v1alpha1.Peer{}
 		p.Spec = tc.spec

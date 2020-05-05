@@ -366,17 +366,18 @@ func (t *Topology) Conf() *wireguard.Conf {
 		peer := &wireguard.Peer{
 			AllowedIPs:          s.allowedIPs,
 			Endpoint:            s.endpoint,
-			PublicKey:           s.key,
 			PersistentKeepalive: t.persistentKeepalive,
+			PublicKey:           s.key,
 		}
 		c.Peers = append(c.Peers, peer)
 	}
 	for _, p := range t.peers {
 		peer := &wireguard.Peer{
 			AllowedIPs:          p.AllowedIPs,
-			PersistentKeepalive: t.persistentKeepalive,
-			PublicKey:           p.PublicKey,
 			Endpoint:            p.Endpoint,
+			PersistentKeepalive: t.persistentKeepalive,
+			PresharedKey:        p.PresharedKey,
+			PublicKey:           p.PublicKey,
 		}
 		c.Peers = append(c.Peers, peer)
 	}
@@ -402,9 +403,11 @@ func (t *Topology) AsPeer() *wireguard.Peer {
 // PeerConf generates a WireGuard configuration file for a given peer in a Topology.
 func (t *Topology) PeerConf(name string) *wireguard.Conf {
 	var pka int
+	var psk []byte
 	for i := range t.peers {
 		if t.peers[i].Name == name {
 			pka = t.peers[i].PersistentKeepalive
+			psk = t.peers[i].PresharedKey
 			break
 		}
 	}
@@ -414,6 +417,7 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 			AllowedIPs:          s.allowedIPs,
 			Endpoint:            s.endpoint,
 			PersistentKeepalive: pka,
+			PresharedKey:        psk,
 			PublicKey:           s.key,
 		}
 		c.Peers = append(c.Peers, peer)
@@ -502,6 +506,7 @@ func deduplicatePeerIPs(peers []*Peer) []*Peer {
 			Peer: wireguard.Peer{
 				Endpoint:            peer.Endpoint,
 				PersistentKeepalive: peer.PersistentKeepalive,
+				PresharedKey:        peer.PresharedKey,
 				PublicKey:           peer.PublicKey,
 			},
 		}

@@ -39,6 +39,7 @@ func TestCompareConf(t *testing.T) {
 
 		[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk
 		PublicKey = key
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 		`),
@@ -49,6 +50,7 @@ func TestCompareConf(t *testing.T) {
 		[Peer]
 		PublicKey = key
 		AllowedIPs = 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32, 10.2.2.0/24
+		PresharedKey = psk
 		Endpoint = 10.1.0.2:51820
 		`),
 			out: true,
@@ -61,6 +63,7 @@ func TestCompareConf(t *testing.T) {
 
 		[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk
 		PublicKey = key
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 		`),
@@ -69,6 +72,7 @@ func TestCompareConf(t *testing.T) {
 		ListenPort=51820
 		[Peer]
 		Endpoint=10.1.0.2:51820
+		PresharedKey = psk
 		PublicKey=key
 		AllowedIPs=10.2.2.0/24,192.168.0.1/32,10.2.3.0/24,192.168.0.2/32,10.4.0.2/32
 		`),
@@ -125,11 +129,13 @@ func TestCompareConf(t *testing.T) {
 
 		[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk
 		PublicKey = key
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 		`),
 			b: []byte(`[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk
 		PublicKey = key
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 
@@ -147,11 +153,13 @@ func TestCompareConf(t *testing.T) {
 
 		[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk2
 		PublicKey = key2
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 
 		[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk1
 		PublicKey = key1
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 		`),
@@ -161,11 +169,13 @@ func TestCompareConf(t *testing.T) {
 
 		[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk1
 		PublicKey = key1
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 
 		[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk2
 		PublicKey = key2
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 		`),
@@ -179,6 +189,7 @@ func TestCompareConf(t *testing.T) {
 
 		[Peer]
 		Endpoint = 10.1.0.2:51820
+		PresharedKey = psk
 		PublicKey = key
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
 		`),

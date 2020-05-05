@@ -72,7 +72,10 @@ type PeerSpec struct {
 	// disables the feature.
 	// +optional
 	PersistentKeepalive int `json:"persistentKeepalive,omitempty"`
-	// PublicKey is the WireGuard public key for the node.
+	// PresharedKey is the optional symmetric encryption key for the peer.
+	// +optional
+	PresharedKey string `json:"presharedKey"`
+	// PublicKey is the WireGuard public key for the peer.
 	PublicKey string `json:"publicKey"`
 }
 

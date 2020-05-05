@@ -37,6 +37,7 @@ const (
 	allowedIPsKey          key     = "AllowedIPs"
 	endpointKey            key     = "Endpoint"
 	persistentKeepaliveKey key     = "PersistentKeepalive"
+	presharedKeyKey        key     = "PresharedKey"
 	privateKeyKey          key     = "PrivateKey"
 	publicKeyKey           key     = "PublicKey"
 )
@@ -58,6 +59,7 @@ type Peer struct {
 	AllowedIPs          []*net.IPNet
 	Endpoint            *Endpoint
 	PersistentKeepalive int
+	PresharedKey        []byte
 	PublicKey           []byte
 }
 
@@ -220,6 +222,8 @@ func Parse(buf []byte) *Conf {
 					continue
 				}
 				peer.PersistentKeepalive = i
+			case presharedKeyKey:
+				peer.PresharedKey = []byte(v)
 			case publicKeyKey:
 				peer.PublicKey = []byte(v)
 			}
@@ -268,6 +272,9 @@ func (c *Conf) Bytes() ([]byte, error) {
 		}
 		if err = writeValue(buf, persistentKeepaliveKey, strconv.Itoa(p.PersistentKeepalive)); err != nil {
 			return nil, fmt.Errorf("failed to write persistent keepalive: %v", err)
+		}
+		if err = writePKey(buf, presharedKeyKey, p.PresharedKey); err != nil {
+			return nil, fmt.Errorf("failed to write preshared key: %v", err)
 		}
 		if err = writePKey(buf, publicKeyKey, p.PublicKey); err != nil {
 			return nil, fmt.Errorf("failed to write public key: %v", err)
@@ -318,7 +325,7 @@ func (c *Conf) Equal(b *Conf) bool {
 				return false
 			}
 		}
-		if c.Peers[i].PersistentKeepalive != b.Peers[i].PersistentKeepalive || !bytes.Equal(c.Peers[i].PublicKey, b.Peers[i].PublicKey) {
+		if c.Peers[i].PersistentKeepalive != b.Peers[i].PersistentKeepalive || !bytes.Equal(c.Peers[i].PresharedKey, b.Peers[i].PresharedKey) || !bytes.Equal(c.Peers[i].PublicKey, b.Peers[i].PublicKey) {
 			return false
 		}
 	}

@@ -299,6 +299,10 @@ func translatePeer(peer *wireguard.Peer) *v1alpha1.Peer {
 	if len(peer.PublicKey) > 0 {
 		key = string(peer.PublicKey)
 	}
+	var psk string
+	if len(peer.PresharedKey) > 0 {
+		psk = string(peer.PresharedKey)
+	}
 	var pka int
 	if peer.PersistentKeepalive > 0 {
 		pka = peer.PersistentKeepalive
@@ -311,8 +315,9 @@ func translatePeer(peer *wireguard.Peer) *v1alpha1.Peer {
 		Spec: v1alpha1.PeerSpec{
 			AllowedIPs:          aips,
 			Endpoint:            endpoint,
-			PublicKey:           key,
 			PersistentKeepalive: pka,
+			PresharedKey:        psk,
+			PublicKey:           key,
 		},
 	}
 }

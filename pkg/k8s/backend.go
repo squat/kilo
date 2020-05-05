@@ -336,6 +336,10 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 	if len(peer.Spec.PublicKey) > 0 {
 		key = []byte(peer.Spec.PublicKey)
 	}
+	var psk []byte
+	if len(peer.Spec.PresharedKey) > 0 {
+		psk = []byte(peer.Spec.PresharedKey)
+	}
 	var pka int
 	if peer.Spec.PersistentKeepalive > 0 {
 		pka = peer.Spec.PersistentKeepalive
@@ -345,8 +349,9 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		Peer: wireguard.Peer{
 			AllowedIPs:          aips,
 			Endpoint:            endpoint,
-			PublicKey:           key,
 			PersistentKeepalive: pka,
+			PresharedKey:        psk,
+			PublicKey:           key,
 		},
 	}
 }
@@ -465,6 +470,7 @@ func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
 		}
 	}
 	p.Spec.PersistentKeepalive = peer.PersistentKeepalive
+	p.Spec.PresharedKey = string(peer.PresharedKey)
 	p.Spec.PublicKey = string(peer.PublicKey)
 	if _, err = pb.client.KiloV1alpha1().Peers().Update(p); err != nil {
 		return fmt.Errorf("failed to update peer: %v", err)
