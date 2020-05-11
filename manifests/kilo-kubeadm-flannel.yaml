@@ -85,6 +85,12 @@ spec:
         - name: kubeconfig
           mountPath: /etc/kubernetes
           readOnly: true
+        - name: lib-modules
+          mountPath: /lib/modules
+          readOnly: true
+        - name: xtables-lock
+          mountPath: /run/xtables.lock
+          readOnly: false
       tolerations:
       - effect: NoSchedule
         operator: Exists
@@ -100,3 +106,10 @@ spec:
           items:
           - key: kubeconfig.conf
             path: kubeconfig
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: xtables-lock
+        hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate

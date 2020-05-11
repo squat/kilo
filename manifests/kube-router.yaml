@@ -37,6 +37,9 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 3
         volumeMounts:
+        - name: lib-modules
+          mountPath: /lib/modules
+          readOnly: true
         - name: xtables-lock
           mountPath: /run/xtables.lock
           readOnly: false
@@ -51,6 +54,9 @@ spec:
         key: node.kubernetes.io/not-ready
         operator: Exists
       volumes:
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
       - name: xtables-lock
         hostPath:
           path: /run/xtables.lock
