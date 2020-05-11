@@ -280,6 +280,7 @@ func (c *Controller) deleteFromIndex(i int, rules *[]Rule) error {
 	}
 	for j := i; j < len(*rules); j++ {
 		if err := (*rules)[j].Delete(c.client((*rules)[j].Proto())); err != nil {
+			*rules = append((*rules)[:i], (*rules)[j:]...)
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
 		(*rules)[j] = nil
