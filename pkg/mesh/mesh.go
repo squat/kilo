@@ -202,6 +202,7 @@ type Mesh struct {
 	mu    sync.Mutex
 
 	errorCounter     *prometheus.CounterVec
+	leaderGuage      prometheus.Gauge
 	nodesGuage       prometheus.Gauge
 	peersGuage       prometheus.Gauge
 	reconcileCounter prometheus.Counter
@@ -282,6 +283,10 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 			Name: "kilo_errors_total",
 			Help: "Number of errors that occurred while administering the mesh.",
 		}, []string{"event"}),
+		leaderGuage: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "kilo_leader",
+			Help: "Leadership status of the node.",
+		}),
 		nodesGuage: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "kilo_nodes",
 			Help: "Number of nodes in the mesh.",
@@ -620,6 +625,7 @@ func (m *Mesh) applyTopology() {
 		return
 	}
 	if t.leader {
+		m.leaderGuage.Set(1)
 		if err := iproute.SetAddress(m.kiloIface, t.wireGuardCIDR); err != nil {
 			level.Error(m.logger).Log("error", err)
 			m.errorCounter.WithLabelValues("apply").Inc()
@@ -642,6 +648,7 @@ func (m *Mesh) applyTopology() {
 			return
 		}
 	} else {
+		m.leaderGuage.Set(0)
 		level.Debug(m.logger).Log("msg", "local node is not the leader")
 		if err := iproute.Set(m.kiloIface, false); err != nil {
 			level.Error(m.logger).Log("error", err)
@@ -663,6 +670,7 @@ func (m *Mesh) applyTopology() {
 func (m *Mesh) RegisterMetrics(r prometheus.Registerer) {
 	r.MustRegister(
 		m.errorCounter,
+		m.leaderGuage,
 		m.nodesGuage,
 		m.peersGuage,
 		m.reconcileCounter,
