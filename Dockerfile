@@ -8,7 +8,7 @@ RUN apk add --no-cache curl && \
 FROM $FROM
 ARG GOARCH
 LABEL maintainer="squat <lserven@gmail.com>"
-RUN echo -e "https://dl-3.alpinelinux.org/alpine/edge/main\nhttps://dl-3.alpinelinux.org/alpine/edge/community" > /etc/apk/repositories && \
+RUN echo -e "https://alpine.global.ssl.fastly.net/alpine/v3.12/main\nhttps://alpine.global.ssl.fastly.net/alpine/v3.12/community" > /etc/apk/repositories && \
     apk add --no-cache ipset iptables ip6tables wireguard-tools
 COPY --from=cni bridge host-local loopback portmap /opt/cni/bin/
 COPY bin/$GOARCH/kg /opt/bin/

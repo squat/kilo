@@ -33,7 +33,7 @@ OPENAPI_GEN_BINARY := bin/openapi-gen
 GOLINT_BINARY := bin/golint
 
 BUILD_IMAGE ?= golang:1.14.2-alpine
-BASE_IMAGE ?= alpine:3.11
+BASE_IMAGE ?= alpine:3.12
 
 build: $(BINS)
 
