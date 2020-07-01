@@ -102,6 +102,9 @@ spec:
           path: /var/lib/kilo
       - name: kubeconfig
         hostPath: 
+          # Since kilo runs as a daemonset, it is recommended that you copy the
+          # k3s.yaml kubeconfig file from the master node to all worker nodes
+          # with the same path structure.
           path: /etc/rancher/k3s/k3s.yaml
       - name: lib-modules
         hostPath:
