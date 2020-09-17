@@ -12,7 +12,6 @@
     "@docusaurus/core": "^2.0.0-alpha.56",
     "@docusaurus/preset-classic": "^2.0.0-alpha.56",
     "classnames": "^2.2.6",
-    "minimist": "^1.2.3",
     "react": "^16.8.4",
     "react-dom": "^16.8.4"
   },
@@ -27,5 +26,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "resolutions": {
+    "minimist": "^1.2.3",
+    "node-fetch": "^2.6.1"
   }
 }
