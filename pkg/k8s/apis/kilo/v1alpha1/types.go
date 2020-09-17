@@ -19,9 +19,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 const (
@@ -81,10 +83,20 @@ type PeerSpec struct {
 
 // PeerEndpoint represents a WireGuard enpoint, which is a ip:port tuple.
 type PeerEndpoint struct {
-	// IP must be a valid IP address.
-	IP string `json:"ip"`
+	DNSOrIP
 	// Port must be a valid port number.
 	Port uint32 `json:"port"`
+}
+
+// DNSOrIP represents either a DNS name or an IP address.
+// IPs, as they are more specific, are preferred.
+type DNSOrIP struct {
+	// DNS must be a valid RFC 1123 subdomain.
+	// +optional
+	DNS string `json:"dns,omitempty"`
+	// IP must be a valid IP address.
+	// +optional
+	IP string `json:"ip,omitempty"`
 }
 
 // PeerName is the peer resource's FQDN.
@@ -127,10 +139,18 @@ func (p *Peer) Validate() error {
 		}
 	}
 	if p.Spec.Endpoint != nil {
-		if net.ParseIP(p.Spec.Endpoint.IP) == nil {
+		if p.Spec.Endpoint.IP == "" && p.Spec.Endpoint.DNS == "" {
+			return errors.New("either an endpoint DNS name IP address must be given")
+		}
+		if p.Spec.Endpoint.DNS != "" {
+			if errs := validation.IsDNS1123Subdomain(p.Spec.Endpoint.DNS); len(errs) != 0 {
+				return errors.New(strings.Join(errs, "; "))
+			}
+		}
+		if p.Spec.Endpoint.IP != "" && net.ParseIP(p.Spec.Endpoint.IP) == nil {
 			return fmt.Errorf("failed to parse %q as a valid IP address", p.Spec.Endpoint.IP)
 		}
-		if p.Spec.Endpoint.Port == 0 {
+		if 1 > p.Spec.Endpoint.Port || p.Spec.Endpoint.Port > 65535 {
 			return fmt.Errorf("port must be a valid UDP port number, got %d", p.Spec.Endpoint.Port)
 		}
 	}
