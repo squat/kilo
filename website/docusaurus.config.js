@@ -13,7 +13,7 @@ module.exports = {
         alt: 'Kilo',
         src: 'img/kilo.svg',
       },
-      links: [
+      items: [
         {
           to: 'docs/introduction',
           activeBasePath: 'docs',
