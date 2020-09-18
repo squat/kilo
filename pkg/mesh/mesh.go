@@ -770,7 +770,7 @@ func isSelf(hostname string, node *Node) bool {
 }
 
 func nodesAreEqual(a, b *Node) bool {
-	if !(a != nil) == (b != nil) {
+	if (a != nil) != (b != nil) {
 		return false
 	}
 	if a == b {
