@@ -6,6 +6,7 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/ant31/crd-validation v0.0.0-20180801212718-38f6a293f140
 	github.com/awalterschulze/gographviz v0.0.0-20181013152038-b2885df04310
+	github.com/campoy/embedmd v1.0.0
 	github.com/containernetworking/cni v0.6.0
 	github.com/containernetworking/plugins v0.6.0
 	github.com/coreos/go-iptables v0.4.0
