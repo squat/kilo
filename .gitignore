@@ -3,3 +3,4 @@
 .manifest*
 .push*
 bin/
+tmp/

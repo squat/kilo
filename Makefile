@@ -31,6 +31,7 @@ INFORMER_GEN_BINARY := bin/informer-gen
 LISTER_GEN_BINARY := bin/lister-gen
 OPENAPI_GEN_BINARY := bin/openapi-gen
 GOLINT_BINARY := bin/golint
+EMBEDMD_BINARY := bin/embedmd
 
 BUILD_IMAGE ?= golang:1.14.2-alpine
 BASE_IMAGE ?= alpine:3.12
@@ -200,6 +201,13 @@ header: .header
 		exit 1; \
 	fi
 
+tmp/help.txt: bin/$(ARCH)/kg
+	mkdir -p tmp
+	bin/$(ARCH)/kg --help 2>&1 | head -n -1 > $@
+
+docs/kg.md: $(EMBEDMD_BINARY) tmp/help.txt
+	$(EMBEDMD_BINARY) -w $@
+
 website/docs/README.md: README.md
 	rm -rf website/static/img/graphs
 	find docs  -type f -name '*.md' | xargs -I{} sh -c 'cat $(@D)/$$(basename {} .md) > website/{}'
@@ -311,3 +319,6 @@ $(OPENAPI_GEN_BINARY):
 
 $(GOLINT_BINARY):
 	go build -mod=vendor -o $@ golang.org/x/lint/golint
+
+$(EMBEDMD_BINARY):
+	go build -mod=vendor -o $@ github.com/campoy/embedmd
