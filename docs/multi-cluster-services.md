@@ -5,7 +5,7 @@ This enables clusters to provide services to other clusters over a secure connec
 For example, a cluster on AWS with access to GPUs could run a machine learning service that could be consumed by workloads running in a another location, e.g. an on-prem cluster without GPUs.
 Unlike services exposed via Ingresses or NodePort Services, multi-cluster services can remain private and internal to the clusters.
 
-*Note*: in order for connected clusters to be fully routable, the allowed IPs that they declare must be non-overlapping, i.e. the Kilo, pod, and service CIDRs.
+> **Note**: in order for connected clusters to be fully routable, the allowed IPs that they declare must be non-overlapping, i.e. the Kilo, pod, and service CIDRs.
 
 ## Getting Started
 
