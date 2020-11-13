@@ -20,6 +20,7 @@ install: true
 
 script:
   - make
+  - make all-build
   - make clean
   - make unit
   - make lint
