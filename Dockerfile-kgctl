@@ -1,0 +1,9 @@
+FROM golang:1.14.2-alpine3.11 as builder
+WORKDIR /build
+COPY . .
+RUN go build -o /kgctl cmd/kgctl/*
+
+FROM alpine:3.11
+ENV KUBECONFIG /config
+COPY --from=builder /kgctl /kgctl
+ENTRYPOINT ["/kgctl"]
