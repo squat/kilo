@@ -1,10 +1,16 @@
 export GO111MODULE=on
 .PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate
 
-ARCH ?= amd64
+OS ?= $(shell go env GOOS)
+ARCH ?= $(shell go env GOARCH)
+ALL_OS := linux darwin windows
 ALL_ARCH := amd64 arm arm64
 DOCKER_ARCH := "amd64" "arm v7" "arm64 v8"
-BINS := $(addprefix bin/$(ARCH)/,kg kgctl)
+ifeq ($(OS),linux)
+    BINS := bin/$(OS)/$(ARCH)/kg bin/$(OS)/$(ARCH)/kgctl
+else
+    BINS := bin/$(OS)/$(ARCH)/kgctl
+endif
 PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
@@ -39,7 +45,7 @@ BASE_IMAGE ?= alpine:3.12
 build: $(BINS)
 
 build-%:
-	@$(MAKE) --no-print-directory ARCH=$* build
+	@$(MAKE) --no-print-directory OS=$(word 1,$(subst -, ,$*)) ARCH=$(word 2,$(subst -, ,$*)) build
 
 container-latest-%:
 	@$(MAKE) --no-print-directory ARCH=$* container-latest
@@ -53,7 +59,7 @@ push-latest-%:
 push-%:
 	@$(MAKE) --no-print-directory ARCH=$* push
 
-all-build: $(addprefix build-, $(ALL_ARCH))
+all-build: $(foreach os, $(ALL_OS), $(addprefix build-$(os)-, $(ALL_ARCH)))
 
 all-container: $(addprefix container-, $(ALL_ARCH))
 
@@ -133,7 +139,7 @@ pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go: pkg/k8s/apis/kilo/v1alpha1/type
 	go fmt $@
 
 $(BINS): $(SRC) go.mod
-	@mkdir -p bin/$(ARCH)
+	@mkdir -p bin/$(word 2,$(subst /, ,$*))/$(word 3,$(subst /, ,$*))
 	@echo "building: $@"
 	@docker run --rm \
 	    -u $$(id -u):$$(id -g) \
@@ -141,8 +147,8 @@ $(BINS): $(SRC) go.mod
 	    -w /$(PROJECT) \
 	    $(BUILD_IMAGE) \
 	    /bin/sh -c " \
-	        GOARCH=$(ARCH) \
-	        GOOS=linux \
+	        GOARCH=$(word 3,$(subst /, ,$*)) \
+	        GOOS=$(word 2,$(subst /, ,$*)) \
 	        GOCACHE=/$(PROJECT)/.cache \
 		CGO_ENABLED=0 \
 		go build -mod=vendor -o $@ \
@@ -201,9 +207,9 @@ header: .header
 		exit 1; \
 	fi
 
-tmp/help.txt: bin/$(ARCH)/kg
+tmp/help.txt: bin/$(OS)/$(ARCH)/kg
 	mkdir -p tmp
-	bin/$(ARCH)/kg --help 2>&1 | head -n -1 > $@
+	bin//$(OS)/$(ARCH)/kg --help 2>&1 | head -n -1 > $@
 
 docs/kg.md: $(EMBEDMD_BINARY) tmp/help.txt
 	$(EMBEDMD_BINARY) -w $@
@@ -224,7 +230,7 @@ website/build/index.html: website/docs/README.md
 	yarn --cwd website build
 
 container: .container-$(ARCH)-$(VERSION) container-name
-.container-$(ARCH)-$(VERSION): $(BINS) Dockerfile
+.container-$(ARCH)-$(VERSION): bin/linux/$(ARCH)/kg Dockerfile
 	@i=0; for a in $(ALL_ARCH); do [ "$$a" = $(ARCH) ] && break; i=$$((i+1)); done; \
 	ia=""; iv=""; \
 	j=0; for a in $(DOCKER_ARCH); do \

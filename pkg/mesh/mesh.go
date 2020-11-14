@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build linux
+
 package mesh
 
 import (
@@ -35,141 +37,14 @@ import (
 	"github.com/squat/kilo/pkg/wireguard"
 )
 
-const resyncPeriod = 30 * time.Second
-
 const (
-	// KiloPath is the directory where Kilo stores its configuration.
-	KiloPath = "/var/lib/kilo"
-	// PrivateKeyPath is the filepath where the WireGuard private key is stored.
-	PrivateKeyPath = KiloPath + "/key"
-	// ConfPath is the filepath where the WireGuard configuration is stored.
-	ConfPath = KiloPath + "/conf"
-	// DefaultKiloInterface is the default iterface created and used by Kilo.
-	DefaultKiloInterface = "kilo0"
-	// DefaultKiloPort is the default UDP port Kilo uses.
-	DefaultKiloPort = 51820
-	// DefaultCNIPath is the default path to the CNI config file.
-	DefaultCNIPath = "/etc/cni/net.d/10-kilo.conflist"
+	// kiloPath is the directory where Kilo stores its configuration.
+	kiloPath = "/var/lib/kilo"
+	// privateKeyPath is the filepath where the WireGuard private key is stored.
+	privateKeyPath = kiloPath + "/key"
+	// confPath is the filepath where the WireGuard configuration is stored.
+	confPath = kiloPath + "/conf"
 )
-
-// DefaultKiloSubnet is the default CIDR for Kilo.
-var DefaultKiloSubnet = &net.IPNet{IP: []byte{10, 4, 0, 0}, Mask: []byte{255, 255, 0, 0}}
-
-// Granularity represents the abstraction level at which the network
-// should be meshed.
-type Granularity string
-
-const (
-	// LogicalGranularity indicates that the network should create
-	// a mesh between logical locations, e.g. data-centers, but not between
-	// all nodes within a single location.
-	LogicalGranularity Granularity = "location"
-	// FullGranularity indicates that the network should create
-	// a mesh between every node.
-	FullGranularity Granularity = "full"
-)
-
-// Node represents a node in the network.
-type Node struct {
-	Endpoint   *wireguard.Endpoint
-	Key        []byte
-	InternalIP *net.IPNet
-	// LastSeen is a Unix time for the last time
-	// the node confirmed it was live.
-	LastSeen int64
-	// Leader is a suggestion to Kilo that
-	// the node wants to lead its segment.
-	Leader              bool
-	Location            string
-	Name                string
-	PersistentKeepalive int
-	Subnet              *net.IPNet
-	WireGuardIP         *net.IPNet
-}
-
-// Ready indicates whether or not the node is ready.
-func (n *Node) Ready() bool {
-	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
-	return n != nil && n.Endpoint != nil && !(n.Endpoint.IP == nil && n.Endpoint.DNS == "") && n.Endpoint.Port != 0 && n.Key != nil && n.InternalIP != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(resyncPeriod)*2/int64(time.Second)
-}
-
-// Peer represents a peer in the network.
-type Peer struct {
-	wireguard.Peer
-	Name string
-}
-
-// Ready indicates whether or not the peer is ready.
-// Peers can have empty endpoints because they may not have an
-// IP, for example if they are behind a NAT, and thus
-// will not declare their endpoint and instead allow it to be
-// discovered.
-func (p *Peer) Ready() bool {
-	return p != nil && p.AllowedIPs != nil && len(p.AllowedIPs) != 0 && p.PublicKey != nil
-}
-
-// EventType describes what kind of an action an event represents.
-type EventType string
-
-const (
-	// AddEvent represents an action where an item was added.
-	AddEvent EventType = "add"
-	// DeleteEvent represents an action where an item was removed.
-	DeleteEvent EventType = "delete"
-	// UpdateEvent represents an action where an item was updated.
-	UpdateEvent EventType = "update"
-)
-
-// NodeEvent represents an event concerning a node in the cluster.
-type NodeEvent struct {
-	Type EventType
-	Node *Node
-	Old  *Node
-}
-
-// PeerEvent represents an event concerning a peer in the cluster.
-type PeerEvent struct {
-	Type EventType
-	Peer *Peer
-	Old  *Peer
-}
-
-// Backend can create clients for all of the
-// primitive types that Kilo deals with, namely:
-// * nodes; and
-// * peers.
-type Backend interface {
-	Nodes() NodeBackend
-	Peers() PeerBackend
-}
-
-// NodeBackend can get nodes by name, init itself,
-// list the nodes that should be meshed,
-// set Kilo properties for a node,
-// clean up any changes applied to the backend,
-// and watch for changes to nodes.
-type NodeBackend interface {
-	CleanUp(string) error
-	Get(string) (*Node, error)
-	Init(<-chan struct{}) error
-	List() ([]*Node, error)
-	Set(string, *Node) error
-	Watch() <-chan *NodeEvent
-}
-
-// PeerBackend can get peers by name, init itself,
-// list the peers that should be in the mesh,
-// set fields for a peer,
-// clean up any changes applied to the backend,
-// and watch for changes to peers.
-type PeerBackend interface {
-	CleanUp(string) error
-	Get(string) (*Peer, error)
-	Init(<-chan struct{}) error
-	List() ([]*Peer, error)
-	Set(string, *Peer) error
-	Watch() <-chan *PeerEvent
-}
 
 // Mesh is able to create Kilo network meshes.
 type Mesh struct {
@@ -211,10 +86,10 @@ type Mesh struct {
 
 // New returns a new Mesh instance.
 func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, logger log.Logger) (*Mesh, error) {
-	if err := os.MkdirAll(KiloPath, 0700); err != nil {
+	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
-	private, err := ioutil.ReadFile(PrivateKeyPath)
+	private, err := ioutil.ReadFile(privateKeyPath)
 	private = bytes.Trim(private, "\n")
 	if err != nil {
 		level.Warn(logger).Log("msg", "no private key found on disk; generating one now")
@@ -226,7 +101,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	if err != nil {
 		return nil, err
 	}
-	if err := ioutil.WriteFile(PrivateKeyPath, private, 0600); err != nil {
+	if err := ioutil.WriteFile(privateKeyPath, private, 0600); err != nil {
 		return nil, fmt.Errorf("failed to write private key to disk: %v", err)
 	}
 	cniIndex, err := cniDeviceIndex()
@@ -589,7 +464,7 @@ func (m *Mesh) applyTopology() {
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	if err := ioutil.WriteFile(ConfPath, buf, 0600); err != nil {
+	if err := ioutil.WriteFile(confPath, buf, 0600); err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
@@ -636,7 +511,7 @@ func (m *Mesh) applyTopology() {
 		equal := conf.Equal(oldConf)
 		if !equal {
 			level.Info(m.logger).Log("msg", "WireGuard configurations are different")
-			if err := wireguard.SetConf(link.Attrs().Name, ConfPath); err != nil {
+			if err := wireguard.SetConf(link.Attrs().Name, confPath); err != nil {
 				level.Error(m.logger).Log("error", err)
 				m.errorCounter.WithLabelValues("apply").Inc()
 				return
@@ -691,7 +566,7 @@ func (m *Mesh) cleanUp() {
 		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up routes: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
-	if err := os.Remove(ConfPath); err != nil {
+	if err := os.Remove(confPath); err != nil {
 		level.Error(m.logger).Log("error", fmt.Sprintf("failed to delete configuration file: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
