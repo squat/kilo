@@ -30,13 +30,10 @@ Kilo can be installed on any Kubernetes cluster either pre- or post-bring-up.
 
 ### Step 1: install WireGuard
 
-Kilo requires the WireGuard kernel module on all nodes in the cluster.
-For most Linux distributions, this can be installed using the system package manager.
-For Container Linux, WireGuard can be easily installed using a DaemonSet:
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/modulus/master/wireguard/daemonset.yaml
-```
+Kilo requires the WireGuard kernel module to be loaded on all nodes in the cluster.
+Starting at Linux 5.6, the kernel includes WireGuard in-tree; Linux distributions with older kernels will need to install WireGuard.
+For most Linux distributions, this can be done using the system package manager.
+[See the WireGuard website for up-to-date instructions for installing WireGuard](https://www.wireguard.com/install/).
 
 ### Step 2: open WireGuard port
 
