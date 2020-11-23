@@ -139,7 +139,7 @@ pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go: pkg/k8s/apis/kilo/v1alpha1/type
 	go fmt $@
 
 $(BINS): $(SRC) go.mod
-	@mkdir -p bin/$(word 2,$(subst /, ,$*))/$(word 3,$(subst /, ,$*))
+	@mkdir -p bin/$(word 2,$(subst /, ,$@))/$(word 3,$(subst /, ,$@))
 	@echo "building: $@"
 	@docker run --rm \
 	    -u $$(id -u):$$(id -g) \
@@ -147,8 +147,8 @@ $(BINS): $(SRC) go.mod
 	    -w /$(PROJECT) \
 	    $(BUILD_IMAGE) \
 	    /bin/sh -c " \
-	        GOARCH=$(word 3,$(subst /, ,$*)) \
-	        GOOS=$(word 2,$(subst /, ,$*)) \
+	        GOARCH=$(word 3,$(subst /, ,$@)) \
+	        GOOS=$(word 2,$(subst /, ,$@)) \
 	        GOCACHE=/$(PROJECT)/.cache \
 		CGO_ENABLED=0 \
 		go build -mod=vendor -o $@ \
