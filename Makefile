@@ -59,7 +59,7 @@ push-latest-%:
 push-%:
 	@$(MAKE) --no-print-directory ARCH=$* push
 
-all-build: $(foreach os, $(ALL_OS), $(addprefix build-$(os)-, $(ALL_ARCH)))
+all-build: $(addprefix build-$(OS)-, $(ALL_ARCH))
 
 all-container: $(addprefix container-, $(ALL_ARCH))
 

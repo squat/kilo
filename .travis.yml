@@ -21,6 +21,8 @@ install: true
 script:
   - make
   - make all-build
+  - make OS=darwin
+  - make OS=windows
   - make clean
   - make unit
   - make lint
