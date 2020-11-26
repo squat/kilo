@@ -21,6 +21,8 @@ spec:
   persistentKeepalive: 10
 ```
 
+:warning: You *MUST* include a `persistentKeepalive` value, though it can be any positive integer value.
+
 Then, apply the resource to the cluster:
 
 ```shell
