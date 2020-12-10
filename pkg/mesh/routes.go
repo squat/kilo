@@ -125,7 +125,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 	}
 	for _, segment := range t.segments {
 		// Add routes for the current segment if local is true.
-		if segment.location == t.location {
+		if (segment.location == t.location) || (t.nodeLocation != "" && segment.nodeLocation == t.nodeLocation) {
 			if local {
 				for i := range segment.cidrs {
 					// Don't add routes for the local node.

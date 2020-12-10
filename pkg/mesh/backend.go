@@ -47,6 +47,9 @@ const (
 	// FullGranularity indicates that the network should create
 	// a mesh between every node.
 	FullGranularity Granularity = "full"
+	// CrossGranularity indicates that network is encrypted only
+	// between nodes in different locations.
+	CrossGranularity Granularity = "cross"
 )
 
 // Node represents a node in the network.

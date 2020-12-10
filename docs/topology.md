@@ -46,6 +46,12 @@ kgctl graph | circo -Tsvg > cluster.svg
 
 <img src="./graphs/full-mesh.svg" />
 
+# Cross Mesh
+
+In this topology all nodes within the same location are not encrypted. Traffic to any other node outside of current location is encrypted
+with direct node-to-node encryption. To use this mesh specify `--mesh-granularity=cross`.
+
+
 ## Mixed 
 
 The `kilo.squat.ai/location` annotation can be used to create cluster mixing some fully meshed nodes and some nodes grouped by logical location.

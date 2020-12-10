@@ -65,6 +65,7 @@ var (
 	availableGranularities = strings.Join([]string{
 		string(mesh.LogicalGranularity),
 		string(mesh.FullGranularity),
+		string(mesh.CrossGranularity),
 	}, ", ")
 	availableLogLevels = strings.Join([]string{
 		logLevelAll,
@@ -157,6 +158,7 @@ func Main() error {
 	switch gr {
 	case mesh.LogicalGranularity:
 	case mesh.FullGranularity:
+	case mesh.CrossGranularity:
 	default:
 		return fmt.Errorf("mesh granularity %v unknown; possible values are: %s", *granularity, availableGranularities)
 	}

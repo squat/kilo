@@ -349,6 +349,156 @@ func TestNewTopology(t *testing.T) {
 				peers: []*Peer{peers["a"], peers["b"]},
 			},
 		},
+		{
+			name:        "cross from a",
+			granularity: CrossGranularity,
+			hostname:    nodes["a"].Name,
+			result: &Topology{
+				hostname:      nodes["a"].Name,
+				leader:        true,
+				location:      nodes["a"].Name,
+				nodeLocation:  nodes["a"].Location,
+				subnet:        nodes["a"].Subnet,
+				privateIP:     nodes["a"].InternalIP,
+				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
+				segments: []*segment{
+					{
+						allowedIPs:   []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["a"].Endpoint,
+						key:          nodes["a"].Key,
+						location:     nodes["a"].Name,
+						nodeLocation: nodes["a"].Location,
+						cidrs:        []*net.IPNet{nodes["a"].Subnet},
+						hostnames:    []string{"a"},
+						privateIPs:   []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP:  w1,
+					},
+					{
+						allowedIPs:   []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["b"].Endpoint,
+						key:          nodes["b"].Key,
+						location:     nodes["b"].Name,
+						nodeLocation: nodes["b"].Location,
+						cidrs:        []*net.IPNet{nodes["b"].Subnet},
+						hostnames:    []string{"b"},
+						privateIPs:   []net.IP{nodes["b"].InternalIP.IP},
+						wireGuardIP:  w2,
+					},
+					{
+						allowedIPs:   []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["c"].Endpoint,
+						key:          nodes["c"].Key,
+						location:     nodes["c"].Name,
+						nodeLocation: nodes["c"].Location,
+						cidrs:        []*net.IPNet{nodes["c"].Subnet},
+						hostnames:    []string{"c"},
+						privateIPs:   []net.IP{nodes["c"].InternalIP.IP},
+						wireGuardIP:  w3,
+					},
+				},
+				peers: []*Peer{peers["a"], peers["b"]},
+			},
+		},
+		{
+			name:        "cross from b",
+			granularity: CrossGranularity,
+			hostname:    nodes["b"].Name,
+			result: &Topology{
+				hostname:      nodes["b"].Name,
+				leader:        true,
+				location:      nodes["b"].Name,
+				nodeLocation:  nodes["b"].Location,
+				subnet:        nodes["b"].Subnet,
+				privateIP:     nodes["b"].InternalIP,
+				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
+				segments: []*segment{
+					{
+						allowedIPs:   []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["a"].Endpoint,
+						key:          nodes["a"].Key,
+						location:     nodes["a"].Name,
+						nodeLocation: nodes["a"].Location,
+						cidrs:        []*net.IPNet{nodes["a"].Subnet},
+						hostnames:    []string{"a"},
+						privateIPs:   []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP:  w1,
+					},
+					{
+						allowedIPs:   []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["b"].Endpoint,
+						key:          nodes["b"].Key,
+						location:     nodes["b"].Name,
+						nodeLocation: nodes["b"].Location,
+						cidrs:        []*net.IPNet{nodes["b"].Subnet},
+						hostnames:    []string{"b"},
+						privateIPs:   []net.IP{nodes["b"].InternalIP.IP},
+						wireGuardIP:  w2,
+					},
+					{
+						allowedIPs:   []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["c"].Endpoint,
+						key:          nodes["c"].Key,
+						location:     nodes["c"].Name,
+						nodeLocation: nodes["c"].Location,
+						cidrs:        []*net.IPNet{nodes["c"].Subnet},
+						hostnames:    []string{"c"},
+						privateIPs:   []net.IP{nodes["c"].InternalIP.IP},
+						wireGuardIP:  w3,
+					},
+				},
+				peers: []*Peer{peers["a"], peers["b"]},
+			},
+		},
+		{
+			name:        "cross from c",
+			granularity: CrossGranularity,
+			hostname:    nodes["c"].Name,
+			result: &Topology{
+				hostname:      nodes["c"].Name,
+				leader:        true,
+				location:      nodes["c"].Name,
+				nodeLocation:  nodes["c"].Location,
+				subnet:        nodes["c"].Subnet,
+				privateIP:     nodes["c"].InternalIP,
+				wireGuardCIDR: &net.IPNet{IP: w3, Mask: net.CIDRMask(16, 32)},
+				segments: []*segment{
+					{
+						allowedIPs:   []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["a"].Endpoint,
+						key:          nodes["a"].Key,
+						location:     nodes["a"].Name,
+						nodeLocation: nodes["a"].Location,
+						cidrs:        []*net.IPNet{nodes["a"].Subnet},
+						hostnames:    []string{"a"},
+						privateIPs:   []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP:  w1,
+					},
+					{
+						allowedIPs:   []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["b"].Endpoint,
+						key:          nodes["b"].Key,
+						location:     nodes["b"].Name,
+						nodeLocation: nodes["b"].Location,
+						cidrs:        []*net.IPNet{nodes["b"].Subnet},
+						hostnames:    []string{"b"},
+						privateIPs:   []net.IP{nodes["b"].InternalIP.IP},
+						wireGuardIP:  w2,
+					},
+					{
+						allowedIPs:   []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:     nodes["c"].Endpoint,
+						key:          nodes["c"].Key,
+						location:     nodes["c"].Name,
+						nodeLocation: nodes["c"].Location,
+						cidrs:        []*net.IPNet{nodes["c"].Subnet},
+						hostnames:    []string{"c"},
+						privateIPs:   []net.IP{nodes["c"].InternalIP.IP},
+						wireGuardIP:  w3,
+					},
+				},
+				peers: []*Peer{peers["a"], peers["b"]},
+			},
+		},
 	} {
 		tc.result.key = key
 		tc.result.port = port
@@ -529,6 +679,85 @@ PersistentKeepalive = 25
 		PublicKey = key5
 		Endpoint = 192.168.0.1:51820
 		AllowedIPs = 10.5.0.3/24
+		`,
+		},
+		{
+			name:     "cross from a",
+			topology: mustTopo(t, nodes, peers, CrossGranularity, nodes["a"].Name, port, key, DefaultKiloSubnet, nodes["a"].PersistentKeepalive),
+			result: `[Interface]
+		PrivateKey = private
+		ListenPort = 51820
+
+		[Peer]
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
+		Endpoint = 10.1.0.2:51820
+		PersistentKeepalive = 25
+		PublicKey = key2
+
+		[Peer]
+		AllowedIPs = 10.2.3.0/24, 192.168.0.2/32, 10.4.0.3/32
+		Endpoint = 10.1.0.3:51820
+		PersistentKeepalive = 25
+		PublicKey = key3
+
+		[Peer] 
+		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+		PersistentKeepalive = 25
+		PublicKey = key4
+
+		[Peer]
+		PublicKey = key5
+		Endpoint = 192.168.0.1:51820
+		PersistentKeepalive = 25
+		AllowedIPs = 10.5.0.3/24
+		`,
+		},
+		{
+			name:     "cross from b",
+			topology: mustTopo(t, nodes, peers, CrossGranularity, nodes["b"].Name, port, key, DefaultKiloSubnet, nodes["b"].PersistentKeepalive),
+			result: `[Interface]
+		PrivateKey = private
+		ListenPort = 51820
+		
+		[Peer]
+		PublicKey = key1
+		Endpoint = 10.1.0.1:51820
+		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
+
+        [Peer]
+        AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+        PersistentKeepalive = 0
+        PublicKey = key4
+        
+        [Peer]
+        AllowedIPs = 10.5.0.3/24
+        Endpoint = [192.168.0.1]:51820
+        PersistentKeepalive = 0
+        PublicKey = key5
+		`,
+		},
+		{
+			name:     "cross from c",
+			topology: mustTopo(t, nodes, peers, CrossGranularity, nodes["b"].Name, port, key, DefaultKiloSubnet, nodes["b"].PersistentKeepalive),
+			result: `[Interface]
+		PrivateKey = private
+		ListenPort = 51820
+		
+		[Peer]
+		PublicKey = key1
+		Endpoint = 10.1.0.1:51820
+		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
+
+        [Peer]
+        AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
+        PersistentKeepalive = 0
+        PublicKey = key4
+        
+        [Peer]
+        AllowedIPs = 10.5.0.3/24
+        Endpoint = [192.168.0.1]:51820
+        PersistentKeepalive = 0
+        PublicKey = key5
 		`,
 		},
 	} {

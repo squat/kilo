@@ -27,8 +27,11 @@ type Topology struct {
 	// key is the private key of the node creating the topology.
 	key  []byte
 	port uint32
-	// Location is the logical location of the local host.
+	// Location is the logical location of the local host of host name.
 	location string
+	// nodeLocation is the location annotation of the node. This is set only in cross location topology.
+	nodeLocation string
+
 	segments []*segment
 	peers    []*Peer
 
@@ -56,7 +59,8 @@ type segment struct {
 	key        []byte
 	// Location is the logical location of this segment.
 	location string
-
+	// nodeLocation is the node location annotation. This is set only for cross location topology.
+	nodeLocation string
 	// cidrs is a slice of subnets of all peers in the segment.
 	cidrs []*net.IPNet
 	// hostnames is a slice of the hostnames of the peers in the segment.
@@ -70,35 +74,58 @@ type segment struct {
 	wireGuardIP net.IP
 }
 
+// topoKey is used to group nodes into locations.
+type topoKey struct {
+	location     string
+	nodeLocation string
+}
+
 // NewTopology creates a new Topology struct from a given set of nodes and peers.
 func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port uint32, key []byte, subnet *net.IPNet, persistentKeepalive int) (*Topology, error) {
-	topoMap := make(map[string][]*Node)
-	for _, node := range nodes {
-		var location string
-		switch granularity {
-		case LogicalGranularity:
-			location = node.Location
-		case FullGranularity:
-			location = node.Name
-		}
-		topoMap[location] = append(topoMap[location], node)
-	}
-	var localLocation string
+	topoMap := make(map[topoKey][]*Node)
+	var localLocation, localNodeLocation string
 	switch granularity {
 	case LogicalGranularity:
 		localLocation = nodes[hostname].Location
+	case CrossGranularity:
+		localLocation = hostname
+		localNodeLocation = nodes[hostname].Location
 	case FullGranularity:
 		localLocation = hostname
 	}
 
-	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, persistentKeepalive: persistentKeepalive, privateIP: nodes[hostname].InternalIP, subnet: nodes[hostname].Subnet}
+	for _, node := range nodes {
+		var location, nodeLocation string
+		switch granularity {
+		case LogicalGranularity:
+			location = node.Location
+		case CrossGranularity:
+			location = node.Name
+			nodeLocation = node.Location
+		case FullGranularity:
+			location = node.Name
+		}
+		key := topoKey{location: location, nodeLocation: nodeLocation}
+		topoMap[key] = append(topoMap[key], node)
+	}
+
+	t := Topology{
+		key:                 key,
+		port:                port,
+		hostname:            hostname,
+		location:            localLocation,
+		nodeLocation:        localNodeLocation,
+		persistentKeepalive: persistentKeepalive,
+		privateIP:           nodes[hostname].InternalIP,
+		subnet:              nodes[hostname].Subnet,
+	}
 	for location := range topoMap {
 		// Sort the location so the result is stable.
 		sort.Slice(topoMap[location], func(i, j int) bool {
 			return topoMap[location][i].Name < topoMap[location][j].Name
 		})
 		leader := findLeader(topoMap[location])
-		if location == localLocation && topoMap[location][leader].Name == hostname {
+		if location.nodeLocation != "" || (location.location == localLocation && topoMap[location][leader].Name == hostname) {
 			t.leader = true
 		}
 		var allowedIPs []*net.IPNet
@@ -116,14 +143,15 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			privateIPs = append(privateIPs, node.InternalIP.IP)
 		}
 		t.segments = append(t.segments, &segment{
-			allowedIPs: allowedIPs,
-			endpoint:   topoMap[location][leader].Endpoint,
-			key:        topoMap[location][leader].Key,
-			location:   location,
-			cidrs:      cidrs,
-			hostnames:  hostnames,
-			leader:     leader,
-			privateIPs: privateIPs,
+			allowedIPs:   allowedIPs,
+			endpoint:     topoMap[location][leader].Endpoint,
+			key:          topoMap[location][leader].Key,
+			location:     location.location,
+			nodeLocation: location.nodeLocation,
+			cidrs:        cidrs,
+			hostnames:    hostnames,
+			leader:       leader,
+			privateIPs:   privateIPs,
 		})
 	}
 	// Sort the Topology segments so the result is stable.
@@ -167,7 +195,7 @@ func (t *Topology) Conf() *wireguard.Conf {
 		},
 	}
 	for _, s := range t.segments {
-		if s.location == t.location {
+		if (s.location == t.location) || (t.nodeLocation != "" && t.nodeLocation == s.nodeLocation) {
 			continue
 		}
 		peer := &wireguard.Peer{
