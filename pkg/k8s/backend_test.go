@@ -83,7 +83,7 @@ func TestTranslateNode(t *testing.T) {
 		{
 			name: "region",
 			labels: map[string]string{
-				regionLabelKey: "a",
+				RegionLabelKey: "a",
 			},
 			out: &mesh.Node{
 				Location: "a",
@@ -95,7 +95,7 @@ func TestTranslateNode(t *testing.T) {
 				locationAnnotationKey: "b",
 			},
 			labels: map[string]string{
-				regionLabelKey: "a",
+				RegionLabelKey: "a",
 			},
 			out: &mesh.Node{
 				Location: "b",
@@ -172,7 +172,7 @@ func TestTranslateNode(t *testing.T) {
 				wireGuardIPAnnotationKey:     "10.4.0.1/16",
 			},
 			labels: map[string]string{
-				regionLabelKey: "a",
+				RegionLabelKey: "a",
 			},
 			out: &mesh.Node{
 				Endpoint:            &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.2")}, Port: 51821},
@@ -192,7 +192,7 @@ func TestTranslateNode(t *testing.T) {
 		n.ObjectMeta.Annotations = tc.annotations
 		n.ObjectMeta.Labels = tc.labels
 		n.Spec.PodCIDR = tc.subnet
-		node := translateNode(n)
+		node := translateNode(n, RegionLabelKey)
 		if diff := pretty.Compare(node, tc.out); diff != "" {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}
