@@ -60,9 +60,10 @@ var (
 		granularity mesh.Granularity
 		port        uint32
 	}
-	backend     string
-	granularity string
-	kubeconfig  string
+	backend       string
+	granularity   string
+	kubeconfig    string
+	topologyLabel string
 )
 
 func runRoot(_ *cobra.Command, _ []string) error {
@@ -83,7 +84,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		c := kubernetes.NewForConfigOrDie(config)
 		kc := kiloclient.NewForConfigOrDie(config)
 		ec := apiextensions.NewForConfigOrDie(config)
-		opts.backend = k8s.New(c, kc, ec)
+		opts.backend = k8s.New(c, kc, ec, topologyLabel)
 	default:
 		return fmt.Errorf("backend %v unknown; posible values are: %s", backend, availableBackends)
 	}
@@ -110,6 +111,7 @@ func main() {
 	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"), "Path to kubeconfig.")
 	cmd.PersistentFlags().Uint32Var(&opts.port, "port", mesh.DefaultKiloPort, "The WireGuard port over which the nodes communicate.")
+	cmd.PersistentFlags().StringVar(&topologyLabel, "topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group logical nodes.")
 
 	for _, subCmd := range []*cobra.Command{
 		graph(),
