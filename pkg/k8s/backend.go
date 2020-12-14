@@ -59,7 +59,7 @@ const (
 	locationAnnotationKey        = "kilo.squat.ai/location"
 	persistentKeepaliveKey       = "kilo.squat.ai/persistent-keepalive"
 	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
-	// RegionLabelKey is the key for region label.
+	// RegionLabelKey is the key for the well-known Kubernetes topology region label.
 	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
 	jsonRemovePatch = `{"op": "remove", "path": "%s"}`

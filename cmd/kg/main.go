@@ -92,7 +92,7 @@ func Main() error {
 	local := flag.Bool("local", true, "Should Kilo manage routes within a location?")
 	logLevel := flag.String("log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 	master := flag.String("master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
-	topologyLabel := flag.String("topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group logical nodes.")
+	topologyLabel := flag.String("topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group nodes into logical locations.")
 	var port uint
 	flag.UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
 	subnet := flag.String("subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
