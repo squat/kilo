@@ -10,7 +10,8 @@ This allows the encrypted network to serve several purposes, for example:
 ## Logical Groups
 
 By default, Kilo creates a mesh between the different logical locations in the cluster, e.g. data-centers, cloud providers, etc.
-Kilo will try to infer the location of the node using the [topology.kubernetes.io/region](https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#topologykubernetesioregion) node label. Additionally, Kilo supports custom topology label using command line flag `--topology-label=...`. 
+Kilo will try to infer the location of the node using the [topology.kubernetes.io/region](https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#topologykubernetesioregion) node label.
+Additionally, Kilo supports using a custom topology label by setting the command line flag `--topology-label=<label>`. 
 If this label is not set, then the [kilo.squat.ai/location](./annotations.md#location) node annotation can be used.
 
 For example, in order to join nodes in Google Cloud and AWS into a single cluster, an administrator could use the following snippet could to annotate all nodes with `GCP` in the name:
