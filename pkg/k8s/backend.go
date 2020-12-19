@@ -59,8 +59,8 @@ const (
 	locationAnnotationKey        = "kilo.squat.ai/location"
 	persistentKeepaliveKey       = "kilo.squat.ai/persistent-keepalive"
 	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
-
-	regionLabelKey  = "topology.kubernetes.io/region"
+	// RegionLabelKey is the key for the well-known Kubernetes topology region label.
+	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
 	jsonRemovePatch = `{"op": "remove", "path": "%s"}`
 )
@@ -81,10 +81,11 @@ func (b *backend) Peers() mesh.PeerBackend {
 }
 
 type nodeBackend struct {
-	client   kubernetes.Interface
-	events   chan *mesh.NodeEvent
-	informer cache.SharedIndexInformer
-	lister   v1listers.NodeLister
+	client        kubernetes.Interface
+	events        chan *mesh.NodeEvent
+	informer      cache.SharedIndexInformer
+	lister        v1listers.NodeLister
+	topologyLabel string
 }
 
 type peerBackend struct {
@@ -96,16 +97,17 @@ type peerBackend struct {
 }
 
 // New creates a new instance of a mesh.Backend.
-func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface) mesh.Backend {
+func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface, topologyLabel string) mesh.Backend {
 	ni := v1informers.NewNodeInformer(c, 5*time.Minute, nil)
 	pi := v1alpha1informers.NewPeerInformer(kc, 5*time.Minute, nil)
 
 	return &backend{
 		&nodeBackend{
-			client:   c,
-			events:   make(chan *mesh.NodeEvent),
-			informer: ni,
-			lister:   v1listers.NewNodeLister(ni.GetIndexer()),
+			client:        c,
+			events:        make(chan *mesh.NodeEvent),
+			informer:      ni,
+			lister:        v1listers.NewNodeLister(ni.GetIndexer()),
+			topologyLabel: topologyLabel,
 		},
 		&peerBackend{
 			client:           kc,
@@ -138,7 +140,7 @@ func (nb *nodeBackend) Get(name string) (*mesh.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return translateNode(n), nil
+	return translateNode(n, nb.topologyLabel), nil
 }
 
 // Init initializes the backend; for this backend that means
@@ -158,7 +160,7 @@ func (nb *nodeBackend) Init(stop <-chan struct{}) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				nb.events <- &mesh.NodeEvent{Type: mesh.AddEvent, Node: translateNode(n)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.AddEvent, Node: translateNode(n, nb.topologyLabel)}
 			},
 			UpdateFunc: func(old, obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -171,7 +173,7 @@ func (nb *nodeBackend) Init(stop <-chan struct{}) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				nb.events <- &mesh.NodeEvent{Type: mesh.UpdateEvent, Node: translateNode(n), Old: translateNode(o)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.UpdateEvent, Node: translateNode(n, nb.topologyLabel), Old: translateNode(o, nb.topologyLabel)}
 			},
 			DeleteFunc: func(obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -179,7 +181,7 @@ func (nb *nodeBackend) Init(stop <-chan struct{}) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				nb.events <- &mesh.NodeEvent{Type: mesh.DeleteEvent, Node: translateNode(n)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.DeleteEvent, Node: translateNode(n, nb.topologyLabel)}
 			},
 		},
 	)
@@ -194,7 +196,7 @@ func (nb *nodeBackend) List() ([]*mesh.Node, error) {
 	}
 	nodes := make([]*mesh.Node, len(ns))
 	for i := range ns {
-		nodes[i] = translateNode(ns[i])
+		nodes[i] = translateNode(ns[i], nb.topologyLabel)
 	}
 	return nodes, nil
 }
@@ -239,7 +241,7 @@ func (nb *nodeBackend) Watch() <-chan *mesh.NodeEvent {
 }
 
 // translateNode translates a Kubernetes Node to a mesh.Node.
-func translateNode(node *v1.Node) *mesh.Node {
+func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	if node == nil {
 		return nil
 	}
@@ -253,7 +255,7 @@ func translateNode(node *v1.Node) *mesh.Node {
 	// Allow the region to be overridden by an explicit location.
 	location, ok := node.ObjectMeta.Annotations[locationAnnotationKey]
 	if !ok {
-		location = node.ObjectMeta.Labels[regionLabelKey]
+		location = node.ObjectMeta.Labels[topologyLabel]
 	}
 	// Allow the endpoint to be overridden.
 	endpoint := parseEndpoint(node.ObjectMeta.Annotations[forceEndpointAnnotationKey])
