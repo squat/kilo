@@ -80,6 +80,7 @@ var (
 func Main() error {
 	backend := flag.String("backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
 	cleanUpIface := flag.Bool("clean-up-interface", false, "Should Kilo delete its interface when it shuts down?")
+	createIface := flag.Bool("create-interface", true, "Should kilo create an interface on startup?")
 	cni := flag.Bool("cni", true, "Should Kilo manage the node's CNI configuration?")
 	cniPath := flag.String("cni-path", mesh.DefaultCNIPath, "Path to CNI config.")
 	compatibility := flag.String("compatibility", "", fmt.Sprintf("Should Kilo run in compatibility mode? Possible values: %s", availableCompatibilities))
@@ -177,7 +178,7 @@ func Main() error {
 		return fmt.Errorf("backend %v unknown; possible values are: %s", *backend, availableBackends)
 	}
 
-	m, err := mesh.New(b, enc, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, *iface, *cleanUpIface, log.With(logger, "component", "kilo"))
+	m, err := mesh.New(b, enc, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, *iface, *cleanUpIface, *createIface, log.With(logger, "component", "kilo"))
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}

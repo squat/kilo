@@ -27,6 +27,8 @@ Usage of bin/amd64/kg:
     	Path to CNI config. (default "/etc/cni/net.d/10-kilo.conflist")
   -compatibility string
     	Should Kilo run in compatibility mode? Possible values: flannel
+  -create-interface
+    	Should kilo create an interface on startup? (default true)
   -encapsulate string
     	When should Kilo encapsulate packets within a location? Possible values: never, crosssubnet, always (default "always")
   -hostname string

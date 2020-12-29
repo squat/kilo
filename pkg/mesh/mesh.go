@@ -85,7 +85,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, logger log.Logger) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -117,9 +117,18 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		return nil, fmt.Errorf("failed to find interface for private IP: %v", err)
 	}
 	privIface := ifaces[0].Index
-	kiloIface, _, err := wireguard.New(iface)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create WireGuard interface: %v", err)
+	var kiloIface int
+	if createIface {
+		kiloIface, _, err = wireguard.New(iface)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create WireGuard interface: %v", err)
+		}
+	} else {
+		link, err := netlink.LinkByName(iface)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get interface index: %v", err)
+		}
+		kiloIface = link.Attrs().Index
 	}
 	if enc.Strategy() != encapsulation.Never {
 		if err := enc.Init(privIface); err != nil {
