@@ -14,7 +14,7 @@ Kilo will try to infer the location of the node using the [topology.kubernetes.i
 Additionally, Kilo supports using a custom topology label by setting the command line flag `--topology-label=<label>`. 
 If this label is not set, then the [kilo.squat.ai/location](./annotations.md#location) node annotation can be used.
 
-For example, in order to join nodes in Google Cloud and AWS into a single cluster, an administrator could use the following snippet could to annotate all nodes with `GCP` in the name:
+For example, in order to join nodes in Google Cloud and AWS into a single cluster, an administrator could use the following snippet to annotate all nodes with `GCP` in the name:
 
 ```shell
 for node in $(kubectl get nodes | grep -i gcp | awk '{print $1}'); do kubectl annotate node $node kilo.squat.ai/location="gcp"; done
