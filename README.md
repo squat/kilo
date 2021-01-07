@@ -14,7 +14,7 @@ By allowing pools of nodes in different locations to communicate securely, Kilo 
 Kilo's design allows clients to VPN to a cluster in order to securely access services running on the cluster.
 In addition to creating multi-cloud clusters, Kilo enables the creation of multi-cluster services, i.e. services that span across different Kubernetes clusters.
 
-An introductionary video about Kilo is on [youtube](https://www.youtube.com/watch?v=iPz_DAOOCKA).
+An introductory video about Kilo from KubeCon EU 2019 can be found on [youtube](https://www.youtube.com/watch?v=iPz_DAOOCKA).
 
 ## How it works
 
