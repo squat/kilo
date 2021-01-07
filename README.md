@@ -28,12 +28,14 @@ This means that if a cluster uses, for example, Flannel for networking, Kilo can
 
 Kilo can be installed on any Kubernetes cluster either pre- or post-bring-up.
 
-### Step 1: install WireGuard
+### Step 1: get WireGuard
 
 Kilo requires the WireGuard kernel module to be loaded on all nodes in the cluster.
 Starting at Linux 5.6, the kernel includes WireGuard in-tree; Linux distributions with older kernels will need to install WireGuard.
 For most Linux distributions, this can be done using the system package manager.
 [See the WireGuard website for up-to-date instructions for installing WireGuard](https://www.wireguard.com/install/).
+
+Clusters with nodes on which the WireGuard kernel module cannot be installed can use Kilo by leveraging a [userspace WireGuard implementation](./docs/userspace-wireguard.md).
 
 ### Step 2: open WireGuard port
 

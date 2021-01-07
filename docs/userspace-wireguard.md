@@ -1,33 +1,34 @@
 # Userspace WireGuard
 
 It is possible to use a userspace implementation of WireGuard with Kilo.
-This can make sense if
+This can make sense in cases where
 
-* not all nodes in the cluster have WireGuard installed
-* no one wants to install the DKMS WireGuard package on these nodes
+* not all nodes in a cluster have WireGuard installed; or
+* nodes are effectively immutable and kernel modules cannot be installed.
 
-## Homogeneous Cluster
+## Homogeneous Clusters
 
-With a homogeneous cluster (no node has the WireGuard kernel module), you can run a userspace WireGuard implementation as a DaemonSet.
-This will create a WireGuard interface and Kilo will configure it.
-In order to avoid a race condition, `kg` needs to be passed the `--create-interface=false` flag. 
+In a homogeneous cluster where no node has the WireGuard kernel module, a userspace WireGuard implementation can be made available by deploying a DaemonSet.
+This DaemonSet creates a WireGuard interface that Kilo will manage.
+In order to avoid race conditions, `kg` needs to be passed the `--create-interface=false` flag. 
 
-An example configuration for a k3s cluster with [boringtun](https://github.com/cloudflare/boringtun) can be applied with 
+An example configuration for a k3s cluster with [boringtun](https://github.com/cloudflare/boringtun) can be applied with:
 
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/squat/Kilo/master/manifests/kilo-k3s-userspace.yaml
 ```
 
-__Note:__ even if some nodes have the WireGuard kernel module, this will still use the userspace implementation of WireGuard.
+__Note:__ even if some nodes have the WireGuard kernel module, this configuration will cause all nodes to use the userspace implementation of WireGuard.
 
-## Heterogeneous Cluster
+## Heterogeneous Clusters
 
-If you have a heterogeneous cluster (some nodes are missing the WireGuard kernel module) and you wish to use the kernel module, if available, you can apply this configuration to a k3s cluster:
+In a heterogeneous cluster where some nodes are missing the WireGuard kernel module, a userspace WireGuard implementation can be provided only to the nodes that need it while enabling the other nodes to leverage WireGuard via the kernel module.
+An example of such a configuration for a k3s cluster can by applied with:
 
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/squat/Kilo/master/manifests/kilo-k3s-userspace-heterogeneous.yaml
 ```
 
-This config will apply [nkml](https://github.com/leonnicolas/nkml) as a DaemonSet to label all nodes according to the presence of the WireGuard kernel module.
-It will apply two different DaemonSets with Kilo: `kilo` without userspace WireGuard and `kilo-userspace` with boringtun as a sidecar.
-Because Kilo is dependant on nkml, it needs to run on the host network and needs a kubeconfig to be able to update the labels.
+This configuration will deploy [nkml](https://github.com/leonnicolas/nkml) as a DaemonSet to label all nodes according to the presence of the WireGuard kernel module.
+It will also create two different DaemonSets with Kilo: `kilo` without userspace WireGuard and `kilo-userspace` with boringtun as a sidecar.
+__Note:__ because Kilo is dependant on nkml, nkml must be run on the host network before CNI is available and requires a kubeconfig in order to access the Kubernetes API.
