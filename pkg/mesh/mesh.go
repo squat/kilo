@@ -108,15 +108,6 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	if err != nil {
 		return nil, fmt.Errorf("failed to query netlink for CNI device: %v", err)
 	}
-	privateIP, publicIP, err := getIP(hostname, enc.Index(), cniIndex)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find public IP: %v", err)
-	}
-	ifaces, err := interfacesForIP(privateIP)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find interface for private IP: %v", err)
-	}
-	privIface := ifaces[0].Index
 	var kiloIface int
 	if createIface {
 		kiloIface, _, err = wireguard.New(iface)
@@ -130,6 +121,15 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		}
 		kiloIface = link.Attrs().Index
 	}
+	privateIP, publicIP, err := getIP(hostname, kiloIface, enc.Index(), cniIndex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find public IP: %v", err)
+	}
+	ifaces, err := interfacesForIP(privateIP)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find interface for private IP: %v", err)
+	}
+	privIface := ifaces[0].Index
 	if enc.Strategy() != encapsulation.Never {
 		if err := enc.Init(privIface); err != nil {
 			return nil, fmt.Errorf("failed to initialize encapsulator: %v", err)
