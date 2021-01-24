@@ -187,6 +187,33 @@ func TestTranslateNode(t *testing.T) {
 			},
 			subnet: "10.2.1.0/24",
 		},
+		{
+			name: "no InternalIP",
+			annotations: map[string]string{
+				endpointAnnotationKey:    "10.0.0.1:51820",
+				internalIPAnnotationKey:  "",
+				keyAnnotationKey:         "foo",
+				lastSeenAnnotationKey:    "1000000000",
+				locationAnnotationKey:    "b",
+				persistentKeepaliveKey:   "25",
+				wireGuardIPAnnotationKey: "10.4.0.1/16",
+			},
+			labels: map[string]string{
+				RegionLabelKey: "a",
+			},
+			out: &mesh.Node{
+				Endpoint:            &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: 51820},
+				InternalIP:          nil,
+				Key:                 []byte("foo"),
+				LastSeen:            1000000000,
+				Leader:              false,
+				Location:            "b",
+				PersistentKeepalive: 25,
+				Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
+				WireGuardIP:         &net.IPNet{IP: net.ParseIP("10.4.0.1"), Mask: net.CIDRMask(16, 32)},
+			},
+			subnet: "10.2.1.0/24",
+		},
 	} {
 		n := &v1.Node{}
 		n.ObjectMeta.Annotations = tc.annotations

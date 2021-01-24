@@ -97,9 +97,9 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 					LinkIndex: privIface,
 					Protocol:  unix.RTPROT_STATIC,
 				}, enc.Strategy(), t.privateIP, tunlIface))
+			}
+			for i := range segment.privateIPs {
 				// Add routes to the private IPs of nodes in other segments.
-				// Number of CIDRs and private IPs always match so
-				// we can reuse the loop.
 				routes = append(routes, encapsulateRoute(&netlink.Route{
 					Dst:       oneAddressCIDR(segment.privateIPs[i]),
 					Flags:     int(netlink.FLAG_ONLINK),
@@ -126,7 +126,9 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 	for _, segment := range t.segments {
 		// Add routes for the current segment if local is true.
 		if segment.location == t.location {
-			if local {
+			// If the local node does not have a private IP address,
+			// then skip adding routes, because the node is in its own location.
+			if local && t.privateIP != nil {
 				for i := range segment.cidrs {
 					// Don't add routes for the local node.
 					if segment.privateIPs[i].Equal(t.privateIP.IP) {
@@ -165,6 +167,8 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 					}
 				}
 			}
+			// Continuing here prevents leaders form adding routes via WireGuard to
+			// nodes in their own location.
 			continue
 		}
 		for i := range segment.cidrs {
@@ -180,7 +184,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 			// equals the external IP. This means that the node
 			// is only accessible through an external IP and we
 			// cannot encapsulate traffic to an IP through the IP.
-			if segment.privateIPs[i].Equal(segment.endpoint.IP) {
+			if segment.privateIPs == nil || segment.privateIPs[i].Equal(segment.endpoint.IP) {
 				continue
 			}
 			// Add routes to the private IPs of nodes in other segments.

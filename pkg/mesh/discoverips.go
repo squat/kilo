@@ -30,9 +30,7 @@ import (
 // - private IP to which hostname resolves
 // - private IP assigned to interface of default route
 // - private IP assigned to local interface
-// - public IP to which hostname resolves
-// - public IP assigned to interface of default route
-// - public IP assigned to local interface
+// - nil if no private IP was found
 // It selects the public IP address in the following order:
 // - public IP to which hostname resolves
 // - public IP assigned to interface of default route
@@ -153,7 +151,8 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 		return nil, nil, errors.New("no valid IP was found")
 	}
 	if len(priv) == 0 {
-		priv = pub
+		// If no private IPs were found, use nil.
+		priv = append(priv, nil)
 	}
 	if len(pub) == 0 {
 		pub = priv

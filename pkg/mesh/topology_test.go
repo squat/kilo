@@ -33,6 +33,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 	e1 := &net.IPNet{IP: net.ParseIP("10.1.0.1").To4(), Mask: net.CIDRMask(16, 32)}
 	e2 := &net.IPNet{IP: net.ParseIP("10.1.0.2").To4(), Mask: net.CIDRMask(16, 32)}
 	e3 := &net.IPNet{IP: net.ParseIP("10.1.0.3").To4(), Mask: net.CIDRMask(16, 32)}
+	e4 := &net.IPNet{IP: net.ParseIP("10.1.0.4").To4(), Mask: net.CIDRMask(16, 32)}
 	i1 := &net.IPNet{IP: net.ParseIP("192.168.0.1").To4(), Mask: net.CIDRMask(32, 32)}
 	i2 := &net.IPNet{IP: net.ParseIP("192.168.0.2").To4(), Mask: net.CIDRMask(32, 32)}
 	nodes := map[string]*Node{
@@ -57,10 +58,18 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 			Name:       "c",
 			Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e3.IP}, Port: DefaultKiloPort},
 			InternalIP: i2,
-			// Same location a node b.
+			// Same location as node b.
 			Location: "2",
 			Subnet:   &net.IPNet{IP: net.ParseIP("10.2.3.0"), Mask: net.CIDRMask(24, 32)},
 			Key:      []byte("key3"),
+		},
+		"d": {
+			Name:     "d",
+			Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e4.IP}, Port: DefaultKiloPort},
+			// Same location as node a, but without private IP
+			Location: "1",
+			Subnet:   &net.IPNet{IP: net.ParseIP("10.2.4.0"), Mask: net.CIDRMask(24, 32)},
+			Key:      []byte("key4"),
 		},
 	}
 	peers := map[string]*Peer{
@@ -97,6 +106,7 @@ func TestNewTopology(t *testing.T) {
 	w1 := net.ParseIP("10.4.0.1").To4()
 	w2 := net.ParseIP("10.4.0.2").To4()
 	w3 := net.ParseIP("10.4.0.3").To4()
+	w4 := net.ParseIP("10.4.0.4").To4()
 	for _, tc := range []struct {
 		name        string
 		granularity Granularity
@@ -110,7 +120,7 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["a"].Name,
 				leader:        true,
-				location:      nodes["a"].Location,
+				location:      logicalLocationPrefix + nodes["a"].Location,
 				subnet:        nodes["a"].Subnet,
 				privateIP:     nodes["a"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
@@ -119,7 +129,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["a"].Endpoint,
 						key:         nodes["a"].Key,
-						location:    nodes["a"].Location,
+						location:    logicalLocationPrefix + nodes["a"].Location,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
@@ -129,11 +139,21 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
-						location:    nodes["b"].Location,
+						location:    logicalLocationPrefix + nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
 						hostnames:   []string{"b", "c"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP: w2,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["d"].Endpoint,
+						key:         nodes["d"].Key,
+						location:    nodeLocationPrefix + nodes["d"].Name,
+						cidrs:       []*net.IPNet{nodes["d"].Subnet},
+						hostnames:   []string{"d"},
+						privateIPs:  nil,
+						wireGuardIP: w3,
 					},
 				},
 				peers: []*Peer{peers["a"], peers["b"]},
@@ -146,7 +166,7 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["b"].Name,
 				leader:        true,
-				location:      nodes["b"].Location,
+				location:      logicalLocationPrefix + nodes["b"].Location,
 				subnet:        nodes["b"].Subnet,
 				privateIP:     nodes["b"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
@@ -155,7 +175,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["a"].Endpoint,
 						key:         nodes["a"].Key,
-						location:    nodes["a"].Location,
+						location:    logicalLocationPrefix + nodes["a"].Location,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
@@ -165,11 +185,21 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
-						location:    nodes["b"].Location,
+						location:    logicalLocationPrefix + nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
 						hostnames:   []string{"b", "c"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP: w2,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["d"].Endpoint,
+						key:         nodes["d"].Key,
+						location:    nodeLocationPrefix + nodes["d"].Name,
+						cidrs:       []*net.IPNet{nodes["d"].Subnet},
+						hostnames:   []string{"d"},
+						privateIPs:  nil,
+						wireGuardIP: w3,
 					},
 				},
 				peers: []*Peer{peers["a"], peers["b"]},
@@ -182,7 +212,7 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["c"].Name,
 				leader:        false,
-				location:      nodes["b"].Location,
+				location:      logicalLocationPrefix + nodes["b"].Location,
 				subnet:        nodes["c"].Subnet,
 				privateIP:     nodes["c"].InternalIP,
 				wireGuardCIDR: nil,
@@ -191,7 +221,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["a"].Endpoint,
 						key:         nodes["a"].Key,
-						location:    nodes["a"].Location,
+						location:    logicalLocationPrefix + nodes["a"].Location,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
@@ -201,11 +231,21 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
-						location:    nodes["b"].Location,
+						location:    logicalLocationPrefix + nodes["b"].Location,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
 						hostnames:   []string{"b", "c"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP: w2,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["d"].Endpoint,
+						key:         nodes["d"].Key,
+						location:    nodeLocationPrefix + nodes["d"].Name,
+						cidrs:       []*net.IPNet{nodes["d"].Subnet},
+						hostnames:   []string{"d"},
+						privateIPs:  nil,
+						wireGuardIP: w3,
 					},
 				},
 				peers: []*Peer{peers["a"], peers["b"]},
@@ -218,7 +258,7 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["a"].Name,
 				leader:        true,
-				location:      nodes["a"].Name,
+				location:      nodeLocationPrefix + nodes["a"].Name,
 				subnet:        nodes["a"].Subnet,
 				privateIP:     nodes["a"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
@@ -227,7 +267,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["a"].Endpoint,
 						key:         nodes["a"].Key,
-						location:    nodes["a"].Name,
+						location:    nodeLocationPrefix + nodes["a"].Name,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
@@ -237,7 +277,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
-						location:    nodes["b"].Name,
+						location:    nodeLocationPrefix + nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
 						hostnames:   []string{"b"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP},
@@ -247,11 +287,21 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["c"].Endpoint,
 						key:         nodes["c"].Key,
-						location:    nodes["c"].Name,
+						location:    nodeLocationPrefix + nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
 						hostnames:   []string{"c"},
 						privateIPs:  []net.IP{nodes["c"].InternalIP.IP},
 						wireGuardIP: w3,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["d"].Endpoint,
+						key:         nodes["d"].Key,
+						location:    nodeLocationPrefix + nodes["d"].Name,
+						cidrs:       []*net.IPNet{nodes["d"].Subnet},
+						hostnames:   []string{"d"},
+						privateIPs:  nil,
+						wireGuardIP: w4,
 					},
 				},
 				peers: []*Peer{peers["a"], peers["b"]},
@@ -264,7 +314,7 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["b"].Name,
 				leader:        true,
-				location:      nodes["b"].Name,
+				location:      nodeLocationPrefix + nodes["b"].Name,
 				subnet:        nodes["b"].Subnet,
 				privateIP:     nodes["b"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
@@ -273,7 +323,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["a"].Endpoint,
 						key:         nodes["a"].Key,
-						location:    nodes["a"].Name,
+						location:    nodeLocationPrefix + nodes["a"].Name,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
@@ -283,7 +333,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
-						location:    nodes["b"].Name,
+						location:    nodeLocationPrefix + nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
 						hostnames:   []string{"b"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP},
@@ -293,11 +343,21 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["c"].Endpoint,
 						key:         nodes["c"].Key,
-						location:    nodes["c"].Name,
+						location:    nodeLocationPrefix + nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
 						hostnames:   []string{"c"},
 						privateIPs:  []net.IP{nodes["c"].InternalIP.IP},
 						wireGuardIP: w3,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["d"].Endpoint,
+						key:         nodes["d"].Key,
+						location:    nodeLocationPrefix + nodes["d"].Name,
+						cidrs:       []*net.IPNet{nodes["d"].Subnet},
+						hostnames:   []string{"d"},
+						privateIPs:  nil,
+						wireGuardIP: w4,
 					},
 				},
 				peers: []*Peer{peers["a"], peers["b"]},
@@ -310,7 +370,7 @@ func TestNewTopology(t *testing.T) {
 			result: &Topology{
 				hostname:      nodes["c"].Name,
 				leader:        true,
-				location:      nodes["c"].Name,
+				location:      nodeLocationPrefix + nodes["c"].Name,
 				subnet:        nodes["c"].Subnet,
 				privateIP:     nodes["c"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w3, Mask: net.CIDRMask(16, 32)},
@@ -319,7 +379,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["a"].Endpoint,
 						key:         nodes["a"].Key,
-						location:    nodes["a"].Name,
+						location:    nodeLocationPrefix + nodes["a"].Name,
 						cidrs:       []*net.IPNet{nodes["a"].Subnet},
 						hostnames:   []string{"a"},
 						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
@@ -329,7 +389,7 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["b"].Endpoint,
 						key:         nodes["b"].Key,
-						location:    nodes["b"].Name,
+						location:    nodeLocationPrefix + nodes["b"].Name,
 						cidrs:       []*net.IPNet{nodes["b"].Subnet},
 						hostnames:   []string{"b"},
 						privateIPs:  []net.IP{nodes["b"].InternalIP.IP},
@@ -339,11 +399,77 @@ func TestNewTopology(t *testing.T) {
 						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
 						endpoint:    nodes["c"].Endpoint,
 						key:         nodes["c"].Key,
-						location:    nodes["c"].Name,
+						location:    nodeLocationPrefix + nodes["c"].Name,
 						cidrs:       []*net.IPNet{nodes["c"].Subnet},
 						hostnames:   []string{"c"},
 						privateIPs:  []net.IP{nodes["c"].InternalIP.IP},
 						wireGuardIP: w3,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["d"].Endpoint,
+						key:         nodes["d"].Key,
+						location:    nodeLocationPrefix + nodes["d"].Name,
+						cidrs:       []*net.IPNet{nodes["d"].Subnet},
+						hostnames:   []string{"d"},
+						privateIPs:  nil,
+						wireGuardIP: w4,
+					},
+				},
+				peers: []*Peer{peers["a"], peers["b"]},
+			},
+		},
+		{
+			name:        "full from d",
+			granularity: FullGranularity,
+			hostname:    nodes["d"].Name,
+			result: &Topology{
+				hostname:      nodes["d"].Name,
+				leader:        true,
+				location:      nodeLocationPrefix + nodes["d"].Name,
+				subnet:        nodes["d"].Subnet,
+				privateIP:     nil,
+				wireGuardCIDR: &net.IPNet{IP: w4, Mask: net.CIDRMask(16, 32)},
+				segments: []*segment{
+					{
+						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["a"].Endpoint,
+						key:         nodes["a"].Key,
+						location:    nodeLocationPrefix + nodes["a"].Name,
+						cidrs:       []*net.IPNet{nodes["a"].Subnet},
+						hostnames:   []string{"a"},
+						privateIPs:  []net.IP{nodes["a"].InternalIP.IP},
+						wireGuardIP: w1,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["b"].Subnet, nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["b"].Endpoint,
+						key:         nodes["b"].Key,
+						location:    nodeLocationPrefix + nodes["b"].Name,
+						cidrs:       []*net.IPNet{nodes["b"].Subnet},
+						hostnames:   []string{"b"},
+						privateIPs:  []net.IP{nodes["b"].InternalIP.IP},
+						wireGuardIP: w2,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["c"].Endpoint,
+						key:         nodes["c"].Key,
+						location:    nodeLocationPrefix + nodes["c"].Name,
+						cidrs:       []*net.IPNet{nodes["c"].Subnet},
+						hostnames:   []string{"c"},
+						privateIPs:  []net.IP{nodes["c"].InternalIP.IP},
+						wireGuardIP: w3,
+					},
+					{
+						allowedIPs:  []*net.IPNet{nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
+						endpoint:    nodes["d"].Endpoint,
+						key:         nodes["d"].Key,
+						location:    nodeLocationPrefix + nodes["d"].Name,
+						cidrs:       []*net.IPNet{nodes["d"].Subnet},
+						hostnames:   []string{"d"},
+						privateIPs:  nil,
+						wireGuardIP: w4,
 					},
 				},
 				peers: []*Peer{peers["a"], peers["b"]},
@@ -392,6 +518,12 @@ PersistentKeepalive = 25
 
 [Peer]
 PublicKey = key4
+Endpoint = 10.1.0.4:51820
+AllowedIPs = 10.2.4.0/24, 10.4.0.3/32
+PersistentKeepalive = 25
+
+[Peer]
+PublicKey = key4
 AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
 PersistentKeepalive = 25
 
@@ -416,6 +548,11 @@ PersistentKeepalive = 25
 
 		[Peer]
 		PublicKey = key4
+		Endpoint = 10.1.0.4:51820
+		AllowedIPs = 10.2.4.0/24, 10.4.0.3/32
+
+		[Peer]
+		PublicKey = key4
 		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
 
 		[Peer]
@@ -435,6 +572,11 @@ PersistentKeepalive = 25
 		PublicKey = key1
 		Endpoint = 10.1.0.1:51820
 		AllowedIPs = 10.2.1.0/24, 192.168.0.1/32, 10.4.0.1/32
+
+		[Peer]
+		PublicKey = key4
+		Endpoint = 10.1.0.4:51820
+		AllowedIPs = 10.2.4.0/24, 10.4.0.3/32
 
 		[Peer]
 		PublicKey = key4
@@ -463,6 +605,12 @@ PersistentKeepalive = 25
 		PublicKey = key3
 		Endpoint = 10.1.0.3:51820
 		AllowedIPs = 10.2.3.0/24, 192.168.0.2/32, 10.4.0.3/32
+		PersistentKeepalive = 25
+
+		[Peer]
+		PublicKey = key4
+		Endpoint = 10.1.0.4:51820
+		AllowedIPs = 10.2.4.0/24, 10.4.0.4/32
 		PersistentKeepalive = 25
 
 		[Peer]
@@ -496,6 +644,11 @@ PersistentKeepalive = 25
 
 		[Peer]
 		PublicKey = key4
+		Endpoint = 10.1.0.4:51820
+		AllowedIPs = 10.2.4.0/24, 10.4.0.4/32
+
+		[Peer]
+		PublicKey = key4
 		AllowedIPs = 10.5.0.1/24, 10.5.0.2/24
 
 		[Peer]
@@ -520,6 +673,11 @@ PersistentKeepalive = 25
 		PublicKey = key2
 		Endpoint = 10.1.0.2:51820
 		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
+
+		[Peer]
+		PublicKey = key4
+		Endpoint = 10.1.0.4:51820
+		AllowedIPs = 10.2.4.0/24, 10.4.0.4/32
 
 		[Peer]
 		PublicKey = key4

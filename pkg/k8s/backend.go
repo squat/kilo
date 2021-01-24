@@ -209,7 +209,11 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 	}
 	n := old.DeepCopy()
 	n.ObjectMeta.Annotations[endpointAnnotationKey] = node.Endpoint.String()
-	n.ObjectMeta.Annotations[internalIPAnnotationKey] = node.InternalIP.String()
+	if node.InternalIP == nil {
+		n.ObjectMeta.Annotations[internalIPAnnotationKey] = ""
+	} else {
+		n.ObjectMeta.Annotations[internalIPAnnotationKey] = node.InternalIP.String()
+	}
 	n.ObjectMeta.Annotations[keyAnnotationKey] = string(node.Key)
 	n.ObjectMeta.Annotations[lastSeenAnnotationKey] = strconv.FormatInt(node.LastSeen, 10)
 	if node.WireGuardIP == nil {
@@ -289,6 +293,8 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		// remote node's agent has not yet set its IP address;
 		// in this case the IP will be nil and
 		// the mesh can wait for the node to be updated.
+		// It is valid for the InternalIP to be nil,
+		// if the given node only has public IP addresses.
 		Endpoint:            endpoint,
 		InternalIP:          internalIP,
 		Key:                 []byte(node.ObjectMeta.Annotations[keyAnnotationKey]),
