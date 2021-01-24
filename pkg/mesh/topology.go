@@ -22,6 +22,11 @@ import (
 	"github.com/squat/kilo/pkg/wireguard"
 )
 
+const (
+	logicalLocationPrefix = "location:"
+	nodeLocationPrefix    = "node:"
+)
+
 // Topology represents the logical structure of the overlay network.
 type Topology struct {
 	// key is the private key of the node creating the topology.
@@ -77,18 +82,24 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		var location string
 		switch granularity {
 		case LogicalGranularity:
-			location = node.Location
+			location = logicalLocationPrefix + node.Location
+			if node.InternalIP == nil {
+				location = nodeLocationPrefix + node.Name
+			}
 		case FullGranularity:
-			location = node.Name
+			location = nodeLocationPrefix + node.Name
 		}
 		topoMap[location] = append(topoMap[location], node)
 	}
 	var localLocation string
 	switch granularity {
 	case LogicalGranularity:
-		localLocation = nodes[hostname].Location
+		localLocation = logicalLocationPrefix + nodes[hostname].Location
+		if nodes[hostname].InternalIP == nil {
+			localLocation = nodeLocationPrefix + hostname
+		}
 	case FullGranularity:
-		localLocation = hostname
+		localLocation = nodeLocationPrefix + hostname
 	}
 
 	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, persistentKeepalive: persistentKeepalive, privateIP: nodes[hostname].InternalIP, subnet: nodes[hostname].Subnet}
@@ -110,10 +121,13 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			// - the node's allocated subnet
 			// - the node's WireGuard IP
 			// - the node's internal IP
-			allowedIPs = append(allowedIPs, node.Subnet, oneAddressCIDR(node.InternalIP.IP))
+			allowedIPs = append(allowedIPs, node.Subnet)
+			if node.InternalIP != nil {
+				allowedIPs = append(allowedIPs, oneAddressCIDR(node.InternalIP.IP))
+				privateIPs = append(privateIPs, node.InternalIP.IP)
+			}
 			cidrs = append(cidrs, node.Subnet)
 			hostnames = append(hostnames, node.Name)
-			privateIPs = append(privateIPs, node.InternalIP.IP)
 		}
 		t.segments = append(t.segments, &segment{
 			allowedIPs: allowedIPs,

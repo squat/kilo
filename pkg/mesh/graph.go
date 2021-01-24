@@ -70,7 +70,11 @@ func (t *Topology) Dot() (string, error) {
 					return "", fmt.Errorf("failed to add rank to node")
 				}
 			}
-			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], s.privateIPs[j], wg, endpoint)); err != nil {
+			var priv net.IP
+			if s.privateIPs != nil {
+				priv = s.privateIPs[j]
+			}
+			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], priv, wg, endpoint)); err != nil {
 				return "", fmt.Errorf("failed to add label to node")
 			}
 		}
@@ -155,7 +159,9 @@ func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP, endpoi
 		location,
 		name,
 		cidr.String(),
-		priv.String(),
+	}
+	if priv != nil {
+		label = append(label, priv.String())
 	}
 	if wgIP != nil {
 		label = append(label, wgIP.String())

@@ -71,7 +71,7 @@ type Mesh struct {
 	wireGuardIP  *net.IPNet
 
 	// nodes and peers are mutable fields in the struct
-	// and needs to be guarded.
+	// and need to be guarded.
 	nodes map[string]*Node
 	peers map[string]*Peer
 	mu    sync.Mutex
@@ -125,17 +125,23 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	if err != nil {
 		return nil, fmt.Errorf("failed to find public IP: %v", err)
 	}
-	ifaces, err := interfacesForIP(privateIP)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find interface for private IP: %v", err)
-	}
-	privIface := ifaces[0].Index
-	if enc.Strategy() != encapsulation.Never {
-		if err := enc.Init(privIface); err != nil {
-			return nil, fmt.Errorf("failed to initialize encapsulator: %v", err)
+	var privIface int
+	if privateIP != nil {
+		ifaces, err := interfacesForIP(privateIP)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find interface for private IP: %v", err)
 		}
+		privIface := ifaces[0].Index
+		if enc.Strategy() != encapsulation.Never {
+			if err := enc.Init(privIface); err != nil {
+				return nil, fmt.Errorf("failed to initialize encapsulator: %v", err)
+			}
+		}
+		level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the private IP address", privateIP.String()))
+	} else {
+		enc = encapsulation.Noop(enc.Strategy())
+		level.Debug(logger).Log("msg", "running without a private IP address")
 	}
-	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the private IP address", privateIP.String()))
 	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the public IP address", publicIP.String()))
 	ipTables, err := iptables.New()
 	if err != nil {
