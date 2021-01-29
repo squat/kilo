@@ -27,7 +27,7 @@ import (
 func (t *Topology) Dot() (string, error) {
 	g := gographviz.NewGraph()
 	g.Name = "kilo"
-	if err := g.AddAttr("kilo", string(gographviz.Label), graphEscape(t.subnet.String())); err != nil {
+	if err := g.AddAttr("kilo", string(gographviz.Label), graphEscape(t.wireGuardCIDR.String())); err != nil {
 		return "", fmt.Errorf("failed to add label to graph")
 	}
 	if err := g.AddAttr("kilo", string(gographviz.LabelLOC), "t"); err != nil {
