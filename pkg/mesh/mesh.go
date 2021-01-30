@@ -131,7 +131,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		if err != nil {
 			return nil, fmt.Errorf("failed to find interface for private IP: %v", err)
 		}
-		privIface := ifaces[0].Index
+		privIface = ifaces[0].Index
 		if enc.Strategy() != encapsulation.Never {
 			if err := enc.Init(privIface); err != nil {
 				return nil, fmt.Errorf("failed to initialize encapsulator: %v", err)
