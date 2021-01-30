@@ -39,7 +39,7 @@ OPENAPI_GEN_BINARY := bin/openapi-gen
 GOLINT_BINARY := bin/golint
 EMBEDMD_BINARY := bin/embedmd
 
-BUILD_IMAGE ?= golang:1.14.2-alpine
+BUILD_IMAGE ?= golang:1.15.7-alpine
 BASE_IMAGE ?= alpine:3.12
 
 build: $(BINS)
@@ -197,7 +197,7 @@ header: .header
 	FILES=; \
 	for f in $(GO_FILES); do \
 		for i in 0 1 2 3 4 5; do \
-			FILE=$$(tail -n +$$i $$f | head -n $$HEADER_LEN | sed "s/[0-9]\{4\}/YEAR/"); \
+			FILE=$$(t=$$(mktemp) && tail -n +$$i $$f > $$t && head -n $$HEADER_LEN $$t | sed "s/[0-9]\{4\}/YEAR/"); \
 			[ "$$FILE" = "$$HEADER" ] && continue 2; \
 		done; \
 		FILES="$$FILES$$f "; \
