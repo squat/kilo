@@ -1,5 +1,5 @@
 export GO111MODULE=on
-.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate
+.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate release
 
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
@@ -11,6 +11,8 @@ ifeq ($(OS),linux)
 else
     BINS := bin/$(OS)/$(ARCH)/kgctl
 endif
+RELEASE_BINS := $(addprefix bin/release/kgctl-, $(addprefix linux-, $(ALL_ARCH)) darwin-amd64 windows-amd64)
+CLIENT_BINS := $(addsuffix /kgctl, $(addprefix bin/, $(addprefix linux/, $(ALL_ARCH)) darwin/amd64 windows/amd64))
 PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
@@ -294,6 +296,12 @@ push-latest: container-latest
 
 push-name:
 	@echo "pushed: $(IMAGE):$(ARCH)-$(VERSION)"
+
+release: $(RELEASE_BINS)
+$(RELEASE_BINS):
+	@make OS=$(word 2,$(subst -, ,$(@F))) ARCH=$(word 3,$(subst -, ,$(@F)))
+	mkdir -p $(@D)
+	cp bin/$(word 2,$(subst -, ,$(@F)))/$(word 3,$(subst -, ,$(@F)))/kgctl $@
 
 clean: container-clean bin-clean
 	rm -rf .cache

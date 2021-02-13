@@ -1,0 +1,21 @@
+on:
+  release:
+    types: [created]
+name: Handle Release
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15.7
+    - name: Make Directory with kgctl Binaries to Be Released
+      run: make release
+    - name: Publish Release
+      uses: skx/github-action-publish-binaries@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        args: 'bin/release/kgctl-*'
