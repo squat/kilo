@@ -16,6 +16,8 @@ package iptables
 
 import (
 	"fmt"
+	"strings"
+	"sync/atomic"
 
 	"github.com/coreos/go-iptables/iptables"
 )
@@ -38,12 +40,14 @@ func (s statusError) ExitStatus() int {
 }
 
 type fakeClient struct {
+	calls   uint64
 	storage []Rule
 }
 
 var _ Client = &fakeClient{}
 
 func (f *fakeClient) AppendUnique(table, chain string, spec ...string) error {
+	atomic.AddUint64(&f.calls, 1)
 	exists, err := f.Exists(table, chain, spec...)
 	if err != nil {
 		return err
@@ -56,6 +60,7 @@ func (f *fakeClient) AppendUnique(table, chain string, spec ...string) error {
 }
 
 func (f *fakeClient) Delete(table, chain string, spec ...string) error {
+	atomic.AddUint64(&f.calls, 1)
 	r := &rule{table: table, chain: chain, spec: spec}
 	for i := range f.storage {
 		if f.storage[i].String() == r.String() {
@@ -69,6 +74,7 @@ func (f *fakeClient) Delete(table, chain string, spec ...string) error {
 }
 
 func (f *fakeClient) Exists(table, chain string, spec ...string) (bool, error) {
+	atomic.AddUint64(&f.calls, 1)
 	r := &rule{table: table, chain: chain, spec: spec}
 	for i := range f.storage {
 		if f.storage[i].String() == r.String() {
@@ -78,7 +84,22 @@ func (f *fakeClient) Exists(table, chain string, spec ...string) (bool, error) {
 	return false, nil
 }
 
+func (f *fakeClient) List(table, chain string) ([]string, error) {
+	atomic.AddUint64(&f.calls, 1)
+	var rs []string
+	for i := range f.storage {
+		switch r := f.storage[i].(type) {
+		case *rule:
+			if r.table == table && r.chain == chain {
+				rs = append(rs, strings.TrimSpace(strings.TrimPrefix(r.String(), table)))
+			}
+		}
+	}
+	return rs, nil
+}
+
 func (f *fakeClient) ClearChain(table, name string) error {
+	atomic.AddUint64(&f.calls, 1)
 	for i := range f.storage {
 		r, ok := f.storage[i].(*rule)
 		if !ok {
@@ -90,10 +111,14 @@ func (f *fakeClient) ClearChain(table, name string) error {
 			}
 		}
 	}
-	return f.DeleteChain(table, name)
+	if err := f.DeleteChain(table, name); err != nil {
+		return err
+	}
+	return f.NewChain(table, name)
 }
 
 func (f *fakeClient) DeleteChain(table, name string) error {
+	atomic.AddUint64(&f.calls, 1)
 	for i := range f.storage {
 		r, ok := f.storage[i].(*rule)
 		if !ok {
@@ -116,6 +141,7 @@ func (f *fakeClient) DeleteChain(table, name string) error {
 }
 
 func (f *fakeClient) NewChain(table, name string) error {
+	atomic.AddUint64(&f.calls, 1)
 	c := &chain{table: table, chain: name}
 	for i := range f.storage {
 		if f.storage[i].String() == c.String() {
@@ -124,4 +150,18 @@ func (f *fakeClient) NewChain(table, name string) error {
 	}
 	f.storage = append(f.storage, c)
 	return nil
+}
+
+func (f *fakeClient) ListChains(table string) ([]string, error) {
+	atomic.AddUint64(&f.calls, 1)
+	var cs []string
+	for i := range f.storage {
+		switch c := f.storage[i].(type) {
+		case *chain:
+			if c.table == table {
+				cs = append(cs, c.chain)
+			}
+		}
+	}
+	return cs, nil
 }

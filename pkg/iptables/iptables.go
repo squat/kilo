@@ -17,7 +17,6 @@ package iptables
 import (
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -47,9 +46,11 @@ type Client interface {
 	AppendUnique(table string, chain string, rule ...string) error
 	Delete(table string, chain string, rule ...string) error
 	Exists(table string, chain string, rule ...string) (bool, error)
+	List(table string, chain string) ([]string, error)
 	ClearChain(table string, chain string) error
 	DeleteChain(table string, chain string) error
 	NewChain(table string, chain string) error
+	ListChains(table string) ([]string, error)
 }
 
 // Rule is an interface for interacting with iptables objects.
@@ -107,7 +108,17 @@ func (r *rule) String() string {
 	if r == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s_%s_%s", r.table, r.chain, strings.Join(r.spec, "_"))
+	spec := r.table + " -A " + r.chain
+	for i, s := range r.spec {
+		spec += " "
+		// If this is the content of a comment, wrap the value in quotes.
+		if i > 0 && r.spec[i-1] == "--comment" {
+			spec += `"` + s + `"`
+		} else {
+			spec += s
+		}
+	}
+	return spec
 }
 
 func (r *rule) Proto() Protocol {
@@ -132,6 +143,7 @@ func NewIPv6Chain(table, name string) Rule {
 }
 
 func (c *chain) Add(client Client) error {
+	// Note: `ClearChain` creates a chain if it does not exist.
 	if err := client.ClearChain(c.table, c.chain); err != nil {
 		return fmt.Errorf("failed to add iptables chain: %v", err)
 	}
@@ -171,11 +183,15 @@ func (c *chain) String() string {
 	if c == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s_%s", c.table, c.chain)
+	return chainToString(c.table, c.chain)
 }
 
 func (c *chain) Proto() Protocol {
 	return c.proto
+}
+
+func chainToString(table, chain string) string {
+	return fmt.Sprintf("%s -N %s", table, chain)
 }
 
 // Controller is able to reconcile a given set of iptables rules.
@@ -242,8 +258,9 @@ func (c *Controller) Run(stop <-chan struct{}) (<-chan error, error) {
 func (c *Controller) reconcile() error {
 	c.Lock()
 	defer c.Unlock()
+	var rc ruleCache
 	for i, r := range c.rules {
-		ok, err := r.Exists(c.client(r.Proto()))
+		ok, err := rc.exists(c.client(r.Proto()), r)
 		if err != nil {
 			return fmt.Errorf("failed to check if rule exists: %v", err)
 		}
