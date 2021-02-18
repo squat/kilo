@@ -87,7 +87,7 @@ func Main() error {
 	compatibility := flag.String("compatibility", "", fmt.Sprintf("Should Kilo run in compatibility mode? Possible values: %s", availableCompatibilities))
 	encapsulate := flag.String("encapsulate", string(encapsulation.Always), fmt.Sprintf("When should Kilo encapsulate packets within a location? Possible values: %s", availableEncapsulations))
 	granularity := flag.String("mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
-	worksInKubernetesCluster := flag.Bool("worksInKubernetesCluster", false, "use InClusterConfig metod to configure the Kubernetes API client.")
+	worksInKubernetesCluster := flag.Bool("worksInKubernetesCluster", true, "Set to true if run kilo in Kubernetes cluster.")
 	kubeconfig := flag.String("kubeconfig", "", "Path to kubeconfig.")
 	hostname := flag.String("hostname", "", "Hostname of the node on which this process is running.")
 	iface := flag.String("interface", mesh.DefaultKiloInterface, "Name of the Kilo interface to use; if it does not exist, it will be created.")

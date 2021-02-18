@@ -37,6 +37,8 @@ Usage of bin/amd64/kg:
     	Name of the Kilo interface to use; if it does not exist, it will be created. (default "kilo0")
   -kubeconfig string
     	Path to kubeconfig.
+  -worksInKubernetesCluster bool
+      Set to true if run kilo in Kubernetes cluster. (default true)
   -listen string
     	The address at which to listen for health and metrics. (default ":1107")
   -local
