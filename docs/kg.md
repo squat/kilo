@@ -38,7 +38,7 @@ Usage of bin/amd64/kg:
   -kubeconfig string
     	Path to kubeconfig.
   -worksInKubernetesCluster bool
-      Set to true if run kilo in Kubernetes cluster. (default true)
+      Set to false if run kilo outside Kubernetes cluster. (default true)
   -listen string
     	The address at which to listen for health and metrics. (default ":1107")
   -local
