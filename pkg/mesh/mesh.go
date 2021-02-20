@@ -490,7 +490,10 @@ func (m *Mesh) applyTopology() {
 	if m.enc.Strategy() != encapsulation.Never && m.local {
 		var cidrs []*net.IPNet
 		for _, s := range t.segments {
-			if s.location == nodes[m.hostname].Location {
+			// If the location prefix is not logicalLocation, but nodeLocation,
+			// we don't need to set any extra rules for encapsulation anyways
+			// because traffic will go over WireGuard.
+			if s.location == logicalLocationPrefix+nodes[m.hostname].Location {
 				for i := range s.privateIPs {
 					cidrs = append(cidrs, oneAddressCIDR(s.privateIPs[i]))
 				}
