@@ -371,7 +371,7 @@ func (m *Mesh) handleLocal(n *Node) {
 	if n.Endpoint == nil || (n.Endpoint.DNS == "" && n.Endpoint.IP == nil) {
 		n.Endpoint = &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: m.externalIP.IP}, Port: m.port}
 	}
-	if n.InternalIP == nil {
+	if n.InternalIP == nil && !n.NoInternalIP {
 		n.InternalIP = m.internalIP
 	}
 	// Compare the given node to the calculated local node.
@@ -380,6 +380,7 @@ func (m *Mesh) handleLocal(n *Node) {
 	local := &Node{
 		Endpoint:            n.Endpoint,
 		Key:                 m.pub,
+		NoInternalIP:        n.NoInternalIP,
 		InternalIP:          n.InternalIP,
 		LastSeen:            time.Now().Unix(),
 		Leader:              n.Leader,

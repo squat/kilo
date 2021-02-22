@@ -271,6 +271,12 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	if internalIP == nil {
 		internalIP = normalizeIP(node.ObjectMeta.Annotations[internalIPAnnotationKey])
 	}
+	// Set the ForceInternalIP flag, if force-internal-ip annotation was set to "".
+	noInternalIP := false
+	if s, ok := node.ObjectMeta.Annotations[forceInternalIPAnnotationKey]; ok && (s == "" || s == "-") {
+		noInternalIP = true
+		internalIP = nil
+	}
 	// Set Wireguard PersistentKeepalive setting for the node.
 	var persistentKeepalive int64
 	if keepAlive, ok := node.ObjectMeta.Annotations[persistentKeepaliveKey]; !ok {
@@ -296,6 +302,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		// It is valid for the InternalIP to be nil,
 		// if the given node only has public IP addresses.
 		Endpoint:            endpoint,
+		NoInternalIP:        noInternalIP,
 		InternalIP:          internalIP,
 		Key:                 []byte(node.ObjectMeta.Annotations[keyAnnotationKey]),
 		LastSeen:            lastSeen,
