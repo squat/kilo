@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/coreos/go-iptables/iptables"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 )
 
 // Protocol represents an IP protocol.
@@ -199,29 +201,57 @@ type Controller struct {
 	v4     Client
 	v6     Client
 	errors chan error
+	logger log.Logger
 
 	sync.Mutex
 	rules      []Rule
 	subscribed bool
 }
 
+// ControllerOption modifies the controller's configuration.
+type ControllerOption func(h *Controller)
+
+// WithLogger adds a logger to the controller.
+func WithLogger(logger log.Logger) ControllerOption {
+	return func(c *Controller) {
+		c.logger = logger
+	}
+}
+
+// WithClients adds iptables clients to the controller.
+func WithClients(v4, v6 Client) ControllerOption {
+	return func(c *Controller) {
+		c.v4 = v4
+		c.v6 = v6
+	}
+}
+
 // New generates a new iptables rules controller.
-// It expects an IP address length to determine
-// whether to operate in IPv4 or IPv6 mode.
-func New() (*Controller, error) {
-	v4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create iptables IPv4 client: %v", err)
-	}
-	v6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
-	}
-	return &Controller{
-		v4:     v4,
-		v6:     v6,
+// If no options are given, IPv4 and IPv6 clients
+// will be instantiated using the regular iptables backend.
+func New(opts ...ControllerOption) (*Controller, error) {
+	c := &Controller{
 		errors: make(chan error),
-	}, nil
+		logger: log.NewNopLogger(),
+	}
+	for _, o := range opts {
+		o(c)
+	}
+	if c.v4 == nil {
+		v4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create iptables IPv4 client: %v", err)
+		}
+		c.v4 = v4
+	}
+	if c.v6 == nil {
+		v6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
+		}
+		c.v6 = v6
+	}
+	return c, nil
 }
 
 // Run watches for changes to iptables rules and reconciles
@@ -239,7 +269,7 @@ func (c *Controller) Run(stop <-chan struct{}) (<-chan error, error) {
 		defer close(c.errors)
 		for {
 			select {
-			case <-time.After(5 * time.Second):
+			case <-time.After(30 * time.Second):
 			case <-stop:
 				return
 			}
@@ -265,6 +295,7 @@ func (c *Controller) reconcile() error {
 			return fmt.Errorf("failed to check if rule exists: %v", err)
 		}
 		if !ok {
+			level.Info(c.logger).Log("msg", fmt.Sprintf("applying %d iptables rules", len(c.rules)-i))
 			if err := c.resetFromIndex(i, c.rules); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}

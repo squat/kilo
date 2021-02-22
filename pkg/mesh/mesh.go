@@ -143,7 +143,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		level.Debug(logger).Log("msg", "running without a private IP address")
 	}
 	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the public IP address", publicIP.String()))
-	ipTables, err := iptables.New()
+	ipTables, err := iptables.New(iptables.WithLogger(log.With(logger, "component", "iptables")))
 	if err != nil {
 		return nil, fmt.Errorf("failed to IP tables controller: %v", err)
 	}
