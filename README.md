@@ -69,25 +69,25 @@ Kilo can be installed by deploying a DaemonSet to the cluster.
 To run Kilo on kubeadm:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-kubeadm.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-kubeadm.yaml
 ```
 
 To run Kilo on bootkube:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-bootkube.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-bootkube.yaml
 ```
 
 To run Kilo on Typhoon:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-typhoon.yaml
 ```
 
 To run Kilo on k3s:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-k3s.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s.yaml
 ```
 
 ## Add-on Mode
@@ -99,10 +99,10 @@ Kilo currently supports running on top of Flannel.
 For example, to run Kilo on a Typhoon cluster running Flannel:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon-flannel.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-typhoon-flannel.yaml
 ```
 
-[See the manifests directory for more examples](https://github.com/squat/kilo/tree/master/manifests).
+[See the manifests directory for more examples](https://github.com/squat/kilo/tree/main/manifests).
 
 ## VPN
 

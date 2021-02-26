@@ -15,7 +15,7 @@ In order to avoid race conditions, `kg` needs to be passed the `--create-interfa
 An example configuration for a k3s cluster with [boringtun](https://github.com/cloudflare/boringtun) can be applied with:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/Kilo/master/manifests/kilo-k3s-userspace.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s-userspace.yaml
 ```
 
 __Note:__ even if some nodes have the WireGuard kernel module, this configuration will cause all nodes to use the userspace implementation of WireGuard.
@@ -26,7 +26,7 @@ In a heterogeneous cluster where some nodes are missing the WireGuard kernel mod
 An example of such a configuration for a k3s cluster can by applied with:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/Kilo/master/manifests/kilo-k3s-userspace-heterogeneous.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s-userspace-heterogeneous.yaml
 ```
 
 This configuration will deploy [nkml](https://github.com/leonnicolas/nkml) as a DaemonSet to label all nodes according to the presence of the WireGuard kernel module.
