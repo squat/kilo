@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
   schedule:
   - cron:  '0 0 * * *'
   workflow_dispatch:
@@ -137,5 +137,5 @@ jobs:
       if: github.event_name != 'pull_request'
       run: make manifest
     - name: Build and push latest
-      if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+      if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
       run: make manifest-latest

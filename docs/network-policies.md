@@ -10,7 +10,7 @@ Support for [Kubernetes network policies](https://kubernetes.io/docs/concepts/se
 The following command adds network policy support by deploying kube-router to work alongside Kilo:
 
 ```shell
-kubectl apply -f kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kube-router.yaml
+kubectl apply -f kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kube-router.yaml
 ```
 
 ## Examples
