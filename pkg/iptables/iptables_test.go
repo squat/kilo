@@ -83,10 +83,11 @@ func TestSet(t *testing.T) {
 			},
 		},
 	} {
-		controller := &Controller{}
 		client := &fakeClient{}
-		controller.v4 = client
-		controller.v6 = client
+		controller, err := New(WithClients(client, client))
+		if err != nil {
+			t.Fatalf("test case %q: got unexpected error instantiating controller: %v", tc.name, err)
+		}
 		for i := range tc.sets {
 			if err := controller.Set(tc.sets[i]); err != nil {
 				t.Fatalf("test case %q: got unexpected error seting rule set %d: %v", tc.name, i, err)
@@ -139,10 +140,11 @@ func TestCleanUp(t *testing.T) {
 			rules: []Rule{rules[0], rules[1]},
 		},
 	} {
-		controller := &Controller{}
 		client := &fakeClient{}
-		controller.v4 = client
-		controller.v6 = client
+		controller, err := New(WithClients(client, client))
+		if err != nil {
+			t.Fatalf("test case %q: got unexpected error instantiating controller: %v", tc.name, err)
+		}
 		if err := controller.Set(tc.rules); err != nil {
 			t.Fatalf("test case %q: Set should not fail: %v", tc.name, err)
 		}
