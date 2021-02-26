@@ -8,7 +8,7 @@ This tool can be used to understand a mesh's topology, get the WireGuard configu
 
 Installing `kgctl` currently requires building the binary from source.
 *Note*: the [Go toolchain must be installed](https://golang.org/doc/install) in order to build the binary.
-To build and install `kgctl`, simply run:
+To build and install `kgctl`, run:
 
 ```shell
 go install github.com/squat/kilo/cmd/kgctl
