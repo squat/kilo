@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	// resyncPeriod is how often the mesh checks state if no events have been received.
-	resyncPeriod = 30 * time.Second
-	// DefaultKiloInterface is the default iterface created and used by Kilo.
+	// checkInPeriod is how often nodes should check-in.
+	checkInPeriod = 30 * time.Second
+	// DefaultKiloInterface is the default interface created and used by Kilo.
 	DefaultKiloInterface = "kilo0"
 	// DefaultKiloPort is the default UDP port Kilo uses.
 	DefaultKiloPort = 51820
@@ -70,7 +70,7 @@ type Node struct {
 // Ready indicates whether or not the node is ready.
 func (n *Node) Ready() bool {
 	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
-	return n != nil && n.Endpoint != nil && !(n.Endpoint.IP == nil && n.Endpoint.DNS == "") && n.Endpoint.Port != 0 && n.Key != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(resyncPeriod)*2/int64(time.Second)
+	return n != nil && n.Endpoint != nil && !(n.Endpoint.IP == nil && n.Endpoint.DNS == "") && n.Endpoint.Port != 0 && n.Key != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(checkInPeriod)*2/int64(time.Second)
 }
 
 // Peer represents a peer in the network.
