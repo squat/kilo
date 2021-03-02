@@ -198,10 +198,11 @@ func chainToString(table, chain string) string {
 
 // Controller is able to reconcile a given set of iptables rules.
 type Controller struct {
-	v4     Client
-	v6     Client
-	errors chan error
-	logger log.Logger
+	v4           Client
+	v6           Client
+	errors       chan error
+	logger       log.Logger
+	resyncPeriod time.Duration
 
 	sync.Mutex
 	rules      []Rule
@@ -215,6 +216,13 @@ type ControllerOption func(h *Controller)
 func WithLogger(logger log.Logger) ControllerOption {
 	return func(c *Controller) {
 		c.logger = logger
+	}
+}
+
+// WithResyncPeriod modifies how often the controller reconciles.
+func WithResyncPeriod(resyncPeriod time.Duration) ControllerOption {
+	return func(c *Controller) {
+		c.resyncPeriod = resyncPeriod
 	}
 }
 
@@ -266,15 +274,17 @@ func (c *Controller) Run(stop <-chan struct{}) (<-chan error, error) {
 	c.subscribed = true
 	c.Unlock()
 	go func() {
+		t := time.NewTimer(c.resyncPeriod)
 		defer close(c.errors)
 		for {
 			select {
-			case <-time.After(30 * time.Second):
+			case <-t.C:
+				if err := c.reconcile(); err != nil {
+					nonBlockingSend(c.errors, fmt.Errorf("failed to reconcile rules: %v", err))
+				}
+				t.Reset(c.resyncPeriod)
 			case <-stop:
 				return
-			}
-			if err := c.reconcile(); err != nil {
-				nonBlockingSend(c.errors, fmt.Errorf("failed to reconcile rules: %v", err))
 			}
 		}
 	}()

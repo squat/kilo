@@ -16,7 +16,6 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -24,12 +23,14 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	flag "github.com/spf13/pflag"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -97,6 +98,7 @@ func Main() error {
 	var port uint
 	flag.UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
 	subnet := flag.String("subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
+	resyncPeriod := flag.Duration("resync-period", 30*time.Second, "How often should the Kilo controllers reconcile?")
 	printVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -178,7 +180,7 @@ func Main() error {
 		return fmt.Errorf("backend %v unknown; possible values are: %s", *backend, availableBackends)
 	}
 
-	m, err := mesh.New(b, enc, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, *iface, *cleanUpIface, *createIface, log.With(logger, "component", "kilo"))
+	m, err := mesh.New(b, enc, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, *iface, *cleanUpIface, *createIface, *resyncPeriod, log.With(logger, "component", "kilo"))
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}

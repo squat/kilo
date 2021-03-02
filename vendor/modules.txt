@@ -154,6 +154,7 @@ github.com/prometheus/procfs/xfs
 ## explicit
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
+## explicit
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.3.0
 ## explicit
