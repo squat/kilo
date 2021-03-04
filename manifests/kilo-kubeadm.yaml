@@ -160,7 +160,7 @@ spec:
           path: /opt/cni/bin
       - name: cni-conf-dir
         hostPath:
-          path: /etc/kubernetes/cni/net.d
+          path: /etc/cni/net.d
       - name: kilo-dir
         hostPath:
           path: /var/lib/kilo
