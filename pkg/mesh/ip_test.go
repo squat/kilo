@@ -155,6 +155,11 @@ func TestIsPublic(t *testing.T) {
 			out:  true,
 		},
 		{
+			name: "above 172.16/12",
+			ip:   net.ParseIP("172.160.255.255"),
+			out:  true,
+		},
+		{
 			name: "192.168/16",
 			ip:   net.ParseIP("192.168.0.0"),
 			out:  false,
