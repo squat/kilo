@@ -47,7 +47,7 @@ func isPublic(ip net.IP) bool {
 		case ip4[0] == 10:
 			return false
 		// Check for 172.16.0.0/12.
-		case ip4[0] == 172 && ip4[1]&0xf0 != 0:
+		case ip4[0] == 172 && ip4[1]&0xf0 == 0x10:
 			return false
 		// Check for 192.168.0.0/16.
 		case ip4[0] == 192 && ip4[1] == 168:
