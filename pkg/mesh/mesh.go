@@ -166,6 +166,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		priv:         private,
 		privIface:    privIface,
 		pub:          public,
+		resyncPeriod: resyncPeriod,
 		local:        local,
 		stop:         make(chan struct{}),
 		subnet:       subnet,
