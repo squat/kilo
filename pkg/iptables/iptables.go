@@ -383,7 +383,7 @@ func (c *Controller) Set(rules []Rule) error {
 			if err := rules[i].Add(c.client(rules[i].Proto())); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
-			c.rules = append(c.rulIes, rules[i])
+			c.rules = append(c.rules, rules[i])
 		}
 
 	}
