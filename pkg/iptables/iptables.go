@@ -370,11 +370,12 @@ func (c *Controller) Set(rules []Rule) error {
 				protocolName = "ipv6"
 			}
 
-			level.Debug(c.logger).Log("msg", "Applying Firewall Rule...", "Rule", c.rules[i].String(), "Protocol", protocolName)
+			var ruleString = rules[i].String()
+			level.Debug(c.logger).Log("msg", "Applying Firewall Rule...", "Rule", ruleString, "Protocol", protocolName)
 			if err := rules[i].Add(c.client(proto)); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
-			level.Debug(c.logger).Log("msg", "Firewall Rule applied.", "Rule", c.rules[i].String(), "Protocol", protocolName)
+			level.Debug(c.logger).Log("msg", "Firewall Rule applied.", "Rule", ruleString, "Protocol", protocolName)
 			c.rules = append(c.rules, rules[i])
 		}
 
