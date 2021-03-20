@@ -17,6 +17,7 @@ package iptables
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"sync"
 	"time"
 
@@ -353,6 +354,9 @@ func (c *Controller) Set(rules []Rule) error {
 	c.Lock()
 	defer c.Unlock()
 	var i int
+
+	ipv6Regex,_ := regexp.Compile("[-]d\\s(.*:.*\\s[-]m\\scomment)")
+
 	for ; i < len(rules); i++ {
 		if i < len(c.rules) {
 			if rules[i].String() != c.rules[i].String() {
@@ -362,15 +366,19 @@ func (c *Controller) Set(rules []Rule) error {
 			}
 		}
 		if i >= len(c.rules) {
-			var proto = ProtocolIPv4 //rules[i].Proto()
+			proto := ProtocolIPv4
 
-			var protocolName = "ipv4"
+			ruleString := rules[i].String()
+			if ipv6Regex.MatchString(ruleString) {
+				proto = ProtocolIPv6
+			}
+
+			protocolName := "ipv4"
 
 			if proto == ProtocolIPv6 {
 				protocolName = "ipv6"
 			}
 
-			var ruleString = rules[i].String()
 			level.Debug(c.logger).Log("msg", "Applying Firewall Rule...", "Rule", ruleString, "Protocol", protocolName)
 			if err := rules[i].Add(c.client(proto)); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
