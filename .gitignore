@@ -4,3 +4,4 @@
 .push*
 bin/
 tmp/
+/.idea/
