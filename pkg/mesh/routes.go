@@ -17,6 +17,8 @@
 package mesh
 
 import (
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"net"
 
 	"github.com/vishvananda/netlink"
@@ -220,7 +222,7 @@ func encapsulateRoute(route *netlink.Route, encapsulate encapsulation.Strategy, 
 }
 
 // Rules returns the iptables rules required by the local node.
-func (t *Topology) Rules(cni bool) []iptables.Rule {
+func (t *Topology) Rules(cni bool, logger log.Logger) []iptables.Rule {
 	var rules []iptables.Rule
 	rules = append(rules, iptables.NewIPv4Chain("nat", "KILO-NAT"))
 	rules = append(rules, iptables.NewIPv6Chain("nat", "KILO-NAT"))
@@ -230,7 +232,19 @@ func (t *Topology) Rules(cni bool) []iptables.Rule {
 	for _, s := range t.segments {
 		rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(s.wireGuardIP)), "nat", "KILO-NAT", "-d", oneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuared IPs", "-j", "RETURN"))
 		for _, aip := range s.allowedIPs {
-			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(aip.IP)), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
+			var proto = iptables.GetProtocol(len(aip.IP))
+
+			var protocolName = "ipv4"
+
+			if proto == iptables.ProtocolIPv6 {
+				protocolName = "ipv6"
+			}
+
+			level.Debug(logger).Log("msg", "Applying Firewall Rules...", "IP len", len(aip.IP), "AIP", aip, "Protocol", protocolName)
+
+			rules = append(rules, iptables.NewRule(proto, "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
+
+			level.Debug(logger).Log("msg", "Firewall Rules applied.", "AIP", aip, "Protocol", proto)
 		}
 	}
 	for _, p := range t.peers {
