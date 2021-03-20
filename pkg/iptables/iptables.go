@@ -362,7 +362,7 @@ func (c *Controller) Set(rules []Rule) error {
 			}
 		}
 		if i >= len(c.rules) {
-			var proto = rules[i].Proto()
+			var proto = ProtocolIPv4 //rules[i].Proto()
 
 			var protocolName = "ipv4"
 
