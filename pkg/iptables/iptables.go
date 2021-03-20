@@ -362,9 +362,19 @@ func (c *Controller) Set(rules []Rule) error {
 			}
 		}
 		if i >= len(c.rules) {
-			if err := rules[i].Add(c.client(rules[i].Proto())); err != nil {
+			var proto = rules[i].Proto()
+
+			var protocolName = "ipv4"
+
+			if proto == ProtocolIPv6 {
+				protocolName = "ipv6"
+			}
+
+			level.Debug(c.logger).Log("msg", "Applying Firewall Rule...", "Rule", c.rules[i].String(), "Protocol", protocolName)
+			if err := rules[i].Add(c.client(proto)); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
+			level.Debug(c.logger).Log("msg", "Firewall Rule applied.", "Rule", c.rules[i].String(), "Protocol", protocolName)
 			c.rules = append(c.rules, rules[i])
 		}
 

@@ -234,17 +234,15 @@ func (t *Topology) Rules(cni bool, logger log.Logger) []iptables.Rule {
 		for _, aip := range s.allowedIPs {
 			var proto = iptables.GetProtocol(len(aip.IP))
 
+			rules = append(rules, iptables.NewRule(proto, "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
+
 			var protocolName = "ipv4"
 
 			if proto == iptables.ProtocolIPv6 {
 				protocolName = "ipv6"
 			}
 
-			level.Debug(logger).Log("msg", "Applying Firewall Rules...", "IP len", len(aip.IP), "AIP", aip, "Protocol", protocolName)
-
-			rules = append(rules, iptables.NewRule(iptables.ProtocolIPv4, "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
-
-			level.Debug(logger).Log("msg", "Firewall Rules applied.", "AIP", aip, "Protocol", proto)
+			level.Debug(logger).Log("msg", "Firewall NAT rule created.", "AIP", aip, "Protocol", protocolName)
 		}
 	}
 	for _, p := range t.peers {
