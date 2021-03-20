@@ -73,7 +73,7 @@ type rule struct {
 	proto Protocol
 }
 
-var ipv6Regex,_ = regexp.Compile("[-]d\\s(.*:.*\\s[-]m\\scomment)")
+var ipv6Regex, _ = regexp.Compile("[-]d\\s(.*:.*\\s[-]m\\scomment)")
 
 // NewRule creates a new iptables or ip6tables rule in the given table and chain
 // depending on the given protocol.
@@ -380,21 +380,10 @@ func (c *Controller) Set(rules []Rule) error {
 			}
 		}
 		if i >= len(c.rules) {
-			proto := rules[i].Proto()
-
-			protocolName := "ipv4"
-
-			if proto == ProtocolIPv6 {
-				protocolName = "ipv6"
-			}
-
-			var ruleString = rules[i].String()
-			level.Debug(c.logger).Log("msg", "Applying Firewall Rule...", "Rule", ruleString, "Protocol", protocolName)
-			if err := rules[i].Add(c.v4); err != nil {
+			if err := rules[i].Add(c.client(rules[i].Proto())); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
-			level.Debug(c.logger).Log("msg", "Firewall Rule applied.", "Rule", ruleString, "Protocol", protocolName)
-			c.rules = append(c.rules, rules[i])
+			c.rules = append(c.rulIes, rules[i])
 		}
 
 	}
