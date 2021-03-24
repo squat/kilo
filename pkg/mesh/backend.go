@@ -51,9 +51,10 @@ const (
 
 // Node represents a node in the network.
 type Node struct {
-	Endpoint   *wireguard.Endpoint
-	Key        []byte
-	InternalIP *net.IPNet
+	Endpoint     *wireguard.Endpoint
+	Key          []byte
+	NoInternalIP bool
+	InternalIP   *net.IPNet
 	// LastSeen is a Unix time for the last time
 	// the node confirmed it was live.
 	LastSeen int64
