@@ -25,7 +25,7 @@ Kilo routes packets destined for nodes inside the same logical location using th
 The Kilo agent running on each node will use heuristics to automatically detect a private IP address for the node; however, in some circumstances it may be necessary to explicitly configure the IP address, for example:
  * _multiple private IP addresses_: if a node has multiple private IPs but one is preferred, then the preferred IP address should be specified;
  * _IPv6_: if a node has both private IPv4 and IPv6 addresses and the Kilo network should operate over IPv6, then the IPv6 address should be specified.
- * _disable private ip with "-" or ""_: a node has a private and public interface, but the private interface ought to be ignored.
+ * _disable private IP with "-" or ""_: a node has a private and public address, but the private address ought to be ignored.
 
 ### leader
 By default, Kilo creates a network mesh at the data-center granularity.
