@@ -215,7 +215,7 @@ func TestNewTopology(t *testing.T) {
 				location:      logicalLocationPrefix + nodes["b"].Location,
 				subnet:        nodes["c"].Subnet,
 				privateIP:     nodes["c"].InternalIP,
-				wireGuardCIDR: nil,
+				wireGuardCIDR: DefaultKiloSubnet,
 				segments: []*segment{
 					{
 						allowedIPs:  []*net.IPNet{nodes["a"].Subnet, nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},

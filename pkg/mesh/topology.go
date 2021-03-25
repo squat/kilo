@@ -50,8 +50,10 @@ type Topology struct {
 	// subnet is the Pod subnet of the local node.
 	subnet *net.IPNet
 	// wireGuardCIDR is the allocated CIDR of the WireGuard
-	// interface of the local node. If the local node is not
-	// the leader, then it is nil.
+	// interface of the local node within the Kilo subnet.
+	// If the local node is not the leader of a location, then
+	// the IP is the 0th address in the subnet, i.e. the CIDR
+	// is equal to the Kilo subnet.
 	wireGuardCIDR *net.IPNet
 }
 
@@ -104,7 +106,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		localLocation = nodeLocationPrefix + hostname
 	}
 
-	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, persistentKeepalive: persistentKeepalive, privateIP: nodes[hostname].InternalIP, subnet: nodes[hostname].Subnet}
+	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, persistentKeepalive: persistentKeepalive, privateIP: nodes[hostname].InternalIP, subnet: nodes[hostname].Subnet, wireGuardCIDR: subnet}
 	for location := range topoMap {
 		// Sort the location so the result is stable.
 		sort.Slice(topoMap[location], func(i, j int) bool {
