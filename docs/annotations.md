@@ -5,7 +5,7 @@ The following annotations can be added to any Kubernetes Node object to configur
 |Name|type|examples|
 |----|----|-------|
 |[kilo.squat.ai/force-endpoint](#force-endpoint)|host:port|`55.55.55.55:51820`, `example.com:1337`|
-|[kilo.squat.ai/force-internal-ip](#force-internal-ip)|CIDR|`55.55.55.55/32`|
+|[kilo.squat.ai/force-internal-ip](#force-internal-ip)|CIDR|`55.55.55.55/32`, `"-"`,`""`|
 |[kilo.squat.ai/leader](#leader)|string|`""`, `true`|
 |[kilo.squat.ai/location](#location)|string|`gcp-east`, `lab`|
 |[kilo.squat.ai/persistent-keepalive](#persistent-keepalive)|uint|`10`|
@@ -25,6 +25,7 @@ Kilo routes packets destined for nodes inside the same logical location using th
 The Kilo agent running on each node will use heuristics to automatically detect a private IP address for the node; however, in some circumstances it may be necessary to explicitly configure the IP address, for example:
  * _multiple private IP addresses_: if a node has multiple private IPs but one is preferred, then the preferred IP address should be specified;
  * _IPv6_: if a node has both private IPv4 and IPv6 addresses and the Kilo network should operate over IPv6, then the IPv6 address should be specified.
+ * _disable private IP with "-" or ""_: a node has a private and public address, but the private address ought to be ignored.
 
 ### leader
 By default, Kilo creates a network mesh at the data-center granularity.
