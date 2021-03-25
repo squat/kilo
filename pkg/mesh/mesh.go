@@ -477,7 +477,11 @@ func (m *Mesh) applyTopology() {
 		return
 	}
 	// Update the node's WireGuard IP.
-	m.wireGuardIP = t.wireGuardCIDR
+	if t.leader {
+		m.wireGuardIP = t.wireGuardCIDR
+	} else {
+		m.wireGuardIP = nil
+	}
 	conf := t.Conf()
 	buf, err := conf.Bytes()
 	if err != nil {
