@@ -169,9 +169,9 @@ func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP, endpoi
 	if endpoint != nil {
 		label = append(label, endpoint.String())
 	}
-	return graphEscape(strings.Join(label, "\n"))
+	return graphEscape(strings.Join(label, "\\n"))
 }
 
 func peerLabel(peer *Peer) string {
-	return graphEscape(fmt.Sprintf("%s\n%s\n", peer.Name, peer.Endpoint.String()))
+	return graphEscape(fmt.Sprintf("%s\\n%s\n", peer.Name, peer.Endpoint.String()))
 }
