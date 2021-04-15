@@ -1,5 +1,5 @@
 ARG FROM=alpine
-FROM alpine AS cni
+FROM $FROM AS cni
 ARG GOARCH=amd64
 ARG CNI_PLUGINS_VERSION=v0.9.1
 RUN apk add --no-cache curl && \
