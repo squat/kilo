@@ -469,7 +469,9 @@ func (m *Mesh) applyTopology() {
 		return
 	}
 	oldConf := wireguard.Parse(oldConfRaw)
-	updateNATEndpoints(nodes, peers, oldConf)
+	natEndpoints := updateNATEndpoints(nodes, peers, oldConf, m.logger)
+	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
+	m.nodes[m.hostname].DiscoveredEndpoints = natEndpoints
 	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
@@ -774,19 +776,31 @@ func linkByIndex(index int) (netlink.Link, error) {
 
 // updateNATEndpoints ensures that nodes and peers behind NAT update
 // their endpoints from the WireGuard configuration so they can roam.
-func updateNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *wireguard.Conf) {
+func updateNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *wireguard.Conf, logger log.Logger) map[string]*wireguard.Endpoint {
+	natEndpoints := make(map[string]*wireguard.Endpoint)
 	keys := make(map[string]*wireguard.Peer)
 	for i := range conf.Peers {
 		keys[string(conf.Peers[i].PublicKey)] = conf.Peers[i]
 	}
 	for _, n := range nodes {
 		if peer, ok := keys[string(n.Key)]; ok && n.PersistentKeepalive > 0 {
+			level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", n.Endpoint.Equal(peer.Endpoint))
+			// Should check location leader but only available in topology ... or have topology handle that list
+			// Better check wg latest-handshake
+			if !n.Endpoint.Equal(peer.Endpoint) {
+				natEndpoints[string(n.Key)] = peer.Endpoint
+			}
 			n.Endpoint = peer.Endpoint
 		}
 	}
 	for _, p := range peers {
 		if peer, ok := keys[string(p.PublicKey)]; ok && p.PersistentKeepalive > 0 {
+			if !p.Endpoint.Equal(peer.Endpoint) {
+				natEndpoints[string(p.PublicKey)] = peer.Endpoint
+			}
 			p.Endpoint = peer.Endpoint
 		}
 	}
+	level.Debug(logger).Log("msg", "Discovered WireGuard NAT Endpoints", "DiscoveredEndpoints", natEndpoints)
+	return natEndpoints
 }

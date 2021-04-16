@@ -66,6 +66,7 @@ type Node struct {
 	PersistentKeepalive int
 	Subnet              *net.IPNet
 	WireGuardIP         *net.IPNet
+	DiscoveredEndpoints map[string]*wireguard.Endpoint
 }
 
 // Ready indicates whether or not the node is ready.
