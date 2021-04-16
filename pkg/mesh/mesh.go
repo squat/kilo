@@ -697,7 +697,7 @@ func nodesAreEqual(a, b *Node) bool {
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
 	// equivalent. However, we do want to check if LastSeen has transitioned
 	// between valid and invalid.
-	return string(a.Key) == string(b.Key) && ipNetsEqual(a.WireGuardIP, b.WireGuardIP) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready() && a.PersistentKeepalive == b.PersistentKeepalive
+	return string(a.Key) == string(b.Key) && ipNetsEqual(a.WireGuardIP, b.WireGuardIP) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready() && a.PersistentKeepalive == b.PersistentKeepalive && discoveredEndpointsAreEqual(a.DiscoveredEndpoints, b.DiscoveredEndpoints)
 }
 
 func peersAreEqual(a, b *Peer) bool {
@@ -762,6 +762,24 @@ func subnetsEqual(a, b *net.IPNet) bool {
 	}
 	if !b.Contains(a.IP) {
 		return false
+	}
+	return true
+}
+
+func discoveredEndpointsAreEqual(a, b map[string]*wireguard.Endpoint) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if (a != nil) != (b != nil) {
+		return false
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if !a[k].Equal(b[k]) {
+			return false
+		}
 	}
 	return true
 }
