@@ -389,6 +389,7 @@ func (m *Mesh) handleLocal(n *Node) {
 		PersistentKeepalive: n.PersistentKeepalive,
 		Subnet:              n.Subnet,
 		WireGuardIP:         m.wireGuardIP,
+		DiscoveredEndpoints: n.DiscoveredEndpoints,
 	}
 	if !nodesAreEqual(n, local) {
 		level.Debug(m.logger).Log("msg", "local node differs from backend")
@@ -469,7 +470,7 @@ func (m *Mesh) applyTopology() {
 		return
 	}
 	oldConf := wireguard.Parse(oldConfRaw)
-	natEndpoints := updateNATEndpoints(nodes, peers, oldConf, m.logger)
+	natEndpoints := discoverNATEndpoints(nodes, peers, oldConf, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
 	m.nodes[m.hostname].DiscoveredEndpoints = natEndpoints
 	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive)
@@ -792,9 +793,8 @@ func linkByIndex(index int) (netlink.Link, error) {
 	return link, nil
 }
 
-// updateNATEndpoints ensures that nodes and peers behind NAT update
-// their endpoints from the WireGuard configuration so they can roam.
-func updateNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *wireguard.Conf, logger log.Logger) map[string]*wireguard.Endpoint {
+// discoverNATEndpoints uses the node's WireGuard configuration to returns a list of the most recently discovered endpoints for all nodes and peers behind NAT so that they can roam.
+func discoverNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *wireguard.Conf, logger log.Logger) map[string]*wireguard.Endpoint {
 	natEndpoints := make(map[string]*wireguard.Endpoint)
 	keys := make(map[string]*wireguard.Peer)
 	for i := range conf.Peers {
@@ -808,7 +808,6 @@ func updateNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *wi
 			if !n.Endpoint.Equal(peer.Endpoint) {
 				natEndpoints[string(n.Key)] = peer.Endpoint
 			}
-			n.Endpoint = peer.Endpoint
 		}
 	}
 	for _, p := range peers {
@@ -816,7 +815,6 @@ func updateNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *wi
 			if !p.Endpoint.Equal(peer.Endpoint) {
 				natEndpoints[string(p.PublicKey)] = peer.Endpoint
 			}
-			p.Endpoint = peer.Endpoint
 		}
 	}
 	level.Debug(logger).Log("msg", "Discovered WireGuard NAT Endpoints", "DiscoveredEndpoints", natEndpoints)
