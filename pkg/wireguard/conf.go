@@ -96,7 +96,7 @@ func (e *Endpoint) String() string {
 }
 
 // Equal compares two endpoints.
-func (e *Endpoint) Equal(b *Endpoint) bool {
+func (e *Endpoint) Equal(b *Endpoint, DNSFirst bool) bool {
 	if (e == nil) != (b == nil) {
 		return false
 	}
@@ -104,13 +104,23 @@ func (e *Endpoint) Equal(b *Endpoint) bool {
 		if e.Port != b.Port {
 			return false
 		}
-		// IPs take priority, so check them first.
-		if !e.IP.Equal(b.IP) {
-			return false
-		}
-		// Only check the DNS name if the IP is empty.
-		if e.IP == nil && e.DNS != b.DNS {
-			return false
+		if DNSFirst {
+			// Check the DNS name first if it was resolved.
+			if e.DNS != b.DNS {
+				return false
+			}
+			if e.DNS == "" && !e.IP.Equal(b.IP) {
+				return false
+			}
+		} else {
+			// IPs take priority, so check them first.
+			if !e.IP.Equal(b.IP) {
+				return false
+			}
+			// Only check the DNS name if the IP is empty.
+			if e.IP == nil && e.DNS != b.DNS {
+				return false
+			}
 		}
 	}
 
@@ -331,7 +341,7 @@ func (c *Conf) Equal(b *Conf) bool {
 				return false
 			}
 		}
-		if !c.Peers[i].Endpoint.Equal(b.Peers[i].Endpoint) {
+		if !c.Peers[i].Endpoint.Equal(b.Peers[i].Endpoint, false) {
 			return false
 		}
 		if c.Peers[i].PersistentKeepalive != b.Peers[i].PersistentKeepalive || !bytes.Equal(c.Peers[i].PresharedKey, b.Peers[i].PresharedKey) || !bytes.Equal(c.Peers[i].PublicKey, b.Peers[i].PublicKey) {

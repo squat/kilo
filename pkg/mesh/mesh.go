@@ -679,21 +679,10 @@ func nodesAreEqual(a, b *Node) bool {
 	if a == b {
 		return true
 	}
-	if !(a.Endpoint != nil) == (b.Endpoint != nil) {
+	// Check the DNS name first since this package
+	// is doing the DNS resolution.
+	if !a.Endpoint.Equal(b.Endpoint, true) {
 		return false
-	}
-	if a.Endpoint != nil {
-		if a.Endpoint.Port != b.Endpoint.Port {
-			return false
-		}
-		// Check the DNS name first since this package
-		// is doing the DNS resolution.
-		if a.Endpoint.DNS != b.Endpoint.DNS {
-			return false
-		}
-		if a.Endpoint.DNS == "" && !a.Endpoint.IP.Equal(b.Endpoint.IP) {
-			return false
-		}
 	}
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
 	// equivalent. However, we do want to check if LastSeen has transitioned
@@ -708,21 +697,10 @@ func peersAreEqual(a, b *Peer) bool {
 	if a == b {
 		return true
 	}
-	if !(a.Endpoint != nil) == (b.Endpoint != nil) {
+	// Check the DNS name first since this package
+	// is doing the DNS resolution.
+	if !a.Endpoint.Equal(b.Endpoint, true) {
 		return false
-	}
-	if a.Endpoint != nil {
-		if a.Endpoint.Port != b.Endpoint.Port {
-			return false
-		}
-		// Check the DNS name first since this package
-		// is doing the DNS resolution.
-		if a.Endpoint.DNS != b.Endpoint.DNS {
-			return false
-		}
-		if a.Endpoint.DNS == "" && !a.Endpoint.IP.Equal(b.Endpoint.IP) {
-			return false
-		}
 	}
 	if len(a.AllowedIPs) != len(b.AllowedIPs) {
 		return false
@@ -778,7 +756,7 @@ func discoveredEndpointsAreEqual(a, b map[string]*wireguard.Endpoint) bool {
 		return false
 	}
 	for k := range a {
-		if !a[k].Equal(b[k]) {
+		if !a[k].Equal(b[k], false) {
 			return false
 		}
 	}
@@ -802,17 +780,17 @@ func discoverNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *
 	}
 	for _, n := range nodes {
 		if peer, ok := keys[string(n.Key)]; ok && n.PersistentKeepalive > 0 {
-			level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", n.Endpoint.Equal(peer.Endpoint))
+			level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", n.Endpoint.Equal(peer.Endpoint, false))
 			// Should check location leader but only available in topology ... or have topology handle that list
 			// Better check wg latest-handshake
-			if !n.Endpoint.Equal(peer.Endpoint) {
+			if !n.Endpoint.Equal(peer.Endpoint, false) {
 				natEndpoints[string(n.Key)] = peer.Endpoint
 			}
 		}
 	}
 	for _, p := range peers {
 		if peer, ok := keys[string(p.PublicKey)]; ok && p.PersistentKeepalive > 0 {
-			if !p.Endpoint.Equal(peer.Endpoint) {
+			if !p.Endpoint.Equal(peer.Endpoint, false) {
 				natEndpoints[string(p.PublicKey)] = peer.Endpoint
 			}
 		}

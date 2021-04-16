@@ -207,10 +207,11 @@ func TestCompareConf(t *testing.T) {
 
 func TestCompareEndpoint(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		a    *Endpoint
-		b    *Endpoint
-		out  bool
+		name     string
+		a        *Endpoint
+		b        *Endpoint
+		dnsFirst bool
+		out      bool
 	}{
 		{
 			name: "both nil",
@@ -272,8 +273,36 @@ func TestCompareEndpoint(t *testing.T) {
 			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
 			out:  true,
 		},
+		{
+			name:     "DNS first, ignore IP",
+			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: "a"}},
+			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.2"), DNS: "a"}},
+			dnsFirst: true,
+			out:      true,
+		},
+		{
+			name:     "DNS first",
+			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
+			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "b"}},
+			dnsFirst: true,
+			out:      false,
+		},
+		{
+			name:     "DNS first, no DNS compare IP",
+			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
+			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.2"), DNS: ""}},
+			dnsFirst: true,
+			out:      false,
+		},
+		{
+			name:     "DNS first, no DNS compare IP (same)",
+			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
+			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
+			dnsFirst: true,
+			out:      true,
+		},
 	} {
-		equal := tc.a.Equal(tc.b)
+		equal := tc.a.Equal(tc.b, tc.dnsFirst)
 		if equal != tc.out {
 			t.Errorf("test case %q: expected %t, got %t", tc.name, tc.out, equal)
 		}
