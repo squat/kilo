@@ -59,6 +59,7 @@ const (
 	locationAnnotationKey        = "kilo.squat.ai/location"
 	persistentKeepaliveKey       = "kilo.squat.ai/persistent-keepalive"
 	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
+	discoveredEndpointsKey       = "kilo.squat.ai/discovered-endpoints"
 	// RegionLabelKey is the key for the well-known Kubernetes topology region label.
 	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
@@ -127,6 +128,7 @@ func (nb *nodeBackend) CleanUp(name string) error {
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(keyAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(lastSeenAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(wireGuardIPAnnotationKey, "/", jsonPatchSlash, 1))),
+		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(discoveredEndpointsKey, "/", jsonPatchSlash, 1))),
 	}, ",") + "]")
 	if _, err := nb.client.CoreV1().Nodes().Patch(name, types.JSONPatchType, patch); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
@@ -221,6 +223,15 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 	} else {
 		n.ObjectMeta.Annotations[wireGuardIPAnnotationKey] = node.WireGuardIP.String()
 	}
+	if node.DiscoveredEndpoints == nil {
+		n.ObjectMeta.Annotations[discoveredEndpointsKey] = ""
+	} else {
+		discoveredEndpoints, err := json.Marshal(node.DiscoveredEndpoints)
+		if err != nil {
+			return err
+		}
+		n.ObjectMeta.Annotations[discoveredEndpointsKey] = string(discoveredEndpoints)
+	}
 	oldData, err := json.Marshal(old)
 	if err != nil {
 		return err
@@ -294,6 +305,14 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 			lastSeen = 0
 		}
 	}
+	var discoveredEndpoints map[string]*wireguard.Endpoint
+	if de, ok := node.ObjectMeta.Annotations[discoveredEndpointsKey]; ok {
+		err := json.Unmarshal([]byte(de), &discoveredEndpoints)
+		if err != nil {
+			discoveredEndpoints = nil
+		}
+	}
+
 	return &mesh.Node{
 		// Endpoint and InternalIP should only ever fail to parse if the
 		// remote node's agent has not yet set its IP address;
@@ -314,7 +333,8 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		// WireGuardIP can fail to parse if the node is not a leader or if
 		// the node's agent has not yet reconciled. In either case, the IP
 		// will parse as nil.
-		WireGuardIP: normalizeIP(node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]),
+		WireGuardIP:         normalizeIP(node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]),
+		DiscoveredEndpoints: discoveredEndpoints,
 	}
 }
 
