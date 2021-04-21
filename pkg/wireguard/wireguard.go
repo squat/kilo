@@ -119,3 +119,15 @@ func ShowConf(iface string) ([]byte, error) {
 	}
 	return stdout.Bytes(), nil
 }
+
+// ShowDump gets the WireGuard configuration and runtime information for the given interface.
+func ShowDump(iface string) ([]byte, error) {
+	cmd := exec.Command("wg", "show", iface, "dump")
+	var stderr, stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to read the WireGuard dump output: %s", stderr.String())
+	}
+	return stdout.Bytes(), nil
+}

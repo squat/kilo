@@ -17,11 +17,13 @@ package wireguard
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -31,6 +33,9 @@ type key string
 
 const (
 	separator                      = "="
+	dumpSeparator                  = "\t"
+	dumpNone                       = "(none)"
+	dumpOff                        = "off"
 	interfaceSection       section = "Interface"
 	peerSection            section = "Peer"
 	listenPortKey          key     = "ListenPort"
@@ -61,6 +66,8 @@ type Peer struct {
 	PersistentKeepalive int
 	PresharedKey        []byte
 	PublicKey           []byte
+	// The following fields are part of the runtime information, not the configuration.
+	LatestHandshake time.Time
 }
 
 // DeduplicateIPs eliminates duplicate allowed IPs.
@@ -146,13 +153,11 @@ func (d DNSOrIP) String() string {
 func Parse(buf []byte) *Conf {
 	var (
 		active  section
-		ai      *net.IPNet
 		kv      []string
 		c       Conf
 		err     error
 		iface   *Interface
 		i       int
-		ip, ip4 net.IP
 		k       key
 		line, v string
 		peer    *Peer
@@ -205,48 +210,14 @@ func Parse(buf []byte) *Conf {
 		case peerSection:
 			switch k {
 			case allowedIPsKey:
-				// Reuse string slice.
-				kv = strings.Split(v, ",")
-				for i = range kv {
-					ip, ai, err = net.ParseCIDR(strings.TrimSpace(kv[i]))
-					if err != nil {
-						continue
-					}
-					if ip4 = ip.To4(); ip4 != nil {
-						ip = ip4
-					} else {
-						ip = ip.To16()
-					}
-					ai.IP = ip
-					peer.AllowedIPs = append(peer.AllowedIPs, ai)
-				}
-			case endpointKey:
-				// Reuse string slice.
-				kv = strings.Split(v, ":")
-				if len(kv) < 2 {
-					continue
-				}
-				port, err = strconv.ParseUint(kv[len(kv)-1], 10, 32)
+				err = peer.parseAllowedIPs(v)
 				if err != nil {
 					continue
 				}
-				d := DNSOrIP{}
-				ip = net.ParseIP(strings.Trim(strings.Join(kv[:len(kv)-1], ":"), "[]"))
-				if ip == nil {
-					if len(validation.IsDNS1123Subdomain(kv[0])) != 0 {
-						continue
-					}
-					d.DNS = kv[0]
-				} else {
-					if ip4 = ip.To4(); ip4 != nil {
-						d.IP = ip4
-					} else {
-						d.IP = ip.To16()
-					}
-				}
-				peer.Endpoint = &Endpoint{
-					DNSOrIP: d,
-					Port:    uint32(port),
+			case endpointKey:
+				err = peer.parseEndpoint(v)
+				if err != nil {
+					continue
 				}
 			case persistentKeepaliveKey:
 				i, err = strconv.Atoi(v)
@@ -447,4 +418,143 @@ func writeKey(buf *bytes.Buffer, k key) error {
 	}
 	_, err = buf.WriteString(" = ")
 	return err
+}
+
+var (
+	errParseEndpoint = errors.New("could not parse Endpoint")
+)
+
+func (p *Peer) parseEndpoint(v string) error {
+	var (
+		kv      []string
+		err     error
+		ip, ip4 net.IP
+		port    uint64
+	)
+	kv = strings.Split(v, ":")
+	if len(kv) < 2 {
+		return errParseEndpoint
+	}
+	port, err = strconv.ParseUint(kv[len(kv)-1], 10, 32)
+	if err != nil {
+		return err
+	}
+	d := DNSOrIP{}
+	ip = net.ParseIP(strings.Trim(strings.Join(kv[:len(kv)-1], ":"), "[]"))
+	if ip == nil {
+		if len(validation.IsDNS1123Subdomain(kv[0])) != 0 {
+			return errParseEndpoint
+		}
+		d.DNS = kv[0]
+	} else {
+		if ip4 = ip.To4(); ip4 != nil {
+			d.IP = ip4
+		} else {
+			d.IP = ip.To16()
+		}
+	}
+
+	p.Endpoint = &Endpoint{
+		DNSOrIP: d,
+		Port:    uint32(port),
+	}
+	return nil
+}
+
+func (p *Peer) parseAllowedIPs(v string) error {
+	var (
+		ai      *net.IPNet
+		kv      []string
+		err     error
+		i       int
+		ip, ip4 net.IP
+	)
+
+	kv = strings.Split(v, ",")
+	for i = range kv {
+		ip, ai, err = net.ParseCIDR(strings.TrimSpace(kv[i]))
+		if err != nil {
+			return err
+		}
+		if ip4 = ip.To4(); ip4 != nil {
+			ip = ip4
+		} else {
+			ip = ip.To16()
+		}
+		ai.IP = ip
+		p.AllowedIPs = append(p.AllowedIPs, ai)
+	}
+	return nil
+}
+
+// ParseDump parses a given WireGuard dump and produces a Conf struct.
+func ParseDump(buf []byte) *Conf {
+	// from man wg, show section:
+	// If dump is specified, then several lines are printed;
+	// the first contains in order separated by tab: private-key, public-key, listen-port, fw‐mark.
+	// Subsequent lines are printed for each peer and contain in order separated by tab:
+	// public-key, preshared-key, endpoint, allowed-ips, latest-handshake, transfer-rx, transfer-tx, persistent-keepalive.
+	var (
+		active section
+		values []string
+		c      Conf
+		err    error
+		iface  *Interface
+		i      int
+		peer   *Peer
+		port   uint64
+		sec    int64
+	)
+	// First line is Interface
+	active = interfaceSection
+	s := bufio.NewScanner(bytes.NewBuffer(buf))
+	for s.Scan() {
+		values = strings.Split(s.Text(), dumpSeparator)
+
+		switch active {
+		case interfaceSection:
+			if len(values) < 4 {
+				break
+			}
+			iface = new(Interface)
+
+			iface.PrivateKey = []byte(values[0])
+			port, _ = strconv.ParseUint(values[2], 10, 32)
+			iface.ListenPort = uint32(port)
+
+			c.Interface = iface
+			// Next lines are Peers
+			active = peerSection
+		case peerSection:
+			if len(values) < 8 {
+				break
+			}
+			peer = new(Peer)
+
+			peer.PublicKey = []byte(values[0])
+			if values[1] != dumpNone {
+				peer.PresharedKey = []byte(values[1])
+			}
+			if values[2] != dumpNone {
+				peer.parseEndpoint(values[2])
+			}
+			if values[3] != dumpNone {
+				peer.parseAllowedIPs(values[3])
+			}
+			if values[4] != "0" {
+				sec, err = strconv.ParseInt(values[4], 10, 64)
+				if err == nil {
+					peer.LatestHandshake = time.Unix(sec, 0)
+				}
+			}
+
+			if values[7] != dumpOff {
+				i, _ = strconv.Atoi(values[7])
+				peer.PersistentKeepalive = i
+			}
+			c.Peers = append(c.Peers, peer)
+			peer = nil
+		}
+	}
+	return &c
 }
