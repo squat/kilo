@@ -432,9 +432,8 @@ func (m *Mesh) applyTopology() {
 		if !m.nodes[k].Ready() {
 			continue
 		}
-		// Make a shallow copy of the node.
-		node := *m.nodes[k]
-		nodes[k] = &node
+		// Make it point to the node without copy.
+		nodes[k] = m.nodes[k]
 		readyNodes++
 	}
 	// Ensure only ready nodes are considered.
@@ -444,9 +443,8 @@ func (m *Mesh) applyTopology() {
 		if !m.peers[k].Ready() {
 			continue
 		}
-		// Make a shallow copy of the peer.
-		peer := *m.peers[k]
-		peers[k] = &peer
+		// Make it point the peer without copy.
+		peers[k] = m.peers[k]
 		readyPeers++
 	}
 	m.nodesGuage.Set(readyNodes)
@@ -472,7 +470,6 @@ func (m *Mesh) applyTopology() {
 	oldConf := wireguard.Parse(oldConfRaw)
 	natEndpoints := discoverNATEndpoints(nodes, peers, oldConf, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
-	m.nodes[m.hostname].DiscoveredEndpoints = natEndpoints
 	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
