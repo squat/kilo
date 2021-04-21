@@ -454,13 +454,13 @@ func (m *Mesh) applyTopology() {
 		return
 	}
 	// Find the old configuration.
-	oldConfRaw, err := wireguard.ShowConf(link.Attrs().Name)
+	oldConfDump, err := wireguard.ShowDump(link.Attrs().Name)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	oldConf := wireguard.Parse(oldConfRaw)
+	oldConf := wireguard.ParseDump(oldConfDump)
 	natEndpoints := discoverNATEndpoints(nodes, peers, oldConf, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
 	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive, m.logger)
@@ -782,17 +782,15 @@ func discoverNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *
 	}
 	for _, n := range nodes {
 		if peer, ok := keys[string(n.Key)]; ok && n.PersistentKeepalive > 0 {
-			level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", n.Endpoint.Equal(peer.Endpoint, false))
-			// Should check location leader but only available in topology ... or have topology handle that list
-			// Better check wg latest-handshake
-			if !n.Endpoint.Equal(peer.Endpoint, false) {
+			level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", n.Endpoint.Equal(peer.Endpoint, false), "latest-handshake", peer.LatestHandshake)
+			if (peer.LatestHandshake != time.Time{}) {
 				natEndpoints[string(n.Key)] = peer.Endpoint
 			}
 		}
 	}
 	for _, p := range peers {
 		if peer, ok := keys[string(p.PublicKey)]; ok && p.PersistentKeepalive > 0 {
-			if !p.Endpoint.Equal(peer.Endpoint, false) {
+			if (peer.LatestHandshake != time.Time{}) {
 				natEndpoints[string(p.PublicKey)] = peer.Endpoint
 			}
 		}
