@@ -95,6 +95,38 @@ func (e *Endpoint) String() string {
 	return dnsOrIP + ":" + strconv.FormatUint(uint64(e.Port), 10)
 }
 
+// Equal compares two endpoints.
+func (e *Endpoint) Equal(b *Endpoint, DNSFirst bool) bool {
+	if (e == nil) != (b == nil) {
+		return false
+	}
+	if e != nil {
+		if e.Port != b.Port {
+			return false
+		}
+		if DNSFirst {
+			// Check the DNS name first if it was resolved.
+			if e.DNS != b.DNS {
+				return false
+			}
+			if e.DNS == "" && !e.IP.Equal(b.IP) {
+				return false
+			}
+		} else {
+			// IPs take priority, so check them first.
+			if !e.IP.Equal(b.IP) {
+				return false
+			}
+			// Only check the DNS name if the IP is empty.
+			if e.IP == nil && e.DNS != b.DNS {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 // DNSOrIP represents either a DNS name or an IP address.
 // IPs, as they are more specific, are preferred.
 type DNSOrIP struct {
@@ -309,21 +341,8 @@ func (c *Conf) Equal(b *Conf) bool {
 				return false
 			}
 		}
-		if (c.Peers[i].Endpoint == nil) != (b.Peers[i].Endpoint == nil) {
+		if !c.Peers[i].Endpoint.Equal(b.Peers[i].Endpoint, false) {
 			return false
-		}
-		if c.Peers[i].Endpoint != nil {
-			if c.Peers[i].Endpoint.Port != b.Peers[i].Endpoint.Port {
-				return false
-			}
-			// IPs take priority, so check them first.
-			if !c.Peers[i].Endpoint.IP.Equal(b.Peers[i].Endpoint.IP) {
-				return false
-			}
-			// Only check the DNS name if the IP is empty.
-			if c.Peers[i].Endpoint.IP == nil && c.Peers[i].Endpoint.DNS != b.Peers[i].Endpoint.DNS {
-				return false
-			}
 		}
 		if c.Peers[i].PersistentKeepalive != b.Peers[i].PersistentKeepalive || !bytes.Equal(c.Peers[i].PresharedKey, b.Peers[i].PresharedKey) || !bytes.Equal(c.Peers[i].PublicKey, b.Peers[i].PublicKey) {
 			return false

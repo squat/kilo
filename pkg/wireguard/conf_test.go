@@ -15,6 +15,7 @@
 package wireguard
 
 import (
+	"net"
 	"testing"
 )
 
@@ -198,6 +199,110 @@ func TestCompareConf(t *testing.T) {
 		},
 	} {
 		equal := Parse(tc.a).Equal(Parse(tc.b))
+		if equal != tc.out {
+			t.Errorf("test case %q: expected %t, got %t", tc.name, tc.out, equal)
+		}
+	}
+}
+
+func TestCompareEndpoint(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		a        *Endpoint
+		b        *Endpoint
+		dnsFirst bool
+		out      bool
+	}{
+		{
+			name: "both nil",
+			a:    nil,
+			b:    nil,
+			out:  true,
+		},
+		{
+			name: "a nil",
+			a:    nil,
+			b:    &Endpoint{},
+			out:  false,
+		},
+		{
+			name: "b nil",
+			a:    &Endpoint{},
+			b:    nil,
+			out:  false,
+		},
+		{
+			name: "zero",
+			a:    &Endpoint{},
+			b:    &Endpoint{},
+			out:  true,
+		},
+		{
+			name: "diff port",
+			a:    &Endpoint{Port: 1234},
+			b:    &Endpoint{Port: 5678},
+			out:  false,
+		},
+		{
+			name: "same IP",
+			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1")}},
+			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1")}},
+			out:  true,
+		},
+		{
+			name: "diff IP",
+			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1")}},
+			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.2")}},
+			out:  false,
+		},
+		{
+			name: "same IP ignore DNS",
+			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: "a"}},
+			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: "b"}},
+			out:  true,
+		},
+		{
+			name: "no IP check DNS",
+			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
+			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "b"}},
+			out:  false,
+		},
+		{
+			name: "no IP check DNS (same)",
+			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
+			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
+			out:  true,
+		},
+		{
+			name:     "DNS first, ignore IP",
+			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: "a"}},
+			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.2"), DNS: "a"}},
+			dnsFirst: true,
+			out:      true,
+		},
+		{
+			name:     "DNS first",
+			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
+			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "b"}},
+			dnsFirst: true,
+			out:      false,
+		},
+		{
+			name:     "DNS first, no DNS compare IP",
+			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
+			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.2"), DNS: ""}},
+			dnsFirst: true,
+			out:      false,
+		},
+		{
+			name:     "DNS first, no DNS compare IP (same)",
+			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
+			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
+			dnsFirst: true,
+			out:      true,
+		},
+	} {
+		equal := tc.a.Equal(tc.b, tc.dnsFirst)
 		if equal != tc.out {
 			t.Errorf("test case %q: expected %t, got %t", tc.name, tc.out, equal)
 		}

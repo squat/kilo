@@ -55,12 +55,15 @@ type Topology struct {
 	// the IP is the 0th address in the subnet, i.e. the CIDR
 	// is equal to the Kilo subnet.
 	wireGuardCIDR *net.IPNet
+	// discoveredEndpoints is the updated map of valid discovered Endpoints
+	discoveredEndpoints map[string]*wireguard.Endpoint
 }
 
 type segment struct {
-	allowedIPs []*net.IPNet
-	endpoint   *wireguard.Endpoint
-	key        []byte
+	allowedIPs          []*net.IPNet
+	endpoint            *wireguard.Endpoint
+	key                 []byte
+	persistentKeepalive int
 	// Location is the logical location of this segment.
 	location string
 
@@ -106,7 +109,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		localLocation = nodeLocationPrefix + hostname
 	}
 
-	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, persistentKeepalive: persistentKeepalive, privateIP: nodes[hostname].InternalIP, subnet: nodes[hostname].Subnet, wireGuardCIDR: subnet}
+	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, persistentKeepalive: persistentKeepalive, privateIP: nodes[hostname].InternalIP, subnet: nodes[hostname].Subnet, wireGuardCIDR: subnet, discoveredEndpoints: make(map[string]*wireguard.Endpoint)}
 	for location := range topoMap {
 		// Sort the location so the result is stable.
 		sort.Slice(topoMap[location], func(i, j int) bool {
@@ -134,14 +137,15 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			hostnames = append(hostnames, node.Name)
 		}
 		t.segments = append(t.segments, &segment{
-			allowedIPs: allowedIPs,
-			endpoint:   topoMap[location][leader].Endpoint,
-			key:        topoMap[location][leader].Key,
-			location:   location,
-			cidrs:      cidrs,
-			hostnames:  hostnames,
-			leader:     leader,
-			privateIPs: privateIPs,
+			allowedIPs:          allowedIPs,
+			endpoint:            topoMap[location][leader].Endpoint,
+			key:                 topoMap[location][leader].Key,
+			persistentKeepalive: topoMap[location][leader].PersistentKeepalive,
+			location:            location,
+			cidrs:               cidrs,
+			hostnames:           hostnames,
+			leader:              leader,
+			privateIPs:          privateIPs,
 		})
 	}
 	// Sort the Topology segments so the result is stable.
@@ -159,6 +163,10 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 	// We need to defensively deduplicate peer allowed IPs. If two peers claim the same IP,
 	// the WireGuard configuration could flap, causing the interface to churn.
 	t.peers = deduplicatePeerIPs(t.peers)
+	// Copy the host node DiscoveredEndpoints in the topology as a starting point.
+	for key := range nodes[hostname].DiscoveredEndpoints {
+		t.discoveredEndpoints[key] = nodes[hostname].DiscoveredEndpoints[key]
+	}
 	// Allocate IPs to the segment leaders in a stable, coordination-free manner.
 	a := newAllocator(*subnet)
 	for _, segment := range t.segments {
@@ -171,9 +179,31 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		if t.leader && segment.location == t.location {
 			t.wireGuardCIDR = &net.IPNet{IP: ipNet.IP, Mask: subnet.Mask}
 		}
+
+		// Now that the topology is ordered, update the discoveredEndpoints map
+		// add new ones by going through the ordered topology: segments, nodes
+		for _, node := range topoMap[segment.location] {
+			for key := range node.DiscoveredEndpoints {
+				if _, ok := t.discoveredEndpoints[key]; !ok {
+					t.discoveredEndpoints[key] = node.DiscoveredEndpoints[key]
+				}
+			}
+		}
 	}
 
 	return &t, nil
+}
+
+func (t *Topology) updateEndpoint(endpoint *wireguard.Endpoint, key []byte, persistentKeepalive int) *wireguard.Endpoint {
+	// Do not update non-nat peers
+	if persistentKeepalive == 0 {
+		return endpoint
+	}
+	e, ok := t.discoveredEndpoints[string(key)]
+	if ok {
+		return e
+	}
+	return endpoint
 }
 
 // Conf generates a WireGuard configuration file for a given Topology.
@@ -190,7 +220,7 @@ func (t *Topology) Conf() *wireguard.Conf {
 		}
 		peer := &wireguard.Peer{
 			AllowedIPs:          s.allowedIPs,
-			Endpoint:            s.endpoint,
+			Endpoint:            t.updateEndpoint(s.endpoint, s.key, s.persistentKeepalive),
 			PersistentKeepalive: t.persistentKeepalive,
 			PublicKey:           s.key,
 		}
@@ -199,7 +229,7 @@ func (t *Topology) Conf() *wireguard.Conf {
 	for _, p := range t.peers {
 		peer := &wireguard.Peer{
 			AllowedIPs:          p.AllowedIPs,
-			Endpoint:            p.Endpoint,
+			Endpoint:            t.updateEndpoint(p.Endpoint, p.PublicKey, p.PersistentKeepalive),
 			PersistentKeepalive: t.persistentKeepalive,
 			PresharedKey:        p.PresharedKey,
 			PublicKey:           p.PublicKey,
