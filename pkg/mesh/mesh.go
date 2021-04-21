@@ -274,28 +274,23 @@ func (m *Mesh) syncNodes(e *NodeEvent) {
 	var diff bool
 	m.mu.Lock()
 	if !e.Node.Ready() {
-		level.Debug(logger).Log("msg", "received incomplete node", "node", e.Node)
-		// An existing node is no longer valid
-		// so remove it from the mesh.
-		if _, ok := m.nodes[e.Node.Name]; ok {
-			level.Info(logger).Log("msg", "node is no longer ready", "node", e.Node)
+		// Trace non ready nodes with their presence in the mesh.
+		_, ok := m.nodes[e.Node.Name]
+		level.Debug(logger).Log("msg", "received non ready node", "node", e.Node, "in-mesh", ok)
+	}
+	switch e.Type {
+	case AddEvent:
+		fallthrough
+	case UpdateEvent:
+		if !nodesAreEqual(m.nodes[e.Node.Name], e.Node) {
 			diff = true
 		}
-	} else {
-		switch e.Type {
-		case AddEvent:
-			fallthrough
-		case UpdateEvent:
-			if !nodesAreEqual(m.nodes[e.Node.Name], e.Node) {
-				diff = true
-			}
-			// Even if the nodes are the same,
-			// overwrite the old node to update the timestamp.
-			m.nodes[e.Node.Name] = e.Node
-		case DeleteEvent:
-			delete(m.nodes, e.Node.Name)
-			diff = true
-		}
+		// Even if the nodes are the same,
+		// overwrite the old node to update the timestamp.
+		m.nodes[e.Node.Name] = e.Node
+	case DeleteEvent:
+		delete(m.nodes, e.Node.Name)
+		diff = true
 	}
 	m.mu.Unlock()
 	if diff {
@@ -312,30 +307,25 @@ func (m *Mesh) syncPeers(e *PeerEvent) {
 	// Peers are indexed by public key.
 	key := string(e.Peer.PublicKey)
 	if !e.Peer.Ready() {
-		level.Debug(logger).Log("msg", "received incomplete peer", "peer", e.Peer)
-		// An existing peer is no longer valid
-		// so remove it from the mesh.
-		if _, ok := m.peers[key]; ok {
-			level.Info(logger).Log("msg", "peer is no longer ready", "peer", e.Peer)
+		// Trace non ready peer with their presence in the mesh.
+		_, ok := m.peers[key]
+		level.Debug(logger).Log("msg", "received non ready peer", "peer", e.Peer, "in-mesh", ok)
+	}
+	switch e.Type {
+	case AddEvent:
+		fallthrough
+	case UpdateEvent:
+		if e.Old != nil && key != string(e.Old.PublicKey) {
+			delete(m.peers, string(e.Old.PublicKey))
 			diff = true
 		}
-	} else {
-		switch e.Type {
-		case AddEvent:
-			fallthrough
-		case UpdateEvent:
-			if e.Old != nil && key != string(e.Old.PublicKey) {
-				delete(m.peers, string(e.Old.PublicKey))
-				diff = true
-			}
-			if !peersAreEqual(m.peers[key], e.Peer) {
-				m.peers[key] = e.Peer
-				diff = true
-			}
-		case DeleteEvent:
-			delete(m.peers, key)
+		if !peersAreEqual(m.peers[key], e.Peer) {
+			m.peers[key] = e.Peer
 			diff = true
 		}
+	case DeleteEvent:
+		delete(m.peers, key)
+		diff = true
 	}
 	m.mu.Unlock()
 	if diff {
