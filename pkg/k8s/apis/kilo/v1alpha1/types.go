@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -133,7 +134,7 @@ func (p *Peer) Copy() *Peer {
 func (p *Peer) Validate() error {
 	for _, ip := range p.Spec.AllowedIPs {
 		if _, n, err := net.ParseCIDR(ip); err != nil {
-			return fmt.Errorf("failed to parse %q as a valid IP address: %v", ip, err)
+			return fmt.Errorf("failed to parse %q as a valid IP address: %w", ip, err)
 		} else if n == nil {
 			return fmt.Errorf("got invalid IP address for %q", ip)
 		}
@@ -157,8 +158,11 @@ func (p *Peer) Validate() error {
 	if p.Spec.PersistentKeepalive < 0 {
 		return fmt.Errorf("persistent keepalive must be greater than or equal to zero; got %q", p.Spec.PersistentKeepalive)
 	}
-	if len(p.Spec.PublicKey) == 0 {
-		return errors.New("public keys cannot be empty")
+	if b, err := base64.StdEncoding.DecodeString(p.Spec.PublicKey); err != nil {
+		return fmt.Errorf("WireGuard public key is not base64 encoded: %w", err)
+		// Since WireGuard is using Curve25519 for the key exchange, the key length of 256 bits should not change in the near future.
+	} else if len(b) != 32 {
+		return errors.New("WireGuard public key has invalid length")
 	}
 	return nil
 }
