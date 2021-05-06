@@ -108,6 +108,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        ports:
+        - containerPort: 1107
+          name: metrics
         securityContext:
           privileged: true
         volumeMounts:
