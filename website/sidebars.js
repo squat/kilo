@@ -7,7 +7,7 @@ module.exports = {
     {
       type: 'category',
       label: 'Guides',
-      items: ['topology', 'vpn', 'vpn-server', 'multi-cluster-services', 'network-policies', 'userspace-wireguard'],
+      items: ['topology', 'vpn', 'vpn-server', 'multi-cluster-services', 'network-policies', 'userspace-wireguard', 'peer-validation'],
     },
     {
       type: 'category',
