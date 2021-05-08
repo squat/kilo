@@ -11,6 +11,7 @@ Kilo is a multi-cloud network overlay built on WireGuard and designed for Kubern
 ## Overview
 
 Kilo connects nodes in a cluster by providing an encrypted layer 3 network that can span across data centers and public clouds.
+The Pod network created by Kilo is always fully connected, even when the nodes are in different networks or behind NAT.
 By allowing pools of nodes in different locations to communicate securely, Kilo enables the operation of multi-cloud clusters.
 Kilo's design allows clients to VPN to a cluster in order to securely access services running on the cluster.
 In addition to creating multi-cloud clusters, Kilo enables the creation of multi-cluster services, i.e. services that span across different Kubernetes clusters.
