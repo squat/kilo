@@ -30,5 +30,8 @@ kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kil
 ```
 
 This configuration will deploy [nkml](https://github.com/leonnicolas/nkml) as a DaemonSet to label all nodes according to the presence of the WireGuard kernel module.
-It will also create two different DaemonSets with Kilo: `kilo` without userspace WireGuard and `kilo-userspace` with boringtun as a sidecar.
+It will also create two different DaemonSets with Kilo:
+1. `kilo` without userspace WireGuard; and
+1. `kilo-userspace` with boringtun as a sidecar.
+
 __Note:__ because Kilo is dependant on nkml, nkml must be run on the host network before CNI is available and requires a kubeconfig in order to access the Kubernetes API.
