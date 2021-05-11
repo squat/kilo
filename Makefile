@@ -12,7 +12,6 @@ else
     BINS := bin/$(OS)/$(ARCH)/kgctl
 endif
 RELEASE_BINS := $(addprefix bin/release/kgctl-, $(addprefix linux-, $(ALL_ARCH)) darwin-amd64 windows-amd64)
-CLIENT_BINS := $(addsuffix /kgctl, $(addprefix bin/, $(addprefix linux/, $(ALL_ARCH)) darwin/amd64 windows/amd64))
 PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io

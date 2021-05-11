@@ -6,13 +6,30 @@ This tool can be used to understand a mesh's topology, get the WireGuard configu
 
 ## Installation
 
-Installing `kgctl` currently requires building the binary from source.
-*Note*: the [Go toolchain must be installed](https://golang.org/doc/install) in order to build the binary.
-To build and install `kgctl`, run:
+The `kgctl` binary is automatically compiled for Linux, macOS, and Windows for every release of Kilo and can be downloaded from [the GitHub releases page](https://github.com/squat/kilo/releases/latest).
+
+### Building from Source
+Kilo is written in Golang and as a result the [Go toolchain must be installed](https://golang.org/doc/install) in order to build the `kgctl` binary.
+To download the Kilo source code and then build and install `kgctl` using the latest commit all with a single command, run:
 
 ```shell
-go install github.com/squat/kilo/cmd/kgctl
+go install github.com/squat/kilo/cmd/kgctl@latest
 ```
+
+Alternatively, `kgctl` can be built and installed based on specific version of the code by specifying a Git tag or hash, e.g.:
+
+```shell
+go install github.com/squat/kilo/cmd/kgctl@0.2.0
+```
+
+When working on Kilo locally, it can be helpful to build and test the `kgctl` binary as part of the development cycle.
+In order to build a binary from a local checkout of the Git repository, run:
+
+```shell
+make
+```
+
+This will produce a `kgctl` binary at `./bin/<your-os>/<your-architecture>/kgctl`.
 
 ## Commands
 

@@ -18,7 +18,7 @@ In addition to creating multi-cloud clusters, Kilo enables the creation of multi
 
 An introductory video about Kilo from KubeCon EU 2019 can be found on [youtube](https://www.youtube.com/watch?v=iPz_DAOOCKA).
 
-## How it works
+## How It Works
 
 Kilo uses [WireGuard](https://www.wireguard.com/), a performant and secure VPN, to create a mesh between the different nodes in a cluster.
 The Kilo agent, `kg`, runs on every node in the cluster, setting up the public and private keys for the VPN as well as the necessary rules to route packets between locations.
