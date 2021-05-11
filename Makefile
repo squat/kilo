@@ -17,10 +17,7 @@ PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
 IMAGE ?= squat/$(PROJECT)
-ifneq ($(REGISTRY),index.docker.io)
-    REGISTRY_PREFIX := $(REGISTRY)/
-endif
-FULLY_QUALIFIED_IMAGE := $(REGISTRY_PREFIX)$(IMAGE)
+FULLY_QUALIFIED_IMAGE := $(REGISTRY)/$(IMAGE)
 
 TAG := $(shell git describe --abbrev=0 --tags HEAD 2>/dev/null)
 COMMIT := $(shell git rev-parse HEAD)
@@ -247,7 +244,7 @@ container: .container-$(ARCH)-$(VERSION) container-name
 	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
 container-latest: .container-$(ARCH)-$(VERSION)
-	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(REGISTRY_PREFIX)$(IMAGE):$(ARCH)-latest
+	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(FULLY_QUALIFIED_IMAGE):$(ARCH)-latest
 	@echo "container: $(IMAGE):$(ARCH)-latest"
 
 container-name:
@@ -292,14 +289,14 @@ manifest-name:
 
 push: .push-$(ARCH)-$(VERSION) push-name
 .push-$(ARCH)-$(VERSION): .container-$(ARCH)-$(VERSION)
-ifneq ($(REGISTRY_PREFIX),)
-	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(REGISTRY)/$(IMAGE):$(ARCH)-$(VERSION)
+ifneq ($(REGISTRY),index.docker.io)
+	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(FULLY_QUALIFIED_IMAGE):$(ARCH)-$(VERSION)
 endif
-	@docker push $(REGISTRY)/$(IMAGE):$(ARCH)-$(VERSION)
+	@docker push $(FULLY_QUALIFIED_IMAGE):$(ARCH)-$(VERSION)
 	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
 push-latest: container-latest
-	@docker push $(REGISTRY)/$(IMAGE):$(ARCH)-latest
+	@docker push $(FULLY_QUALIFIED_IMAGE):$(ARCH)-latest
 	@echo "pushed: $(IMAGE):$(ARCH)-latest"
 
 push-name:
