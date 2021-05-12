@@ -25,6 +25,7 @@ One way to do this is to use the [kube-webhook-certgen](https://github.com/jet/k
 The following snippet can be used to run kube-webhook-certgen in a Docker container to create a Secret and certificate signing request:
 ```shell
 docker run -v /path/to/kubeconfig:/kubeconfig.yaml:ro jettech/kube-webhook-certgen:v1.5.2 --kubeconfig /kubeconfig.yaml create --namespace kilo --secret-name peer-validation-webhook-tls --host peer-validation,peer-validation.kilo.svc --key-name tls.key --cert-name tls.config
+```
 
 Now, the Kubernetes API server can be told what CA to trust by patching the ValidatingWebhookConfiguration with the newly created CA bundle:
 ```shell
