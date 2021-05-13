@@ -85,15 +85,18 @@ metadata:
   name: kilo
   namespace: kube-system
   labels:
-    app.kubernetes.io/name: kilo
+    app.kubernetes.io/name: kilo-userspace
+    app.kubernetes.io/part-of: kilo
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: kilo
+      app.kubernetes.io/name: kilo-userspace
+      app.kubernetes.io/part-of: kilo
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: kilo
+        app.kubernetes.io/name: kilo-userspace
+        app.kubernetes.io/part-of: kilo
     spec:
       serviceAccountName: kilo
       hostNetwork: true
