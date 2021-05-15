@@ -24,10 +24,13 @@ import (
 )
 
 // PeerLister helps list Peers.
+// All objects returned here must be treated as read-only.
 type PeerLister interface {
 	// List lists all Peers in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.Peer, err error)
 	// Get retrieves the Peer from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.Peer, error)
 	PeerListerExpansion
 }

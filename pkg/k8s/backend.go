@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -130,7 +132,7 @@ func (nb *nodeBackend) CleanUp(name string) error {
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(wireGuardIPAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(discoveredEndpointsKey, "/", jsonPatchSlash, 1))),
 	}, ",") + "]")
-	if _, err := nb.client.CoreV1().Nodes().Patch(name, types.JSONPatchType, patch); err != nil {
+	if _, err := nb.client.CoreV1().Nodes().Patch(context.TODO(), name, types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
 	}
 	return nil
@@ -244,7 +246,7 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 	if err != nil {
 		return fmt.Errorf("failed to create patch for node %q: %v", n.Name, err)
 	}
-	if _, err = nb.client.CoreV1().Nodes().Patch(name, types.StrategicMergePatchType, patch); err != nil {
+	if _, err = nb.client.CoreV1().Nodes().Patch(context.TODO(), name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
 	}
 	return nil
@@ -426,7 +428,7 @@ func (pb *peerBackend) Init(stop <-chan struct{}) error {
 	crd.Spec.Subresources.Scale = nil
 	crd.Spec.Subresources.Status = nil
 
-	_, err := pb.extensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+	_, err := pb.extensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create CRD: %v", err)
 	}
@@ -517,7 +519,7 @@ func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
 	p.Spec.PersistentKeepalive = peer.PersistentKeepalive
 	p.Spec.PresharedKey = string(peer.PresharedKey)
 	p.Spec.PublicKey = string(peer.PublicKey)
-	if _, err = pb.client.KiloV1alpha1().Peers().Update(p); err != nil {
+	if _, err = pb.client.KiloV1alpha1().Peers().Update(context.TODO(), p, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update peer: %v", err)
 	}
 	return nil
