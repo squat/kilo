@@ -46,6 +46,8 @@ var SupportedVerbs = []string{
 	"list",
 	"watch",
 	"patch",
+	"apply",
+	"applyStatus",
 }
 
 // ReadonlyVerbs represents a list of read-only verbs.
@@ -190,7 +192,7 @@ func MustParseClientGenTags(lines []string) Tags {
 func ParseClientGenTags(lines []string) (Tags, error) {
 	ret := Tags{}
 	values := types.ExtractCommentTags("+", lines)
-	value := []string{}
+	var value []string
 	value, ret.GenerateClient = values["genclient"]
 	// Check the old format and error when used to avoid generating client when //+genclient=false
 	if len(value) > 0 && len(value[0]) > 0 {
