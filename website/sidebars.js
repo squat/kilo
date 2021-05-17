@@ -12,7 +12,7 @@ module.exports = {
     {
       type: 'category',
       label: 'Reference',
-      items: ['annotations', 'kg', 'kgctl'],
+      items: ['annotations', 'kg', 'kgctl', 'api'],
     },
     //Features: ['mdx'],
   ],
