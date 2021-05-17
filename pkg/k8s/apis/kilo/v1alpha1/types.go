@@ -84,7 +84,8 @@ type PeerSpec struct {
 
 // PeerEndpoint represents a WireGuard enpoint, which is a ip:port tuple.
 type PeerEndpoint struct {
-	DNSOrIP
+	// DNSOrIP is a DNS name or an IP address.
+	DNSOrIP `json:"dnsOrIP"`
 	// Port must be a valid port number.
 	Port uint32 `json:"port"`
 }
@@ -172,6 +173,9 @@ func (p *Peer) Validate() error {
 // PeerList is a list of peers.
 type PeerList struct {
 	metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 	// List of peers.
 	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md

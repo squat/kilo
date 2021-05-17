@@ -1,5 +1,5 @@
 export GO111MODULE=on
-.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate release
+.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate release gen-docs
 
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
@@ -33,6 +33,7 @@ GO_FILES ?= $$(find . -name '*.go' -not -path './vendor/*')
 GO_PKGS ?= $$(go list ./... | grep -v "$(PKG)/vendor")
 
 CLIENT_GEN_BINARY := bin/client-gen
+DOCS_GEN_BINARY := bin/docs-gen
 DEEPCOPY_GEN_BINARY := bin/deepcopy-gen
 INFORMER_GEN_BINARY := bin/informer-gen
 LISTER_GEN_BINARY := bin/lister-gen
@@ -139,6 +140,10 @@ pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go: pkg/k8s/apis/kilo/v1alpha1/type
 	--go-header-file=.header
 	go fmt $@
 
+gen-docs: generate docs/api.md
+docs/api.md: pkg/k8s/apis/kilo/v1alpha1/types.go $(DOCS_GEN_BINARY)
+	$(DOCS_GEN_BINARY) $< > $@
+
 $(BINS): $(SRC) go.mod
 	@mkdir -p bin/$(word 2,$(subst /, ,$@))/$(word 3,$(subst /, ,$@))
 	@echo "building: $@"
@@ -226,7 +231,7 @@ website/docs/README.md: README.md
 	find $(@D)  -type f -name '*.md' | xargs -I{} sed -i 's/\.\/\(.\+\.svg\)/\/img\/\1/g' {}
 	sed -i 's/graphs\//\/img\/graphs\//g' $@
 
-website/build/index.html: website/docs/README.md
+website/build/index.html: website/docs/README.md docs/api.md
 	yarn --cwd website install
 	yarn --cwd website build
 
@@ -329,6 +334,9 @@ $(LISTER_GEN_BINARY):
 
 $(OPENAPI_GEN_BINARY):
 	go build -mod=vendor -o $@ k8s.io/kube-openapi/cmd/openapi-gen
+
+$(DOCS_GEN_BINARY): cmd/gen-docs/main.go
+	go build -mod=vendor -o $@ ./cmd/gen-docs
 
 $(GOLINT_BINARY):
 	go build -mod=vendor -o $@ golang.org/x/lint/golint
