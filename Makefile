@@ -1,5 +1,5 @@
 export GO111MODULE=on
-.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate release gen-docs
+.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate release gen-docs e2e
 
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
@@ -40,6 +40,9 @@ LISTER_GEN_BINARY := bin/lister-gen
 OPENAPI_GEN_BINARY := bin/openapi-gen
 GOLINT_BINARY := bin/golint
 EMBEDMD_BINARY := bin/embedmd
+KIND_BINARY := $(shell pwd)/bin/kind
+KUBECTL_BINARY := $(shell pwd)/bin/kubectl
+BASH_UNIT := $(shell pwd)/bin/bash_unit
 
 BUILD_IMAGE ?= golang:1.15.7-alpine
 BASE_IMAGE ?= alpine:3.12
@@ -195,7 +198,22 @@ lint: header $(GOLINT_BINARY)
 unit:
 	go test -mod=vendor --race ./...
 
-test: lint unit
+test: lint unit e2e
+
+$(KIND_BINARY):
+	curl -Lo $@ https://kind.sigs.k8s.io/dl/v0.10.0/kind-linux-$(ARCH)
+	chmod +x $@
+
+$(KUBECTL_BINARY):
+	curl -Lo $@ https://dl.k8s.io/release/v1.21.0/bin/linux/$(ARCH)/kubectl
+	chmod +x $@
+
+$(BASH_UNIT):
+	curl -Lo $@ https://raw.githubusercontent.com/pgrange/bash_unit/v1.6.0/bash_unit
+	chmod +x $@
+
+e2e: container ${KIND_BINARY} ${KUBECTL_BINARY} $(BASH_UNIT)
+	KILO_IMAGE=${IMAGE}:${ARCH}-${VERSION} KIND_BINARY=${KIND_BINARY} $(BASH_UNIT) ./e2e/kind.sh
 
 header: .header
 	@HEADER=$$(cat .header); \
