@@ -335,8 +335,8 @@ $(LISTER_GEN_BINARY):
 $(OPENAPI_GEN_BINARY):
 	go build -mod=vendor -o $@ k8s.io/kube-openapi/cmd/openapi-gen
 
-$(DOCS_GEN_BINARY): cmd/gen-docs/main.go
-	go build -mod=vendor -o $@ ./cmd/gen-docs
+$(DOCS_GEN_BINARY): cmd/docs-gen/main.go
+	go build -mod=vendor -o $@ ./cmd/docs-gen
 
 $(GOLINT_BINARY):
 	go build -mod=vendor -o $@ golang.org/x/lint/golint

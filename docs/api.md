@@ -12,7 +12,7 @@ This document is a reference of the API types introduced by Kilo.
 
 ## DNSOrIP
 
-DNSOrIP represents either a DNS name or an IP address. IPs, as they are more specific, are preferred.
+DNSOrIP represents either a DNS name or an IP address. When both are given, the IP address, as it is more specific, override the DNS name.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -34,7 +34,7 @@ Peer is a WireGuard peer that should have access to the VPN.
 
 ## PeerEndpoint
 
-PeerEndpoint represents a WireGuard enpoint, which is a ip:port tuple.
+PeerEndpoint represents a WireGuard endpoint, which is an IP:port tuple.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -63,7 +63,7 @@ PeerSpec is the description and configuration of a peer.
 | allowedIPs | AllowedIPs is the list of IP addresses that are allowed for the given peer's tunnel. | []string | true |
 | endpoint | Endpoint is the initial endpoint for connections to the peer. | *[PeerEndpoint](#peerendpoint) | false |
 | persistentKeepalive | PersistentKeepalive is the interval in seconds of the emission of keepalive packets by the peer. This defaults to 0, which disables the feature. | int | false |
-| presharedKey | PresharedKey is the optional symmetric encryption key for the peer. | string | true |
+| presharedKey | PresharedKey is the optional symmetric encryption key for the peer. | string | false |
 | publicKey | PublicKey is the WireGuard public key for the peer. | string | true |
 
 [Back to TOC](#table-of-contents)

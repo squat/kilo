@@ -325,7 +325,6 @@ func schema_k8s_apis_kilo_v1alpha1_PeerSpec(ref common.ReferenceCallback) common
 					"presharedKey": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PresharedKey is the optional symmetric encryption key for the peer.",
-							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},

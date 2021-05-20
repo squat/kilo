@@ -110,7 +110,7 @@ kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kil
 ## VPN
 
 Kilo also enables peers outside of a Kubernetes cluster to connect to the VPN, allowing cluster applications to securely access external services and permitting developers and support to securely debug cluster resources.
-In order to declare a peer, start by defining a Kilo peer resource:
+In order to declare a peer, start by defining a Kilo Peer resource:
 
 ```shell
 cat <<'EOF' | kubectl apply -f -
@@ -151,7 +151,7 @@ for n in $(kubectl --kubeconfig $KUBECONFIG2 get no -o name | cut -d'/' -f2); do
     kgctl --kubeconfig $KUBECONFIG2 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR2 | kubectl --kubeconfig $KUBECONFIG1 apply -f -
 done
 # Create a Service in cluster2 to mirror the Service in cluster1.
-cat <<'EOF' | kubectl --kubeconfig $KUBECONFIG2 apply -f -
+cat <<EOF | kubectl --kubeconfig $KUBECONFIG2 apply -f -
 apiVersion: v1
 kind: Service
 metadata:

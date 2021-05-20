@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This file was adapted from https://github.com/prometheus-operator/prometheus-operator/blob/master/cmd/po-docgen/api.go.
+
 package main
 
 import (
@@ -35,15 +37,8 @@ This document is a reference of the API types introduced by Kilo.
 
 var (
 	links = map[string]string{
-		"metav1.ObjectMeta":        "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta",
-		"metav1.ListMeta":          "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#listmeta-v1-meta",
-		"metav1.LabelSelector":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#labelselector-v1-meta",
-		"v1.ResourceRequirements":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#resourcerequirements-v1-core",
-		"v1.LocalObjectReference":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#localobjectreference-v1-core",
-		"v1.SecretKeySelector":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#secretkeyselector-v1-core",
-		"v1.PersistentVolumeClaim": "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#persistentvolumeclaim-v1-core",
-		"v1.EmptyDirVolumeSource":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#emptydirvolumesource-v1-core",
-		"apiextensionsv1.JSON":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#json-v1-apiextensions-k8s-io",
+		"metav1.ObjectMeta": "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta",
+		"metav1.ListMeta":   "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#listmeta-v1-meta",
 	}
 
 	selfLinks = map[string]string{}
@@ -69,7 +64,7 @@ func printTOC(types []KubeTypes) {
 func printAPIDocs(paths []string) {
 	fmt.Println(firstParagraph)
 
-	types := ParseDocumentationFrom(paths)
+	types := parseDocumentationFrom(paths)
 	for _, t := range types {
 		strukt := t[0]
 		selfLinks[strukt.Name] = "#" + strings.ToLower(strukt.Name)
@@ -77,7 +72,7 @@ func printAPIDocs(paths []string) {
 	}
 
 	// we need to parse once more to now add the self links and the inlined fields
-	types = ParseDocumentationFrom(paths)
+	types = parseDocumentationFrom(paths)
 
 	printTOC(types)
 
@@ -107,11 +102,11 @@ type Pair struct {
 // KubeTypes is an array to represent all available types in a parsed file. [0] is for the type itself
 type KubeTypes []Pair
 
-// ParseDocumentationFrom gets all types' documentation and returns them as an
+// parseDocumentationFrom gets all types' documentation and returns them as an
 // array. Each type is again represented as an array (we have to use arrays as we
-// need to be sure for the order of the fields). This function returns fields and
+// need to be sure of the order of the fields). This function returns fields and
 // struct definitions that have no documentation as {name, ""}.
-func ParseDocumentationFrom(srcs []string) []KubeTypes {
+func parseDocumentationFrom(srcs []string) []KubeTypes {
 	var docForTypes []KubeTypes
 
 	for _, src := range srcs {

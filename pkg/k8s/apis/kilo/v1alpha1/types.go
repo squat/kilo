@@ -77,12 +77,12 @@ type PeerSpec struct {
 	PersistentKeepalive int `json:"persistentKeepalive,omitempty"`
 	// PresharedKey is the optional symmetric encryption key for the peer.
 	// +optional
-	PresharedKey string `json:"presharedKey"`
+	PresharedKey string `json:"presharedKey,omitempty"`
 	// PublicKey is the WireGuard public key for the peer.
 	PublicKey string `json:"publicKey"`
 }
 
-// PeerEndpoint represents a WireGuard enpoint, which is a ip:port tuple.
+// PeerEndpoint represents a WireGuard endpoint, which is an IP:port tuple.
 type PeerEndpoint struct {
 	// DNSOrIP is a DNS name or an IP address.
 	DNSOrIP `json:"dnsOrIP"`
@@ -91,7 +91,7 @@ type PeerEndpoint struct {
 }
 
 // DNSOrIP represents either a DNS name or an IP address.
-// IPs, as they are more specific, are preferred.
+// When both are given, the IP address, as it is more specific, override the DNS name.
 type DNSOrIP struct {
 	// DNS must be a valid RFC 1123 subdomain.
 	// +optional
