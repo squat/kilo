@@ -66,6 +66,18 @@ jobs:
     - name: Run Unit Tests
       run: make unit
 
+  e2e:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15.7
+    - name: Run e2e Tests
+      run: make e2e
+
   lint:
     runs-on: ubuntu-latest
     steps:
