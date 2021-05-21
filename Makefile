@@ -248,6 +248,8 @@ website/docs/README.md: README.md
 	sed -i 's/\.\/docs\///g' $@
 	find $(@D)  -type f -name '*.md' | xargs -I{} sed -i 's/\.\/\(.\+\.svg\)/\/img\/\1/g' {}
 	sed -i 's/graphs\//\/img\/graphs\//g' $@
+	# The next line is a workaround until mdx, docusaurus' markdown parser, can parse links with preceding brackets.
+	sed -i  's/\[\]\(\[.*\](.*)\)/\&#91;\&#93;\1/g' website/docs/api.md
 
 website/build/index.html: website/docs/README.md docs/api.md
 	yarn --cwd website install
