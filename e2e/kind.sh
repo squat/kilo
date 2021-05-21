@@ -99,7 +99,7 @@ check_adjacent() {
 }
 
 test_locationmesh() {
-        # shellcheck disable=SC2016
+	# shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--mesh-granularity=location"]}]}}}}'
 	sleep 5
 	block_until_ready_by_name kube-system kilo-userspace 
@@ -110,7 +110,7 @@ test_locationmesh() {
 }
 
 test_fullmesh() {
-        # shellcheck disable=SC2016
+	# shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--mesh-granularity=full"]}]}}}}'
 	sleep 5
 	block_until_ready_by_name kube-system kilo-userspace 
