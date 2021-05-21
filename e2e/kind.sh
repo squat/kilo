@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034
 KUBECONFIG="kind.yaml"
 KIND_CLUSTER="kind-cluster-kilo"
 KIND_BINARY="${KIND_BINARY:-kind}"
@@ -6,9 +7,8 @@ KUBECTL_BINARY="${KUBECTL_BINARY:-kubectl}"
 KILO_IMAGE="${KILO_IMAGE:-squat/kilo}"
 
 is_ready() {
-	for pod in $(${KUBECTL_BINARY} -n ${1} get pods -o name -l ${2}); do
-		${KUBECTL_BINARY} -n ${1} get $pod | tail -n 1 | grep -q  Running;
-		if [ $? -ne 0 ]; then
+	for pod in $($KUBECTL_BINARY -n "$1" get pods -o name -l "$2"); do
+		if ! $KUBECTL_BINARY -n "$1" get "$pod" | tail -n 1 | grep -q  Running; then
 			return 1;
 		fi
 	done
@@ -17,19 +17,18 @@ is_ready() {
 
 # Returns non zero if one pod of the given name in the given namespace is not ready.
 block_until_ready_by_name() {
-	block_until_ready ${1} app.kubernetes.io/name=${2}
+	block_until_ready "$1" "app.kubernetes.io/name=$2"
 }
 
 # Blocks until all pods of a deployment are ready.
 block_until_ready() {
 	# Just abort after 150s
 	for c in {1..30}; do
-		ready=$(is_ready ${1} ${2})
-		if [ $? -ne 0 ]; then
-			echo "some ${2} pods are not ready, yet. Retries=$c/30"
+		if is_ready "$1" "$2"; then
+                        break
+                else
+			echo "some $2 pods are not ready, yet. Retries=$c/30"
 			sleep 5
-		else
-			break
 		fi
 	done
 	return 0
@@ -37,7 +36,7 @@ block_until_ready() {
 
 # Block waits until pods are ready. When patching pods, it is not very reliable because sometimes it checkts the state of old pods.
 block() {
-	$KUBECTL_BINARY -n ${1} wait -l "app.kubernetes.io/name=${2}" pod  --for=condition=Ready
+	$KUBECTL_BINARY -n "$1" wait -l "app.kubernetes.io/name=$2" pod  --for=condition=Ready
 }
 
 # Set up the kind cluster and deploy Kilo, Adjacency and a helper with curl.
@@ -46,7 +45,7 @@ setup_suite() {
 	# Create the kind cluster.
 	$KIND_BINARY create cluster --name $KIND_CLUSTER --config ./kind-config.yaml
 	# Load the Kilo image into kind.
-	docker tag $KILO_IMAGE squat/kilo:test
+	docker tag "$KILO_IMAGE" squat/kilo:test
 	$KIND_BINARY load docker-image squat/kilo:test --name $KIND_CLUSTER
 	# Apply Kilo the the cluster.
 	$KUBECTL_BINARY apply -f kilo-kind-userspace.yaml
@@ -66,7 +65,7 @@ block_until_ping() {
 		keepgoing=1
 		# Block until all IP addresses of the adjacency pods are reached.
 		for ip in $($KUBECTL_BINARY get pods -l app.kubernetes.io/name=adjacency -o jsonpath='{.items[*].status.podIP}'); do
-			ping=$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -i $KUBECTL_BINARY exec {} -- /bin/sh -c 'curl -s http://'$ip':8080/ping')
+			ping=$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c "curl -s http://$ip:8080/ping")
 			if [[ $ping == "pong" ]]; then
 				echo "successfully pinged $ip"
 				keepgoing=0
@@ -86,20 +85,21 @@ block_until_ping() {
 
 check_adjacent() {
 	echo
-	echo "$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -i $KUBECTL_BINARY exec {} -- /bin/sh -c 'curl -s adjacency:8080/?format=fancy')"
+	$KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -s adjacency:8080/?format=fancy'
 	assert_equals "12" \
-		"$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -i $KUBECTL_BINARY exec {} -- /bin/sh -c 'curl -s adjacency:8080/?format=json' | jq | grep -c true)" \
+		"$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -s adjacency:8080/?format=json' | jq | grep -c true)" \
 		"Adjacency returned the wrong number of successful pings"
 	echo "sleep for 30s (one reconciliation period) and try again..."
 	sleep 30
 	echo
-	echo "$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -i $KUBECTL_BINARY exec {} -- /bin/sh -c 'curl -s adjacency:8080/?format=fancy')"
+	$KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -s adjacency:8080/?format=fancy'
 	assert_equals "12" \
-		"$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -i $KUBECTL_BINARY exec {} -- /bin/sh -c 'curl -s adjacency:8080/?format=json' | jq | grep -c true)" \
+		"$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -s adjacency:8080/?format=json' | jq | grep -c true)" \
 		 "Adjacency returned the wrong number of successful pings"
 }
 
 test_locationmesh() {
+        # shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--mesh-granularity=location"]}]}}}}'
 	sleep 5
 	block_until_ready_by_name kube-system kilo-userspace 
@@ -110,6 +110,7 @@ test_locationmesh() {
 }
 
 test_fullmesh() {
+        # shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--mesh-granularity=full"]}]}}}}'
 	sleep 5
 	block_until_ready_by_name kube-system kilo-userspace 
