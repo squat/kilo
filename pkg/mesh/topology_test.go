@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-kit/kit/log"
 	"github.com/kylelemons/godebug/pretty"
 
 	"github.com/squat/kilo/pkg/wireguard"
@@ -26,6 +27,15 @@ import (
 
 func allowedIPs(ips ...string) string {
 	return strings.Join(ips, ", ")
+}
+
+func mustParseCIDR(s string) (r *net.IPNet) {
+	if _, ip, err := net.ParseCIDR(s); err != nil {
+		panic("failed to parse CIDR")
+	} else {
+		r = ip
+	}
+	return
 }
 
 func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
@@ -36,6 +46,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 	e4 := &net.IPNet{IP: net.ParseIP("10.1.0.4").To4(), Mask: net.CIDRMask(16, 32)}
 	i1 := &net.IPNet{IP: net.ParseIP("192.168.0.1").To4(), Mask: net.CIDRMask(32, 32)}
 	i2 := &net.IPNet{IP: net.ParseIP("192.168.0.2").To4(), Mask: net.CIDRMask(32, 32)}
+	i3 := &net.IPNet{IP: net.ParseIP("192.168.178.3").To4(), Mask: net.CIDRMask(32, 32)}
 	nodes := map[string]*Node{
 		"a": {
 			Name:                "a",
@@ -47,12 +58,13 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, []byte, uint32) {
 			PersistentKeepalive: 25,
 		},
 		"b": {
-			Name:       "b",
-			Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
-			InternalIP: i1,
-			Location:   "2",
-			Subnet:     &net.IPNet{IP: net.ParseIP("10.2.2.0"), Mask: net.CIDRMask(24, 32)},
-			Key:        []byte("key2"),
+			Name:               "b",
+			Endpoint:           &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
+			InternalIP:         i1,
+			Location:           "2",
+			Subnet:             &net.IPNet{IP: net.ParseIP("10.2.2.0"), Mask: net.CIDRMask(24, 32)},
+			Key:                []byte("key2"),
+			AllowedLocationIPs: []*net.IPNet{i3},
 		},
 		"c": {
 			Name:       "c",
@@ -146,6 +158,7 @@ func TestNewTopology(t *testing.T) {
 						hostnames:           []string{"b", "c"},
 						privateIPs:          []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP:         w2,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
 					},
 					{
 						allowedIPs:          []*net.IPNet{nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
@@ -159,7 +172,8 @@ func TestNewTopology(t *testing.T) {
 						wireGuardIP:         w3,
 					},
 				},
-				peers: []*Peer{peers["a"], peers["b"]},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
 			},
 		},
 		{
@@ -195,6 +209,7 @@ func TestNewTopology(t *testing.T) {
 						hostnames:           []string{"b", "c"},
 						privateIPs:          []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP:         w2,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
 					},
 					{
 						allowedIPs:          []*net.IPNet{nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
@@ -208,7 +223,8 @@ func TestNewTopology(t *testing.T) {
 						wireGuardIP:         w3,
 					},
 				},
-				peers: []*Peer{peers["a"], peers["b"]},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
 			},
 		},
 		{
@@ -244,6 +260,7 @@ func TestNewTopology(t *testing.T) {
 						hostnames:           []string{"b", "c"},
 						privateIPs:          []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
 						wireGuardIP:         w2,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
 					},
 					{
 						allowedIPs:          []*net.IPNet{nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
@@ -257,7 +274,8 @@ func TestNewTopology(t *testing.T) {
 						wireGuardIP:         w3,
 					},
 				},
-				peers: []*Peer{peers["a"], peers["b"]},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
 			},
 		},
 		{
@@ -293,6 +311,7 @@ func TestNewTopology(t *testing.T) {
 						hostnames:           []string{"b"},
 						privateIPs:          []net.IP{nodes["b"].InternalIP.IP},
 						wireGuardIP:         w2,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
 					},
 					{
 						allowedIPs:          []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
@@ -317,7 +336,8 @@ func TestNewTopology(t *testing.T) {
 						wireGuardIP:         w4,
 					},
 				},
-				peers: []*Peer{peers["a"], peers["b"]},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
 			},
 		},
 		{
@@ -353,6 +373,7 @@ func TestNewTopology(t *testing.T) {
 						hostnames:           []string{"b"},
 						privateIPs:          []net.IP{nodes["b"].InternalIP.IP},
 						wireGuardIP:         w2,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
 					},
 					{
 						allowedIPs:          []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
@@ -377,7 +398,8 @@ func TestNewTopology(t *testing.T) {
 						wireGuardIP:         w4,
 					},
 				},
-				peers: []*Peer{peers["a"], peers["b"]},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
 			},
 		},
 		{
@@ -413,6 +435,7 @@ func TestNewTopology(t *testing.T) {
 						hostnames:           []string{"b"},
 						privateIPs:          []net.IP{nodes["b"].InternalIP.IP},
 						wireGuardIP:         w2,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
 					},
 					{
 						allowedIPs:          []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
@@ -437,7 +460,8 @@ func TestNewTopology(t *testing.T) {
 						wireGuardIP:         w4,
 					},
 				},
-				peers: []*Peer{peers["a"], peers["b"]},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
 			},
 		},
 		{
@@ -473,6 +497,7 @@ func TestNewTopology(t *testing.T) {
 						hostnames:           []string{"b"},
 						privateIPs:          []net.IP{nodes["b"].InternalIP.IP},
 						wireGuardIP:         w2,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
 					},
 					{
 						allowedIPs:          []*net.IPNet{nodes["c"].Subnet, nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
@@ -497,13 +522,14 @@ func TestNewTopology(t *testing.T) {
 						wireGuardIP:         w4,
 					},
 				},
-				peers: []*Peer{peers["a"], peers["b"]},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
 			},
 		},
 	} {
 		tc.result.key = key
 		tc.result.port = port
-		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, DefaultKiloSubnet, 0)
+		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, DefaultKiloSubnet, 0, nil)
 		if err != nil {
 			t.Errorf("test case %q: failed to generate Topology: %v", tc.name, err)
 		}
@@ -514,7 +540,7 @@ func TestNewTopology(t *testing.T) {
 }
 
 func mustTopo(t *testing.T, nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port uint32, key []byte, subnet *net.IPNet, persistentKeepalive int) *Topology {
-	topo, err := NewTopology(nodes, peers, granularity, hostname, port, key, subnet, persistentKeepalive)
+	topo, err := NewTopology(nodes, peers, granularity, hostname, port, key, subnet, persistentKeepalive, nil)
 	if err != nil {
 		t.Errorf("failed to generate Topology: %v", err)
 	}
@@ -538,7 +564,7 @@ ListenPort = 51820
 [Peer]
 PublicKey = key2
 Endpoint = 10.1.0.2:51820
-AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
+AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32, 192.168.178.3/32
 PersistentKeepalive = 25
 
 [Peer]
@@ -623,7 +649,7 @@ PersistentKeepalive = 25
 		[Peer]
 		PublicKey = key2
 		Endpoint = 10.1.0.2:51820
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32, 192.168.178.3/32
 		PersistentKeepalive = 25
 
 		[Peer]
@@ -697,7 +723,7 @@ PersistentKeepalive = 25
 		[Peer]
 		PublicKey = key2
 		Endpoint = 10.1.0.2:51820
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32
+		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.4.0.2/32, 192.168.178.3/32
 
 		[Peer]
 		PublicKey = key4
@@ -951,5 +977,135 @@ func TestDeduplicatePeerIPs(t *testing.T) {
 		if diff := pretty.Compare(out, tc.out); diff != "" {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}
+	}
+}
+
+func TestFilterAllowedIPs(t *testing.T) {
+	nodes, peers, key, port := setup(t)
+	topo := mustTopo(t, nodes, peers, LogicalGranularity, nodes["a"].Name, port, key, DefaultKiloSubnet, nodes["a"].PersistentKeepalive)
+	for _, tc := range []struct {
+		name               string
+		allowedLocationIPs map[int][]*net.IPNet
+		result             map[int][]*net.IPNet
+	}{
+		{
+			name: "nothing to filter",
+			allowedLocationIPs: map[int][]*net.IPNet{
+				0: {
+					mustParseCIDR("192.168.178.4/32"),
+				},
+				1: {
+					mustParseCIDR("192.168.178.5/32"),
+				},
+				2: {
+					mustParseCIDR("192.168.178.6/32"),
+					mustParseCIDR("192.168.178.7/32"),
+				},
+			},
+			result: map[int][]*net.IPNet{
+				0: {
+					mustParseCIDR("192.168.178.4/32"),
+				},
+				1: {
+					mustParseCIDR("192.168.178.5/32"),
+				},
+				2: {
+					mustParseCIDR("192.168.178.6/32"),
+					mustParseCIDR("192.168.178.7/32"),
+				},
+			},
+		},
+		{
+			name: "intersections between segments",
+			allowedLocationIPs: map[int][]*net.IPNet{
+				0: {
+					mustParseCIDR("192.168.178.4/32"),
+					mustParseCIDR("192.168.178.8/32"),
+				},
+				1: {
+					mustParseCIDR("192.168.178.5/32"),
+				},
+				2: {
+					mustParseCIDR("192.168.178.6/32"),
+					mustParseCIDR("192.168.178.7/32"),
+					mustParseCIDR("192.168.178.4/32"),
+				},
+			},
+			result: map[int][]*net.IPNet{
+				0: {
+					mustParseCIDR("192.168.178.8/32"),
+				},
+				1: {
+					mustParseCIDR("192.168.178.5/32"),
+				},
+				2: {
+					mustParseCIDR("192.168.178.6/32"),
+					mustParseCIDR("192.168.178.7/32"),
+					mustParseCIDR("192.168.178.4/32"),
+				},
+			},
+		},
+		{
+			name: "intersections with wireGuardCIDR",
+			allowedLocationIPs: map[int][]*net.IPNet{
+				0: {
+					mustParseCIDR("10.4.0.1/32"),
+					mustParseCIDR("192.168.178.8/32"),
+				},
+				1: {
+					mustParseCIDR("192.168.178.5/32"),
+				},
+				2: {
+					mustParseCIDR("192.168.178.6/32"),
+					mustParseCIDR("192.168.178.7/32"),
+				},
+			},
+			result: map[int][]*net.IPNet{
+				0: {
+					mustParseCIDR("192.168.178.8/32"),
+				},
+				1: {
+					mustParseCIDR("192.168.178.5/32"),
+				},
+				2: {
+					mustParseCIDR("192.168.178.6/32"),
+					mustParseCIDR("192.168.178.7/32"),
+				},
+			},
+		},
+		{
+			name: "intersections with more than one allowedLocationIPs",
+			allowedLocationIPs: map[int][]*net.IPNet{
+				0: {
+					mustParseCIDR("192.168.178.8/32"),
+				},
+				1: {
+					mustParseCIDR("192.168.178.5/32"),
+				},
+				2: {
+					mustParseCIDR("192.168.178.7/24"),
+				},
+			},
+			result: map[int][]*net.IPNet{
+				0: {},
+				1: {},
+				2: {
+					mustParseCIDR("192.168.178.7/24"),
+				},
+			},
+		},
+	} {
+		for k, v := range tc.allowedLocationIPs {
+			topo.segments[k].allowedLocationIPs = v
+		}
+		for k, v := range topo.segments {
+			f := topo.filterAllowedLocationIPs(v.allowedLocationIPs, v.location)
+			// Overwrite the allowedLocationIPs to mimic the actual usage of the filterAllowedLocationIPs function.
+			topo.segments[k].allowedLocationIPs = f
+			if !ipNetSlicesEqual(f, tc.result[k]) {
+				t.Errorf("test case %q:\n\texpected:\n\t%q\n\tgot:\n\t%q\n", tc.name, tc.result[k], f)
+			}
+		}
+
 	}
 }

@@ -19,6 +19,9 @@ import (
 	"net"
 	"sort"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+
 	"github.com/squat/kilo/pkg/wireguard"
 )
 
@@ -57,6 +60,7 @@ type Topology struct {
 	wireGuardCIDR *net.IPNet
 	// discoveredEndpoints is the updated map of valid discovered Endpoints
 	discoveredEndpoints map[string]*wireguard.Endpoint
+	logger              log.Logger
 }
 
 type segment struct {
@@ -78,10 +82,17 @@ type segment struct {
 	// wireGuardIP is the allocated IP address of the WireGuard
 	// interface on the leader of the segment.
 	wireGuardIP net.IP
+	// allowedLocationIPs are not part of the cluster and are not peers.
+	// They are directly routable from nodes within the segment.
+	// A classic example is a printer that ought to be routable from other locations.
+	allowedLocationIPs []*net.IPNet
 }
 
 // NewTopology creates a new Topology struct from a given set of nodes and peers.
-func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port uint32, key []byte, subnet *net.IPNet, persistentKeepalive int) (*Topology, error) {
+func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port uint32, key []byte, subnet *net.IPNet, persistentKeepalive int, logger log.Logger) (*Topology, error) {
+	if logger == nil {
+		logger = log.NewNopLogger()
+	}
 	topoMap := make(map[string][]*Node)
 	for _, node := range nodes {
 		var location string
@@ -109,7 +120,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		localLocation = nodeLocationPrefix + hostname
 	}
 
-	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, persistentKeepalive: persistentKeepalive, privateIP: nodes[hostname].InternalIP, subnet: nodes[hostname].Subnet, wireGuardCIDR: subnet, discoveredEndpoints: make(map[string]*wireguard.Endpoint)}
+	t := Topology{key: key, port: port, hostname: hostname, location: localLocation, persistentKeepalive: persistentKeepalive, privateIP: nodes[hostname].InternalIP, subnet: nodes[hostname].Subnet, wireGuardCIDR: subnet, discoveredEndpoints: make(map[string]*wireguard.Endpoint), logger: logger}
 	for location := range topoMap {
 		// Sort the location so the result is stable.
 		sort.Slice(topoMap[location], func(i, j int) bool {
@@ -120,6 +131,8 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			t.leader = true
 		}
 		var allowedIPs []*net.IPNet
+		allowedLocationIPsMap := make(map[string]struct{})
+		var allowedLocationIPs []*net.IPNet
 		var cidrs []*net.IPNet
 		var hostnames []string
 		var privateIPs []net.IP
@@ -128,7 +141,14 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			// - the node's allocated subnet
 			// - the node's WireGuard IP
 			// - the node's internal IP
+			// - IPs that were specified by the allowed-location-ips annotation
 			allowedIPs = append(allowedIPs, node.Subnet)
+			for _, ip := range node.AllowedLocationIPs {
+				if _, ok := allowedLocationIPsMap[ip.String()]; !ok {
+					allowedLocationIPs = append(allowedLocationIPs, ip)
+					allowedLocationIPsMap[ip.String()] = struct{}{}
+				}
+			}
 			if node.InternalIP != nil {
 				allowedIPs = append(allowedIPs, oneAddressCIDR(node.InternalIP.IP))
 				privateIPs = append(privateIPs, node.InternalIP.IP)
@@ -136,6 +156,10 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			cidrs = append(cidrs, node.Subnet)
 			hostnames = append(hostnames, node.Name)
 		}
+		// The sorting has no function, but makes testing easier.
+		sort.Slice(allowedLocationIPs, func(i, j int) bool {
+			return allowedLocationIPs[i].String() < allowedLocationIPs[j].String()
+		})
 		t.segments = append(t.segments, &segment{
 			allowedIPs:          allowedIPs,
 			endpoint:            topoMap[location][leader].Endpoint,
@@ -146,6 +170,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			hostnames:           hostnames,
 			leader:              leader,
 			privateIPs:          privateIPs,
+			allowedLocationIPs:  allowedLocationIPs,
 		})
 	}
 	// Sort the Topology segments so the result is stable.
@@ -189,9 +214,57 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 				}
 			}
 		}
+		// Check for intersecting IPs in allowed location IPs
+		segment.allowedLocationIPs = t.filterAllowedLocationIPs(segment.allowedLocationIPs, segment.location)
 	}
 
 	return &t, nil
+}
+
+func intersect(n1, n2 *net.IPNet) bool {
+	return n1.Contains(n2.IP) || n2.Contains(n1.IP)
+}
+
+func (t *Topology) filterAllowedLocationIPs(ips []*net.IPNet, location string) (ret []*net.IPNet) {
+CheckIPs:
+	for _, ip := range ips {
+		for _, s := range t.segments {
+			// Check if allowed location IPs are also allowed in other locations.
+			if location != s.location {
+				for _, i := range s.allowedLocationIPs {
+					if intersect(ip, i) {
+						level.Warn(t.logger).Log("msg", "overlapping allowed location IPnets", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
+						continue CheckIPs
+					}
+				}
+			}
+			// Check if allowed location IPs intersect with the allowed IPs.
+			for _, i := range s.allowedIPs {
+				if intersect(ip, i) {
+					level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with allowed IPnets", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
+					continue CheckIPs
+				}
+			}
+			// Check if allowed location IPs intersect with the private IPs of the segment.
+			for _, i := range s.privateIPs {
+				if ip.Contains(i) {
+					level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with privateIP", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
+					continue CheckIPs
+				}
+			}
+		}
+		// Check if allowed location IPs intersect with allowed IPs of peers.
+		for _, p := range t.peers {
+			for _, i := range p.AllowedIPs {
+				if intersect(ip, i) {
+					level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with peer IPnet", "IP", ip.String(), "IP2", i.String(), "peer", p.Name)
+					continue CheckIPs
+				}
+			}
+		}
+		ret = append(ret, ip)
+	}
+	return
 }
 
 func (t *Topology) updateEndpoint(endpoint *wireguard.Endpoint, key []byte, persistentKeepalive int) *wireguard.Endpoint {
@@ -219,7 +292,7 @@ func (t *Topology) Conf() *wireguard.Conf {
 			continue
 		}
 		peer := &wireguard.Peer{
-			AllowedIPs:          s.allowedIPs,
+			AllowedIPs:          append(s.allowedIPs, s.allowedLocationIPs...),
 			Endpoint:            t.updateEndpoint(s.endpoint, s.key, s.persistentKeepalive),
 			PersistentKeepalive: t.persistentKeepalive,
 			PublicKey:           s.key,

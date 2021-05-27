@@ -108,6 +108,17 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 					Protocol:  unix.RTPROT_STATIC,
 				}, enc.Strategy(), t.privateIP, tunlIface))
 			}
+			// For segments / locations other than the location of this instance of kg,
+			// we need to set routes for allowed location IPs over the leader in the current location.
+			for i := range segment.allowedLocationIPs {
+				routes = append(routes, encapsulateRoute(&netlink.Route{
+					Dst:       segment.allowedLocationIPs[i],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        gw,
+					LinkIndex: privIface,
+					Protocol:  unix.RTPROT_STATIC,
+				}, enc.Strategy(), t.privateIP, tunlIface))
+			}
 		}
 		// Add routes for the allowed IPs of peers.
 		for _, peer := range t.peers {
@@ -198,6 +209,17 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 				Protocol:  unix.RTPROT_STATIC,
 			})
 		}
+		// For segments / locations other than the location of this instance of kg,
+		// we need to set routes for allowed location IPs over the wg interface.
+		for i := range segment.allowedLocationIPs {
+			routes = append(routes, &netlink.Route{
+				Dst:       segment.allowedLocationIPs[i],
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.wireGuardIP,
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
 	}
 	// Add routes for the allowed IPs of peers.
 	for _, peer := range t.peers {
@@ -231,6 +253,16 @@ func (t *Topology) Rules(cni bool) []iptables.Rule {
 		rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(s.wireGuardIP)), "nat", "KILO-NAT", "-d", oneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuared IPs", "-j", "RETURN"))
 		for _, aip := range s.allowedIPs {
 			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(aip.IP)), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
+		}
+		// Make sure packets to allowed location IPs go through the KILO-NAT chain, so they can be MASQUERADEd,
+		// Otherwise packets to these destinations will reach the destination, but never find their way back.
+		// We only want to NAT in locations of the corresponding allowed location IPs.
+		if t.location == s.location {
+			for _, alip := range s.allowedLocationIPs {
+				rules = append(rules,
+					iptables.NewRule(iptables.GetProtocol(len(alip.IP)), "nat", "POSTROUTING", "-d", alip.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"),
+				)
+			}
 		}
 	}
 	for _, p := range t.peers {
