@@ -16,6 +16,7 @@ PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
 IMAGE ?= squat/$(PROJECT)
+FULLY_QUALIFIED_IMAGE := $(REGISTRY)/$(IMAGE)
 
 TAG := $(shell git describe --abbrev=0 --tags HEAD 2>/dev/null)
 COMMIT := $(shell git rev-parse HEAD)
@@ -267,7 +268,7 @@ container: .container-$(ARCH)-$(VERSION) container-name
 	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
 container-latest: .container-$(ARCH)-$(VERSION)
-	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(IMAGE):$(ARCH)-latest
+	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(FULLY_QUALIFIED_IMAGE):$(ARCH)-latest
 	@echo "container: $(IMAGE):$(ARCH)-latest"
 
 container-name:
@@ -275,14 +276,15 @@ container-name:
 
 manifest: .manifest-$(VERSION) manifest-name
 .manifest-$(VERSION): Dockerfile $(addprefix push-, $(ALL_ARCH))
-	@docker manifest create --amend $(IMAGE):$(VERSION) $(addsuffix -$(VERSION), $(addprefix squat/$(PROJECT):, $(ALL_ARCH)))
+	@docker manifest create --amend $(FULLY_QUALIFIED_IMAGE):$(VERSION) $(addsuffix -$(VERSION), $(addprefix $(FULLY_QUALIFIED_IMAGE):, $(ALL_ARCH)))
 	@$(MAKE) --no-print-directory manifest-annotate-$(VERSION)
-	@docker manifest push $(IMAGE):$(VERSION) > $@
+	@docker manifest push $(FULLY_QUALIFIED_IMAGE):$(VERSION) > $@
 
 manifest-latest: Dockerfile $(addprefix push-latest-, $(ALL_ARCH))
-	@docker manifest create --amend $(IMAGE):latest $(addsuffix -latest, $(addprefix squat/$(PROJECT):, $(ALL_ARCH)))
+	@docker manifest rm $(FULLY_QUALIFIED_IMAGE):latest || echo no old manifest
+	@docker manifest create --amend $(FULLY_QUALIFIED_IMAGE):latest $(addsuffix -latest, $(addprefix $(FULLY_QUALIFIED_IMAGE):, $(ALL_ARCH)))
 	@$(MAKE) --no-print-directory manifest-annotate-latest
-	@docker manifest push $(IMAGE):latest
+	@docker manifest push $(FULLY_QUALIFIED_IMAGE):latest
 	@echo "manifest: $(IMAGE):latest"
 
 manifest-annotate: manifest-annotate-$(VERSION)
@@ -293,7 +295,7 @@ manifest-annotate-%:
 	    annotate=; \
 	    j=0; for da in $(DOCKER_ARCH); do \
 		if [ "$$j" -eq "$$i" ] && [ -n "$$da" ]; then \
-		    annotate="docker manifest annotate $(IMAGE):$* $(IMAGE):$$a-$* --os linux --arch"; \
+		    annotate="docker manifest annotate $(FULLY_QUALIFIED_IMAGE):$* $(FULLY_QUALIFIED_IMAGE):$$a-$* --os linux --arch"; \
 		    k=0; for ea in $$da; do \
 			[ "$$k" = 0 ] && annotate="$$annotate $$ea"; \
 			[ "$$k" != 0 ] && annotate="$$annotate --variant $$ea"; \
@@ -307,15 +309,18 @@ manifest-annotate-%:
 	done
 
 manifest-name:
-	@echo "manifest: $(IMAGE_ROOT):$(VERSION)"
+	@echo "manifest: $(IMAGE):$(VERSION)"
 
 push: .push-$(ARCH)-$(VERSION) push-name
 .push-$(ARCH)-$(VERSION): .container-$(ARCH)-$(VERSION)
-	@docker push $(REGISTRY)/$(IMAGE):$(ARCH)-$(VERSION)
+ifneq ($(REGISTRY),index.docker.io)
+	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(FULLY_QUALIFIED_IMAGE):$(ARCH)-$(VERSION)
+endif
+	@docker push $(FULLY_QUALIFIED_IMAGE):$(ARCH)-$(VERSION)
 	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
 push-latest: container-latest
-	@docker push $(REGISTRY)/$(IMAGE):$(ARCH)-latest
+	@docker push $(FULLY_QUALIFIED_IMAGE):$(ARCH)-latest
 	@echo "pushed: $(IMAGE):$(ARCH)-latest"
 
 push-name:
