@@ -14,6 +14,11 @@ module.exports = {
       label: 'Reference',
       items: ['annotations', 'kg', 'kgctl', 'api'],
     },
+    {
+      type: 'category',
+      label: 'Contributing',
+      items: ['building_kilo', 'building_website'],
+    },
     //Features: ['mdx'],
   ],
 };
