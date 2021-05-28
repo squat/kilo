@@ -69,9 +69,9 @@ If you want to build containers for a processor architecture that is different f
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 ```
 
-Set the `$IMAGE` environment variable to `<your docker hub user name>/kilo`.
+Set the `$IMAGE` environment variable to `<your Docker Hub user name>/kilo`.
 This way the generated container images and manifests will be named accordingly.
-By skipping this step, you will not be able to push the containers and manifests to your docker hub.
+By skipping this step, you will be able to tag images but will not be able to push the containers and manifests to your own Docker Hub.
 ```shell
 export IMAGE=<docker hub user name>/kilo
 ```
