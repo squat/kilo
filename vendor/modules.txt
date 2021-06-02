@@ -2,9 +2,6 @@
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/ant31/crd-validation v0.0.0-20180801212718-38f6a293f140
-## explicit
-github.com/ant31/crd-validation/pkg
 # github.com/awalterschulze/gographviz v0.0.0-20181013152038-b2885df04310
 ## explicit
 github.com/awalterschulze/gographviz
@@ -104,6 +101,9 @@ github.com/kr/logfmt
 ## explicit
 github.com/kylelemons/godebug/diff
 github.com/kylelemons/godebug/pretty
+# github.com/leonnicolas/crd-validation v0.0.0-20210602093346-4236c21fcd92
+## explicit
+github.com/leonnicolas/crd-validation/pkg
 # github.com/mailru/easyjson v0.7.0
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer

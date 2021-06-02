@@ -3,7 +3,6 @@ module github.com/squat/kilo
 go 1.15
 
 require (
-	github.com/ant31/crd-validation v0.0.0-20180801212718-38f6a293f140
 	github.com/awalterschulze/gographviz v0.0.0-20181013152038-b2885df04310
 	github.com/campoy/embedmd v1.0.0
 	github.com/containernetworking/cni v0.6.0
@@ -14,6 +13,7 @@ require (
 	github.com/go-openapi/spec v0.19.5
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
+	github.com/leonnicolas/crd-validation v0.0.0-20210602093346-4236c21fcd92
 	github.com/oklog/run v1.0.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.1.1

@@ -2,7 +2,7 @@ package crdvalidation
 
 import (
 	spec "github.com/go-openapi/spec"
-	extensionsobj "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extensionsobj "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	common "k8s.io/kube-openapi/pkg/common"
 )
@@ -10,7 +10,7 @@ import (
 // CustomResourceDefinitionTypeMeta set the default kind/apiversion of CRD
 var CustomResourceDefinitionTypeMeta = metav1.TypeMeta{
 	Kind:       "CustomResourceDefinition",
-	APIVersion: "apiextensions.k8s.io/v1beta1",
+	APIVersion: "apiextensions.k8s.io/v1",
 }
 
 // OpenAPIRefCallBack returns a jsonref using the input string without modification
@@ -69,4 +69,3 @@ func fixKnownTypes(openapiSpec map[string]common.OpenAPIDefinition) {
 		},
 	}
 }
-

@@ -25,9 +25,9 @@ import (
 	"strings"
 	"time"
 
-	crdutils "github.com/ant31/crd-validation/pkg"
+	crdutils "github.com/leonnicolas/crd-validation/pkg"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -417,7 +417,7 @@ func (pb *peerBackend) Init(stop <-chan struct{}) error {
 	crd := crdutils.NewCustomResourceDefinition(crdutils.Config{
 		SpecDefinitionName:    "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1.Peer",
 		EnableValidation:      true,
-		ResourceScope:         string(v1beta1.ClusterScoped),
+		ResourceScope:         string(extv1.ClusterScoped),
 		Group:                 v1alpha1.GroupName,
 		Kind:                  v1alpha1.PeerKind,
 		Version:               v1alpha1.SchemeGroupVersion.Version,
@@ -425,10 +425,13 @@ func (pb *peerBackend) Init(stop <-chan struct{}) error {
 		ShortNames:            v1alpha1.PeerShortNames,
 		GetOpenAPIDefinitions: v1alpha1.GetOpenAPIDefinitions,
 	})
-	crd.Spec.Subresources.Scale = nil
-	crd.Spec.Subresources.Status = nil
+	for _, v := range crd.Spec.Versions {
+		v.Subresources.Scale = nil
+		v.Subresources.Status = nil
+		v.Schema.OpenAPIV3Schema.Type = "object"
+	}
 
-	_, err := pb.extensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
+	_, err := pb.extensionsClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create CRD: %v", err)
 	}
