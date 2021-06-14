@@ -48,6 +48,7 @@ setup_suite() {
 	docker tag "$KILO_IMAGE" squat/kilo:test
 	$KIND_BINARY load docker-image squat/kilo:test --name $KIND_CLUSTER
 	# Apply Kilo the the cluster.
+	$KUBECTL_BINARY apply -f ../manifests/crds.yaml
 	$KUBECTL_BINARY apply -f kilo-kind-userspace.yaml
 	block_until_ready_by_name kube-system kilo-userspace 
 	$KUBECTL_BINARY wait nodes --all --for=condition=Ready

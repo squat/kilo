@@ -18,6 +18,7 @@ __Note:__ in order to avoid race conditions, `kg` needs to be passed the `--crea
 An example configuration for a K3s cluster with [BoringTun] can be applied with:
 
 ```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s-userspace.yaml
 ```
 
@@ -29,6 +30,7 @@ In a heterogeneous cluster where some nodes are missing the WireGuard kernel mod
 An example of such a configuration for a K3s cluster can by applied with:
 
 ```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s-userspace-heterogeneous.yaml
 ```
 

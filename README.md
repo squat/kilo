@@ -72,24 +72,28 @@ Kilo can be installed by deploying a DaemonSet to the cluster.
 To run Kilo on kubeadm:
 
 ```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-kubeadm.yaml
 ```
 
 To run Kilo on bootkube:
 
 ```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-bootkube.yaml
 ```
 
 To run Kilo on Typhoon:
 
 ```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-typhoon.yaml
 ```
 
 To run Kilo on k3s:
 
 ```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s.yaml
 ```
 
@@ -102,6 +106,7 @@ Kilo currently supports running on top of Flannel.
 For example, to run Kilo on a Typhoon cluster running Flannel:
 
 ```shell
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-typhoon-flannel.yaml
 ```
 

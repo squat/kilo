@@ -25,11 +25,8 @@ import (
 	"strings"
 	"time"
 
-	crdutils "github.com/ant31/crd-validation/pkg"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -413,24 +410,9 @@ func (pb *peerBackend) Get(name string) (*mesh.Peer, error) {
 // Init initializes the backend; for this backend that means
 // syncing the informer cache.
 func (pb *peerBackend) Init(stop <-chan struct{}) error {
-	// Register CRD.
-	crd := crdutils.NewCustomResourceDefinition(crdutils.Config{
-		SpecDefinitionName:    "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1.Peer",
-		EnableValidation:      true,
-		ResourceScope:         string(v1beta1.ClusterScoped),
-		Group:                 v1alpha1.GroupName,
-		Kind:                  v1alpha1.PeerKind,
-		Version:               v1alpha1.SchemeGroupVersion.Version,
-		Plural:                v1alpha1.PeerPlural,
-		ShortNames:            v1alpha1.PeerShortNames,
-		GetOpenAPIDefinitions: v1alpha1.GetOpenAPIDefinitions,
-	})
-	crd.Spec.Subresources.Scale = nil
-	crd.Spec.Subresources.Status = nil
-
-	_, err := pb.extensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create CRD: %v", err)
+	// Check the presents of the CRD peers.kilo.squat.ai.
+	if _, err := pb.extensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), strings.Join([]string{v1alpha1.PeerPlural, v1alpha1.GroupName}, "."), metav1.GetOptions{}); err != nil {
+		return fmt.Errorf("CRD is not present: %v", err)
 	}
 
 	go pb.informer.Run(stop)

@@ -33,9 +33,9 @@ type FakePeers struct {
 	Fake *FakeKiloV1alpha1
 }
 
-var peersResource = schema.GroupVersionResource{Group: "kilo", Version: "v1alpha1", Resource: "peers"}
+var peersResource = schema.GroupVersionResource{Group: "kilo.squat.ai", Version: "v1alpha1", Resource: "peers"}
 
-var peersKind = schema.GroupVersionKind{Group: "kilo", Version: "v1alpha1", Kind: "Peer"}
+var peersKind = schema.GroupVersionKind{Group: "kilo.squat.ai", Version: "v1alpha1", Kind: "Peer"}
 
 // Get takes name of the peer, and returns the corresponding peer object, and an error if there is any.
 func (c *FakePeers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Peer, err error) {

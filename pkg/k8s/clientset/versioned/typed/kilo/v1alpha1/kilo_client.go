@@ -27,7 +27,7 @@ type KiloV1alpha1Interface interface {
 	PeersGetter
 }
 
-// KiloV1alpha1Client is used to interact with features provided by the kilo group.
+// KiloV1alpha1Client is used to interact with features provided by the kilo.squat.ai group.
 type KiloV1alpha1Client struct {
 	restClient rest.Interface
 }
