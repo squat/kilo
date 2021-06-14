@@ -3,7 +3,6 @@ export GO111MODULE=on
 
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
-ALL_OS := linux darwin windows
 ALL_ARCH := amd64 arm arm64
 DOCKER_ARCH := "amd64" "arm v7" "arm64 v8"
 ifeq ($(OS),linux)
@@ -11,7 +10,7 @@ ifeq ($(OS),linux)
 else
     BINS := bin/$(OS)/$(ARCH)/kgctl
 endif
-RELEASE_BINS := $(addprefix bin/release/kgctl-, $(addprefix linux-, $(ALL_ARCH)) darwin-amd64 windows-amd64)
+RELEASE_BINS := $(addprefix bin/release/kgctl-, $(addprefix linux-, $(ALL_ARCH)) darwin-amd64 darwin-arm64 windows-amd64)
 PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
@@ -45,8 +44,8 @@ KIND_BINARY := $(shell pwd)/bin/kind
 KUBECTL_BINARY := $(shell pwd)/bin/kubectl
 BASH_UNIT := $(shell pwd)/bin/bash_unit
 
-BUILD_IMAGE ?= golang:1.15.7-alpine
-BASE_IMAGE ?= alpine:3.12
+BUILD_IMAGE ?= golang:1.16.5-alpine
+BASE_IMAGE ?= alpine:3.13
 
 build: $(BINS)
 
