@@ -1,5 +1,5 @@
 export GO111MODULE=on
-.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate release gen-docs e2e
+.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate crd client deepcopy informer lister manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate release gen-docs e2e
 
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
@@ -33,12 +33,12 @@ SRC := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_FILES ?= $$(find . -name '*.go' -not -path './vendor/*')
 GO_PKGS ?= $$(go list ./... | grep -v "$(PKG)/vendor")
 
+CONTROLLER_GEN_BINARY := bin/controller-gen
 CLIENT_GEN_BINARY := bin/client-gen
 DOCS_GEN_BINARY := bin/docs-gen
 DEEPCOPY_GEN_BINARY := bin/deepcopy-gen
 INFORMER_GEN_BINARY := bin/informer-gen
 LISTER_GEN_BINARY := bin/lister-gen
-OPENAPI_GEN_BINARY := bin/openapi-gen
 GOLINT_BINARY := bin/golint
 EMBEDMD_BINARY := bin/embedmd
 KIND_BINARY := $(shell pwd)/bin/kind
@@ -75,7 +75,13 @@ all-container-latest: $(addprefix container-latest-, $(ALL_ARCH))
 
 all-push-latest: $(addprefix push-latest-, $(ALL_ARCH))
 
-generate: client deepcopy informer lister openapi
+generate: client deepcopy informer lister crd
+
+crd: manifests/crds.yaml
+manifests/crds.yaml: pkg/k8s/apis/kilo/v1alpha1/types.go $(CONTROLLER_GEN_BINARY)
+	$(CONTROLLER_GEN_BINARY) crd \
+	paths=./pkg/k8s/apis/kilo/... \
+	output:crd:stdout | tail -n +3 > $@
 
 client: pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/peer.go
 pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/types.go $(CLIENT_GEN_BINARY)
@@ -132,17 +138,6 @@ pkg/k8s/listers/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/types.
 	mv $(PKG)/pkg/k8s/listers pkg/k8s
 	rm -r github.com || true
 	go fmt ./pkg/k8s/listers/...
-
-openapi: pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go
-pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go: pkg/k8s/apis/kilo/v1alpha1/types.go $(OPENAPI_GEN_BINARY)
-	$(OPENAPI_GEN_BINARY) \
-	--input-dirs $(PKG)/$(@D),k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/api/core/v1 \
-	--output-base $(CURDIR) \
-	--output-package ./$(@D) \
-	--logtostderr \
-	--report-filename /dev/null \
-	--go-header-file=.header
-	go fmt $@
 
 gen-docs: generate docs/api.md
 docs/api.md: pkg/k8s/apis/kilo/v1alpha1/types.go $(DOCS_GEN_BINARY)
@@ -345,6 +340,9 @@ vendor:
 	go mod tidy
 	go mod vendor
 
+$(CONTROLLER_GEN_BINARY):
+	go build -mod=vendor -o $@ sigs.k8s.io/controller-tools/cmd/controller-gen
+
 $(CLIENT_GEN_BINARY):
 	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/client-gen
 
@@ -356,9 +354,6 @@ $(INFORMER_GEN_BINARY):
 
 $(LISTER_GEN_BINARY):
 	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/lister-gen
-
-$(OPENAPI_GEN_BINARY):
-	go build -mod=vendor -o $@ k8s.io/kube-openapi/cmd/openapi-gen
 
 $(DOCS_GEN_BINARY): cmd/docs-gen/main.go
 	go build -mod=vendor -o $@ ./cmd/docs-gen
