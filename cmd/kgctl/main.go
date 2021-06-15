@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -109,7 +110,11 @@ func main() {
 	}
 	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
 	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
-	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"), "Path to kubeconfig.")
+	defaultKubeconfig := os.Getenv("KUBECONFIG")
+	if _, err := os.Stat(defaultKubeconfig); os.IsNotExist(err) {
+		defaultKubeconfig = filepath.Join(os.Getenv("HOME"), ".kube/config")
+	}
+	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", defaultKubeconfig, "Path to kubeconfig.")
 	cmd.PersistentFlags().Uint32Var(&opts.port, "port", mesh.DefaultKiloPort, "The WireGuard port over which the nodes communicate.")
 	cmd.PersistentFlags().StringVar(&topologyLabel, "topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group nodes into logical locations.")
 
