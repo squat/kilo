@@ -6,6 +6,26 @@ KIND_BINARY="${KIND_BINARY:-kind}"
 KUBECTL_BINARY="${KUBECTL_BINARY:-kubectl}"
 KILO_IMAGE="${KILO_IMAGE:-squat/kilo}"
 
+retry() {
+	local COUNT="${1:-10}"
+	local SLEEP="${2:-5}"
+	local ERROR=$3
+	[ -n "$ERROR" ] && ERROR="$ERROR "
+	shift 3
+	for c in $(seq 1 "$COUNT"); do
+		if "$@"; then
+		    return 0
+		else
+			printf "%s(attempt %d/%d)\n" "$ERROR" "$c" "$COUNT" | color "$YELLOW"
+			if [ "$c" != "$COUNT" ]; then
+			    printf "retrying in %d seconds...\n" "$SLEEP" | color "$YELLOW"
+			    sleep "$SLEEP"
+			fi
+		fi
+	done
+	return 1
+}
+
 is_ready() {
 	for pod in $($KUBECTL_BINARY -n "$1" get pods -o name -l "$2"); do
 		if ! $KUBECTL_BINARY -n "$1" get "$pod" | tail -n 1 | grep -q  Running; then
@@ -22,22 +42,9 @@ block_until_ready_by_name() {
 
 # Blocks until all pods of a deployment are ready.
 block_until_ready() {
-	# Just abort after 150s
-	for c in {1..30}; do
-		if is_ready "$1" "$2"; then
-                        break
-                else
-			echo "some $2 pods are not ready, yet. Retries=$c/30"
-			sleep 5
-		fi
-	done
-	return 0
+	retry 30 5 "some $2 pods are not ready yet" is_ready "$1" "$2"
 }
 
-# Block waits until pods are ready. When patching pods, it is not very reliable because sometimes it checkts the state of old pods.
-block() {
-	$KUBECTL_BINARY -n "$1" wait -l "app.kubernetes.io/name=$2" pod  --for=condition=Ready
-}
 
 # Set up the kind cluster and deploy Kilo, Adjacency and a helper with curl.
 setup_suite() {
@@ -60,27 +67,17 @@ setup_suite() {
 	block_until_ready_by_name default curl
 }
 
-block_until_ping() {
-	for c in {1..30}; do
-		keepgoing=1
-		# Block until all IP addresses of the adjacency pods are reached.
-		for ip in $($KUBECTL_BINARY get pods -l app.kubernetes.io/name=adjacency -o jsonpath='{.items[*].status.podIP}'); do
-			ping=$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c "curl -s http://$ip:8080/ping")
-			if [[ $ping == "pong" ]]; then
-				echo "successfully pinged $ip"
-				keepgoing=0
-			else
-				keepgoing=1
-				echo "expected \"pong\" got \"$ping\""
-				break
-			fi
-		done
-		if [[ $keepgoing == 0 ]]; then
-			break
-		else
-			sleep 5
-		fi
-	done
+check_ping() {
+	    for ip in $($KUBECTL_BINARY get pods -l app.kubernetes.io/name=adjacency -o jsonpath='{.items[*].status.podIP}'); do
+		    ping=$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c "curl -s http://$ip:8080/ping")
+		    if [ "$ping" = "pong" ]; then
+			    echo "successfully pinged $ip"
+		    else
+			    printf 'failed to ping %s; expected "pong" but got "%s"\n' "$ip" "$ping"
+			    return 1
+		    fi
+	    done
+	    return 0
 }
 
 check_adjacent() {
@@ -99,25 +96,25 @@ check_adjacent() {
 }
 
 test_locationmesh() {
-        # shellcheck disable=SC2016
+	# shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--mesh-granularity=location"]}]}}}}'
 	sleep 5
 	block_until_ready_by_name kube-system kilo-userspace 
-	block_until_ping
 	$KUBECTL_BINARY wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
+	retry 30 5 "" check_ping
 	sleep 5
-	check_adjacent
+	retry 10 5 "the adjacency matrix is not complete yet" check_adjacent
 }
 
 test_fullmesh() {
-        # shellcheck disable=SC2016
+	# shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--mesh-granularity=full"]}]}}}}'
 	sleep 5
 	block_until_ready_by_name kube-system kilo-userspace 
-	block_until_ping
 	$KUBECTL_BINARY wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
+	retry 30 5 "" check_ping
 	sleep 5
-	check_adjacent
+	retry 10 5 "the adjacency matrix is not complete yet" check_adjacent
 }
 
 teardown_suite () {

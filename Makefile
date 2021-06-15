@@ -209,7 +209,7 @@ $(KUBECTL_BINARY):
 	chmod +x $@
 
 $(BASH_UNIT):
-	curl -Lo $@ https://raw.githubusercontent.com/pgrange/bash_unit/v1.6.0/bash_unit
+	curl -Lo $@ https://raw.githubusercontent.com/pgrange/bash_unit/v1.7.2/bash_unit
 	chmod +x $@
 
 e2e: container ${KIND_BINARY} ${KUBECTL_BINARY} $(BASH_UNIT)
