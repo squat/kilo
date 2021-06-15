@@ -108,6 +108,7 @@ spec:
         - --hostname=$(NODE_NAME)
         - --create-interface=false
         - --mesh-granularity=full
+        - --kubeconfig=/etc/kubernetes/kubeconfig
         env:
         - name: NODE_NAME
           valueFrom:
@@ -132,6 +133,9 @@ spec:
         - name: wireguard
           mountPath: /var/run/wireguard
           readOnly: false
+        - name: kubeconfig
+          mountPath: /etc/kubernetes
+          readOnly: true
       - name: boringtun
         image: leonnicolas/boringtun:alpine
         args:
@@ -195,3 +199,6 @@ spec:
       - name: wireguard
         hostPath:
           path: /var/run/wireguard
+      - name: kubeconfig
+        secret:
+          secretName: kubeconfig

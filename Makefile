@@ -207,8 +207,8 @@ $(BASH_UNIT):
 	curl -Lo $@ https://raw.githubusercontent.com/pgrange/bash_unit/v1.7.2/bash_unit
 	chmod +x $@
 
-e2e: container ${KIND_BINARY} ${KUBECTL_BINARY} $(BASH_UNIT)
-	KILO_IMAGE=${IMAGE}:${ARCH}-${VERSION} KIND_BINARY=${KIND_BINARY} $(BASH_UNIT) ./e2e/kind.sh
+e2e: container $(KIND_BINARY) $(KUBECTL_BINARY) $(BASH_UNIT) bin/$(OS)/$(ARCH)/kgctl
+	KILO_IMAGE=$(IMAGE):$(ARCH)-$(VERSION) KIND_BINARY=$(KIND_BINARY) KUBECTL_BINARY=$(KUBECTL_BINARY) KGCTL_BINARY=$(shell pwd)/bin/$(OS)/$(ARCH)/kgctl $(BASH_UNIT) ./e2e/kind.sh
 
 header: .header
 	@HEADER=$$(cat .header); \

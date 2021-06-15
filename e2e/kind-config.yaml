@@ -7,3 +7,5 @@ nodes:
 networking:
   disableDefaultCNI: true # disable kindnet
   podSubnet: 10.42.0.0/16
+  apiServerAddress: 172.18.0.1
+  apiServerPort: 6443
