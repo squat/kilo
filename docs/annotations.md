@@ -9,6 +9,7 @@ The following annotations can be added to any Kubernetes Node object to configur
 |[kilo.squat.ai/leader](#leader)|string|`""`, `true`|
 |[kilo.squat.ai/location](#location)|string|`gcp-east`, `lab`|
 |[kilo.squat.ai/persistent-keepalive](#persistent-keepalive)|uint|`10`|
+|[kilo.squat.ai/allowed-location-ips](#allowed-location-ips)|CIDR|`66.66.66.66/32`|
 
 ### force-endpoint
 In order to create links between locations, Kilo requires at least one node in each location to have an endpoint, ie a `host:port` combination, that is routable from the other locations.
@@ -52,3 +53,10 @@ In order for a node behind NAT to receive packets from nodes outside of the NATe
 The frequency of emission of these keepalive packets can be controlled by setting the persistent-keepalive annotation on the node behind NAT.
 The annotated node will use the specified value will as the persistent-keepalive interval for all of its peers.
 For more background, [see the WireGuard documentation on NAT and firewall traversal](https://www.wireguard.com/quickstart/#nat-and-firewall-traversal-persistence).
+
+### allowed-location-ips
+It is possible to add allowed-location-ips to a location by annotating any node within that location.
+Adding allowed-location-ips to a location makes these IPs routable from other locations as well.
+
+In an example deployment of Kilo with two locations A and B, a printer in location A can be accessible from nodes and pods in location B.
+Additionally, Kilo Peers can use the printer in location A.

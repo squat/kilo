@@ -67,6 +67,7 @@ type Node struct {
 	Subnet              *net.IPNet
 	WireGuardIP         *net.IPNet
 	DiscoveredEndpoints map[string]*wireguard.Endpoint
+	AllowedLocationIPs  []*net.IPNet
 }
 
 // Ready indicates whether or not the node is ready.

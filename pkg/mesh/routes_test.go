@@ -75,6 +75,13 @@ func TestRoutes(t *testing.T) {
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
+					Dst:       nodes["b"].AllowedLocationIPs[0],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
 					Dst:       mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[2].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[2].wireGuardIP,
@@ -259,6 +266,13 @@ func TestRoutes(t *testing.T) {
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
+					Dst:       nodes["b"].AllowedLocationIPs[0],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["d"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
 					Dst:       peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
 					Protocol:  unix.RTPROT_STATIC,
@@ -289,6 +303,13 @@ func TestRoutes(t *testing.T) {
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["b"].InternalIP.IP),
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       nodes["b"].AllowedLocationIPs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
@@ -423,6 +444,13 @@ func TestRoutes(t *testing.T) {
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
+					Dst:       nodes["b"].AllowedLocationIPs[0],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
 					Dst:       mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[3].cidrs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[3].wireGuardIP,
@@ -481,6 +509,13 @@ func TestRoutes(t *testing.T) {
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
+					Dst:       nodes["b"].AllowedLocationIPs[0],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
 					Dst:       nodes["d"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[2].wireGuardIP,
@@ -533,6 +568,13 @@ func TestRoutes(t *testing.T) {
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["c"].InternalIP.IP),
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       nodes["b"].AllowedLocationIPs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
@@ -876,6 +918,13 @@ func TestRoutes(t *testing.T) {
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
+					Dst:       nodes["b"].AllowedLocationIPs[0],
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
 					Dst:       nodes["c"].Subnet,
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[2].wireGuardIP,
@@ -1000,6 +1049,13 @@ func TestRoutes(t *testing.T) {
 				},
 				{
 					Dst:       oneAddressCIDR(nodes["b"].InternalIP.IP),
+					Flags:     int(netlink.FLAG_ONLINK),
+					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
+					LinkIndex: kiloIface,
+					Protocol:  unix.RTPROT_STATIC,
+				},
+				{
+					Dst:       nodes["b"].AllowedLocationIPs[0],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,

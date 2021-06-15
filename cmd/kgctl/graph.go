@@ -60,7 +60,7 @@ func runGraph(_ *cobra.Command, _ []string) error {
 			peers[p.Name] = p
 		}
 	}
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, 0, []byte{}, subnet, nodes[hostname].PersistentKeepalive)
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, 0, []byte{}, subnet, nodes[hostname].PersistentKeepalive, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %v", err)
 	}
