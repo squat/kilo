@@ -12,7 +12,6 @@ spec:
       app.kubernetes.io/name: curl
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app.kubernetes.io/name: curl
     spec:
