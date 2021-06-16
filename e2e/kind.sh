@@ -181,6 +181,14 @@ test_fullmesh_peer() {
 	check_peer wg1 e2e 10.5.0.1/32 full
 }
 
+test_reject_peer_empty_allowed_ips() {
+	assert_fail "create_peer e2e '' 0 foo" "should not be able to create Peer with empty allowed IPs"
+}
+
+test_reject_peer_empty_public_key() {
+	assert_fail "create_peer e2e 10.5.0.1/32 0 ''" "should not be able to create Peer with empty public key"
+}
+
 teardown_suite () {
 	$KIND_BINARY delete clusters $KIND_CLUSTER
 }
