@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
-export KUBECONFIG="kind.yaml"
+KUBECONFIG="kind.yaml"
 KIND_CLUSTER="kind-cluster-kilo"
 KIND_BINARY="${KIND_BINARY:-kind}"
 KUBECTL_BINARY="${KUBECTL_BINARY:-kubectl}"
