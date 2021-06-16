@@ -126,15 +126,7 @@ check_ping() {
 
 check_adjacent() {
 	$KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -m 1 -s adjacency:8080/?format=fancy'
-	assert_equals "12" \
-		"$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -m 1 -s adjacency:8080/?format=json' | jq | grep -c true)" \
-		"Adjacency returned the wrong number of successful pings"
-	echo "sleep for 30s (one reconciliation period) and try again..."
-	sleep 30
-	$KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -m 1 -s adjacency:8080/?format=fancy'
-	assert_equals "12" \
-		"$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -m 1 -s adjacency:8080/?format=json' | jq | grep -c true)" \
-		 "Adjacency returned the wrong number of successful pings"
+	[ "$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -m 1 -s adjacency:8080/?format=json' | jq | grep -c true)" -eq "$1" ]
 }
 
 check_peer() {
@@ -144,14 +136,14 @@ check_peer() {
 	local GRANULARITY=$4
 	create_interface "$INTERFACE"
 	docker run --rm --entrypoint=/usr/bin/wg "$KILO_IMAGE" genkey > "$INTERFACE"
-	create_peer "$PEER" "$ALLOWED_IP" 10 "$(docker run --rm --entrypoint=/bin/sh -v "$PWD/$INTERFACE":/key "$KILO_IMAGE" -c 'cat /key | wg pubkey')"
-	$KGCTL_BINARY showconf peer "$PEER" --mesh-granularity="$GRANULARITY" > "$PEER".ini
-	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/usr/bin/wg -v /var/run/wireguard:/var/run/wireguard -v "$PWD/$PEER.ini":/peer.ini "$KILO_IMAGE" setconf "$INTERFACE" /peer.ini
+	assert "create_peer $PEER $ALLOWED_IP 10 $(docker run --rm --entrypoint=/bin/sh -v "$PWD/$INTERFACE":/key "$KILO_IMAGE" -c 'cat /key | wg pubkey')" "should be able to create Peer"
+	assert "$KGCTL_BINARY showconf peer $PEER --mesh-granularity=$GRANULARITY > $PEER.ini" "should be able to get Peer configuration"
+	assert "docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/usr/bin/wg -v /var/run/wireguard:/var/run/wireguard -v $PWD/$PEER.ini:/peer.ini $KILO_IMAGE setconf $INTERFACE /peer.ini" "should be able to apply configuration from kgctl"
 	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/usr/bin/wg -v /var/run/wireguard:/var/run/wireguard -v "$PWD/$INTERFACE":/key "$KILO_IMAGE" set "$INTERFACE" private-key /key
 	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip "$KILO_IMAGE" address add "$ALLOWED_IP" dev "$INTERFACE"
 	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip "$KILO_IMAGE" link set "$INTERFACE" up
 	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip "$KILO_IMAGE" route add 10.42/16 dev "$INTERFACE"
-	retry 10 5 "" check_ping --local
+	assert "retry 10 5 '' check_ping --local" "should be able to ping Pods from host"
 	rm "$INTERFACE" "$PEER".ini
 	delete_peer "$PEER"
 	delete_interface "$INTERFACE"
@@ -160,12 +152,13 @@ check_peer() {
 test_locationmesh() {
 	# shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=location"]}]}}}}'
-	sleep 5
 	block_until_ready_by_name kube-system kilo-userspace 
 	$KUBECTL_BINARY wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
-	retry 30 5 "" check_ping
-	sleep 5
-	retry 10 5 "the adjacency matrix is not complete yet" check_adjacent
+	assert "retry 30 5 '' check_ping" "should be able to ping all Pods"
+	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 12" "adjacency should return the right number of successful pings"
+	echo "sleep for 30s (one reconciliation period) and try again..."
+	sleep 30
+	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 12" "adjacency should return the right number of successful pings after reconciling"
 }
 
 test_locationmesh_peer() {
@@ -175,16 +168,25 @@ test_locationmesh_peer() {
 test_fullmesh() {
 	# shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=full"]}]}}}}'
-	sleep 5
 	block_until_ready_by_name kube-system kilo-userspace 
 	$KUBECTL_BINARY wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
-	retry 30 5 "" check_ping
-	sleep 5
-	retry 10 5 "the adjacency matrix is not complete yet" check_adjacent
+	assert "retry 30 5 '' check_ping" "should be able to ping all Pods"
+	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 12" "adjacency should return the right number of successful pings"
+	echo "sleep for 30s (one reconciliation period) and try again..."
+	sleep 30
+	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 12" "adjacency should return the right number of successful pings after reconciling"
 }
 
 test_fullmesh_peer() {
 	check_peer wg1 e2e 10.5.0.1/32 full
+}
+
+test_reject_peer_empty_allowed_ips() {
+	assert_fail "create_peer e2e '' 0 foo" "should not be able to create Peer with empty allowed IPs"
+}
+
+test_reject_peer_empty_public_key() {
+	assert_fail "create_peer e2e 10.5.0.1/32 0 ''" "should not be able to create Peer with empty public key"
 }
 
 teardown_suite () {
