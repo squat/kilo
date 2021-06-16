@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034
 export KUBECONFIG="kind.yaml"
 KIND_CLUSTER="kind-cluster-kilo"
 KIND_BINARY="${KIND_BINARY:-kind}"
@@ -25,6 +24,13 @@ retry() {
 		fi
 	done
 	return 1
+}
+
+_not() {
+	if "$@"; then
+		return 1
+	fi
+	return 0
 }
 
 create_interface() {
@@ -88,13 +94,18 @@ setup_suite() {
 	$KUBECTL_BINARY apply -f kilo-kind-userspace.yaml
 	block_until_ready_by_name kube-system kilo-userspace 
 	$KUBECTL_BINARY wait nodes --all --for=condition=Ready
-	# wait for coredns
+	# Wait for CoreDNS.
 	block_until_ready kube_system k8s-app=kube-dns
+        # Ensure the curl helper is not scheduled on a control-plane node.
+	$KUBECTL_BINARY apply -f helper-curl.yaml
+	block_until_ready_by_name default curl
 	$KUBECTL_BINARY taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/master:NoSchedule-
 	$KUBECTL_BINARY apply -f https://raw.githubusercontent.com/heptoprint/adjacency/master/example.yaml
-	$KUBECTL_BINARY apply -f helper-curl.yaml
 	block_until_ready_by_name adjacency adjacency
-	block_until_ready_by_name default curl
+}
+
+curl_pod() {
+	$KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c "curl $*"
 }
 
 check_ping() {
@@ -112,7 +123,7 @@ check_ping() {
 		if [ -n "$LOCAL" ]; then
 			ping=$(curl -m 1 -s http://"$ip":8080/ping)
 		else
-			ping=$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c "curl -m 1 -s http://$ip:8080/ping")
+			ping=$(curl_pod -m 1 -s http://"$ip":8080/ping)
 		fi
 		if [ "$ping" = "pong" ]; then
 			echo "successfully pinged $ip"
@@ -126,7 +137,7 @@ check_ping() {
 
 check_adjacent() {
 	$KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -m 1 -s adjacency:8080/?format=fancy'
-	[ "$($KUBECTL_BINARY get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" exec {} -- /bin/sh -c 'curl -m 1 -s adjacency:8080/?format=json' | jq | grep -c true)" -eq "$1" ]
+	[ "$(curl_pod -m 1 -s adjacency:8080/?format=json | jq | grep -c true)" -eq "$1" ]
 }
 
 check_peer() {
@@ -187,6 +198,15 @@ test_reject_peer_empty_allowed_ips() {
 
 test_reject_peer_empty_public_key() {
 	assert_fail "create_peer e2e 10.5.0.1/32 0 ''" "should not be able to create Peer with empty public key"
+}
+
+test_fullmesh_allowed_location_ips() {
+	docker exec kind-cluster-kilo-control-plane ip address add 10.6.0.1/32 dev eth0
+	$KUBECTL_BINARY annotate node kind-cluster-kilo-control-plane kilo.squat.ai/allowed-location-ips=10.6.0.1/32
+	assert_equals Unauthorized "$(retry 10 5 'IP is not yet routable' curl_pod -m 1 -s -k https://10.6.0.1:10250/healthz)" "should be able to make HTTP request to allowed location IP"
+	$KUBECTL_BINARY annotate node kind-cluster-kilo-control-plane kilo.squat.ai/allowed-location-ips-
+	assert "retry 10 5 'IP is still routable' _not curl_pod -m 1 -s -k https://10.6.0.1:10250/healthz" "should not be able to make HTTP request to allowed location IP"
+	docker exec kind-cluster-kilo-control-plane ip address delete 10.6.0.1/32 dev eth0
 }
 
 teardown_suite () {
