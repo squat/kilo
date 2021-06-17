@@ -79,8 +79,8 @@ block_until_ready() {
 }
 
 
-# Set up the kind cluster and deploy Kilo, Adjacency and a helper with curl.
-setup_suite() {
+# create_cluster launches a kind cluster and deploys Kilo, Adjacency, and a helper with curl.
+create_cluster() {
 	$KIND_BINARY delete clusters $KIND_CLUSTER > /dev/null
 	# Create the kind cluster.
 	$KIND_BINARY create cluster --name $KIND_CLUSTER --config ./kind-config.yaml
@@ -96,12 +96,16 @@ setup_suite() {
 	$KUBECTL_BINARY wait nodes --all --for=condition=Ready
 	# Wait for CoreDNS.
 	block_until_ready kube_system k8s-app=kube-dns
-        # Ensure the curl helper is not scheduled on a control-plane node.
+	# Ensure the curl helper is not scheduled on a control-plane node.
 	$KUBECTL_BINARY apply -f helper-curl.yaml
 	block_until_ready_by_name default curl
 	$KUBECTL_BINARY taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/master:NoSchedule-
 	$KUBECTL_BINARY apply -f https://raw.githubusercontent.com/heptoprint/adjacency/master/example.yaml
 	block_until_ready_by_name adjacency adjacency
+}
+
+delete_cluster () {
+	$KIND_BINARY delete clusters $KIND_CLUSTER
 }
 
 curl_pod() {
@@ -158,57 +162,4 @@ check_peer() {
 	rm "$INTERFACE" "$PEER".ini
 	delete_peer "$PEER"
 	delete_interface "$INTERFACE"
-}
-
-test_locationmesh() {
-	# shellcheck disable=SC2016
-	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=location"]}]}}}}'
-	block_until_ready_by_name kube-system kilo-userspace 
-	$KUBECTL_BINARY wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
-	assert "retry 30 5 '' check_ping" "should be able to ping all Pods"
-	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 12" "adjacency should return the right number of successful pings"
-	echo "sleep for 30s (one reconciliation period) and try again..."
-	sleep 30
-	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 12" "adjacency should return the right number of successful pings after reconciling"
-}
-
-test_locationmesh_peer() {
-	check_peer wg1 e2e 10.5.0.1/32 location
-}
-
-test_fullmesh() {
-	# shellcheck disable=SC2016
-	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=full"]}]}}}}'
-	block_until_ready_by_name kube-system kilo-userspace 
-	$KUBECTL_BINARY wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
-	assert "retry 30 5 '' check_ping" "should be able to ping all Pods"
-	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 12" "adjacency should return the right number of successful pings"
-	echo "sleep for 30s (one reconciliation period) and try again..."
-	sleep 30
-	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 12" "adjacency should return the right number of successful pings after reconciling"
-}
-
-test_fullmesh_peer() {
-	check_peer wg1 e2e 10.5.0.1/32 full
-}
-
-test_reject_peer_empty_allowed_ips() {
-	assert_fail "create_peer e2e '' 0 foo" "should not be able to create Peer with empty allowed IPs"
-}
-
-test_reject_peer_empty_public_key() {
-	assert_fail "create_peer e2e 10.5.0.1/32 0 ''" "should not be able to create Peer with empty public key"
-}
-
-test_fullmesh_allowed_location_ips() {
-	docker exec kind-cluster-kilo-control-plane ip address add 10.6.0.1/32 dev eth0
-	$KUBECTL_BINARY annotate node kind-cluster-kilo-control-plane kilo.squat.ai/allowed-location-ips=10.6.0.1/32
-	assert_equals Unauthorized "$(retry 10 5 'IP is not yet routable' curl_pod -m 1 -s -k https://10.6.0.1:10250/healthz)" "should be able to make HTTP request to allowed location IP"
-	$KUBECTL_BINARY annotate node kind-cluster-kilo-control-plane kilo.squat.ai/allowed-location-ips-
-	assert "retry 10 5 'IP is still routable' _not curl_pod -m 1 -s -k https://10.6.0.1:10250/healthz" "should not be able to make HTTP request to allowed location IP"
-	docker exec kind-cluster-kilo-control-plane ip address delete 10.6.0.1/32 dev eth0
-}
-
-teardown_suite () {
-	$KIND_BINARY delete clusters $KIND_CLUSTER
 }
