@@ -42,3 +42,7 @@ test_reject_peer_empty_allowed_ips() {
 test_reject_peer_empty_public_key() {
 	assert_fail "create_peer e2e 10.5.0.1/32 0 ''" "should not be able to create Peer with empty public key"
 }
+
+test_mesh_granularity_auto_detect() {
+	 assert_equals "$($KGCTL_BINARY graph)" "$($KGCTL_BINARY graph --mesh-granularity full)"
+}

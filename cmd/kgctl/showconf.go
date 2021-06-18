@@ -121,6 +121,10 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to list peers: %v", err)
 	}
+	// Obtain the Granularity by looking at the annotation of the first node.
+	if opts.granularity, err = optainGranularity(opts.granularity, ns); err != nil {
+		return fmt.Errorf("failed to obtain granularity: %w", err)
+	}
 	hostname := args[0]
 	subnet := mesh.DefaultKiloSubnet
 	nodes := make(map[string]*mesh.Node)
@@ -207,6 +211,10 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 	ps, err := opts.backend.Peers().List()
 	if err != nil {
 		return fmt.Errorf("failed to list peers: %v", err)
+	}
+	// Obtain the Granularity by looking at the annotation of the first node.
+	if opts.granularity, err = optainGranularity(opts.granularity, ns); err != nil {
+		return fmt.Errorf("failed to obtain granularity: %w", err)
 	}
 	var hostname string
 	subnet := mesh.DefaultKiloSubnet

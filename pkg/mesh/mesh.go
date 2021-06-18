@@ -381,6 +381,7 @@ func (m *Mesh) handleLocal(n *Node) {
 		WireGuardIP:         m.wireGuardIP,
 		DiscoveredEndpoints: n.DiscoveredEndpoints,
 		AllowedLocationIPs:  n.AllowedLocationIPs,
+		Granularity:         m.granularity,
 	}
 	if !nodesAreEqual(n, local) {
 		level.Debug(m.logger).Log("msg", "local node differs from backend")
@@ -420,6 +421,7 @@ func (m *Mesh) applyTopology() {
 	nodes := make(map[string]*Node)
 	var readyNodes float64
 	for k := range m.nodes {
+		m.nodes[k].Granularity = m.granularity
 		if !m.nodes[k].Ready() {
 			continue
 		}
@@ -675,7 +677,7 @@ func nodesAreEqual(a, b *Node) bool {
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
 	// equivalent. However, we do want to check if LastSeen has transitioned
 	// between valid and invalid.
-	return string(a.Key) == string(b.Key) && ipNetsEqual(a.WireGuardIP, b.WireGuardIP) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready() && a.PersistentKeepalive == b.PersistentKeepalive && discoveredEndpointsAreEqual(a.DiscoveredEndpoints, b.DiscoveredEndpoints) && ipNetSlicesEqual(a.AllowedLocationIPs, b.AllowedLocationIPs)
+	return string(a.Key) == string(b.Key) && ipNetsEqual(a.WireGuardIP, b.WireGuardIP) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready() && a.PersistentKeepalive == b.PersistentKeepalive && discoveredEndpointsAreEqual(a.DiscoveredEndpoints, b.DiscoveredEndpoints) && ipNetSlicesEqual(a.AllowedLocationIPs, b.AllowedLocationIPs) && a.Granularity == b.Granularity
 }
 
 func peersAreEqual(a, b *Peer) bool {

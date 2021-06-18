@@ -60,6 +60,7 @@ const (
 	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
 	discoveredEndpointsKey       = "kilo.squat.ai/discovered-endpoints"
 	allowedLocationIPsKey        = "kilo.squat.ai/allowed-location-ips"
+	granularityKey               = "kilo.squat.ai/granularity"
 	// RegionLabelKey is the key for the well-known Kubernetes topology region label.
 	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
@@ -129,6 +130,7 @@ func (nb *nodeBackend) CleanUp(name string) error {
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(lastSeenAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(wireGuardIPAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(discoveredEndpointsKey, "/", jsonPatchSlash, 1))),
+		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(granularityKey, "/", jsonPatchSlash, 1))),
 	}, ",") + "]")
 	if _, err := nb.client.CoreV1().Nodes().Patch(context.TODO(), name, types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
@@ -232,6 +234,7 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 		}
 		n.ObjectMeta.Annotations[discoveredEndpointsKey] = string(discoveredEndpoints)
 	}
+	n.ObjectMeta.Annotations[granularityKey] = string(node.Granularity)
 	oldData, err := json.Marshal(old)
 	if err != nil {
 		return err
@@ -321,6 +324,16 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 			}
 		}
 	}
+	var meshGranularity mesh.Granularity
+	if gr, ok := node.ObjectMeta.Annotations[granularityKey]; ok {
+		meshGranularity = mesh.Granularity(gr)
+		switch meshGranularity {
+		case mesh.LogicalGranularity:
+		case mesh.FullGranularity:
+		default:
+			meshGranularity = ""
+		}
+	}
 
 	return &mesh.Node{
 		// Endpoint and InternalIP should only ever fail to parse if the
@@ -345,6 +358,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		WireGuardIP:         normalizeIP(node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]),
 		DiscoveredEndpoints: discoveredEndpoints,
 		AllowedLocationIPs:  allowedLocationIPs,
+		Granularity:         meshGranularity,
 	}
 }
 

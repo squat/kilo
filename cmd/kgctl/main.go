@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,6 +48,7 @@ var (
 	availableGranularities = strings.Join([]string{
 		string(mesh.LogicalGranularity),
 		string(mesh.FullGranularity),
+		string(mesh.AutoGranularity),
 	}, ", ")
 	availableLogLevels = strings.Join([]string{
 		logLevelAll,
@@ -72,6 +74,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 	switch opts.granularity {
 	case mesh.LogicalGranularity:
 	case mesh.FullGranularity:
+	case mesh.AutoGranularity:
 	default:
 		return fmt.Errorf("mesh granularity %v unknown; posible values are: %s", granularity, availableGranularities)
 	}
@@ -109,7 +112,7 @@ func main() {
 		Version:           version.Version,
 	}
 	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
-	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
+	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.AutoGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	defaultKubeconfig := os.Getenv("KUBECONFIG")
 	if _, err := os.Stat(defaultKubeconfig); os.IsNotExist(err) {
 		defaultKubeconfig = filepath.Join(os.Getenv("HOME"), ".kube/config")
@@ -129,4 +132,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+}
+
+func optainGranularity(gr mesh.Granularity, ns []*mesh.Node) (mesh.Granularity, error) {
+	if gr == mesh.AutoGranularity {
+		if len(ns) == 0 {
+			return gr, errors.New("could not get any nodes")
+		}
+		ret := mesh.Granularity(ns[0].Granularity)
+		switch ret {
+		case mesh.LogicalGranularity:
+		case mesh.FullGranularity:
+		default:
+			return ret, fmt.Errorf("mesh granularity %v is not supported", opts.granularity)
+		}
+		return ret, nil
+	}
+	return gr, nil
 }
