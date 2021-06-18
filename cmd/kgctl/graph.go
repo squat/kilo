@@ -38,6 +38,11 @@ func runGraph(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to list peers: %v", err)
 	}
+	// Obtain the Granularity by looking at the annotation of the first node.
+	if opts.granularity, err = optainGranularity(opts.granularity, ns); err != nil {
+		return fmt.Errorf("failed to obtain granularity: %w", err)
+	}
+
 	var hostname string
 	subnet := mesh.DefaultKiloSubnet
 	nodes := make(map[string]*mesh.Node)

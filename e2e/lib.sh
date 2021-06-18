@@ -159,6 +159,7 @@ check_peer() {
 	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip "$KILO_IMAGE" link set "$INTERFACE" up
 	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip "$KILO_IMAGE" route add 10.42/16 dev "$INTERFACE"
 	assert "retry 10 5 '' check_ping --local" "should be able to ping Pods from host"
+	assert_equals "$($KGCTL_BINARY showconf peer "$PEER")" "$($KGCTL_BINARY showconf peer "$PEER" --mesh-granularity="$GRANULARITY")" "kgctl should be able to auto detect the mesh granularity"
 	rm "$INTERFACE" "$PEER".ini
 	delete_peer "$PEER"
 	delete_interface "$INTERFACE"

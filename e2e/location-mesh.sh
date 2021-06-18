@@ -22,6 +22,10 @@ test_location_mesh_peer() {
 	check_peer wg1 e2e 10.5.0.1/32 location
 }
 
+test_mesh_granularity_auto_detect() {
+	 assert_equals "$($KGCTL_BINARY graph)" "$($KGCTL_BINARY graph --mesh-granularity location)"
+}
+
 teardown_suite () {
 	delete_cluster
 }

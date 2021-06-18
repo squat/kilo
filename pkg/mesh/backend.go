@@ -47,6 +47,9 @@ const (
 	// FullGranularity indicates that the network should create
 	// a mesh between every node.
 	FullGranularity Granularity = "full"
+	// AutoGranularity can be used with kgctl to obtain
+	// the granularity automatically.
+	AutoGranularity Granularity = "auto"
 )
 
 // Node represents a node in the network.
@@ -68,6 +71,7 @@ type Node struct {
 	WireGuardIP         *net.IPNet
 	DiscoveredEndpoints map[string]*wireguard.Endpoint
 	AllowedLocationIPs  []*net.IPNet
+	Granularity         Granularity
 }
 
 // Ready indicates whether or not the node is ready.
