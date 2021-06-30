@@ -17,6 +17,7 @@ package iptables
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"sync"
 	"time"
 
@@ -72,6 +73,8 @@ type rule struct {
 	proto Protocol
 }
 
+var ipv6Regex, _ = regexp.Compile("[-]d\\s(.*:.*\\s[-]m\\scomment)")
+
 // NewRule creates a new iptables or ip6tables rule in the given table and chain
 // depending on the given protocol.
 func NewRule(proto Protocol, table, chain string, spec ...string) Rule {
@@ -124,7 +127,14 @@ func (r *rule) String() string {
 }
 
 func (r *rule) Proto() Protocol {
-	return r.proto
+	proto := ProtocolIPv4
+
+	ruleString := r.String()
+	if ipv6Regex.MatchString(ruleString) {
+		proto = ProtocolIPv6
+	}
+
+	return proto
 }
 
 // chain represents an iptables chain.
@@ -189,7 +199,14 @@ func (c *chain) String() string {
 }
 
 func (c *chain) Proto() Protocol {
-	return c.proto
+	proto := ProtocolIPv4
+
+	chainString := c.String()
+	if ipv6Regex.MatchString(chainString) {
+		proto = ProtocolIPv6
+	}
+
+	return proto
 }
 
 func chainToString(table, chain string) string {
@@ -353,6 +370,7 @@ func (c *Controller) Set(rules []Rule) error {
 	c.Lock()
 	defer c.Unlock()
 	var i int
+
 	for ; i < len(rules); i++ {
 		if i < len(c.rules) {
 			if rules[i].String() != c.rules[i].String() {
