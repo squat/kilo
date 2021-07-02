@@ -3,7 +3,6 @@
 . lib.sh
 
 setup_suite() {
-	create_cluster
 	# shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=location"]}]}}}}'
 	block_until_ready_by_name kube-system kilo-userspace 
@@ -24,8 +23,4 @@ test_location_mesh_peer() {
 
 test_mesh_granularity_auto_detect() {
 	 assert_equals "$($KGCTL_BINARY graph)" "$($KGCTL_BINARY graph --mesh-granularity location)"
-}
-
-teardown_suite () {
-	delete_cluster
 }

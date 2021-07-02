@@ -3,15 +3,10 @@
 . lib.sh
 
 setup_suite() {
-	create_cluster
 	# shellcheck disable=SC2016
 	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=full"]}]}}}}'
 	block_until_ready_by_name kube-system kilo-userspace 
 	$KUBECTL_BINARY wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
-}
-
-teardown_suite () {
-	delete_cluster
 }
 
 test_full_mesh_connectivity() {
