@@ -16,9 +16,9 @@ retry() {
 		if "$@"; then
 			return 0
 		else
-			printf "%s(attempt %d/%d)\n" "$ERROR" "$c" "$COUNT" | color "$YELLOW"
+			printf "%s(attempt %d/%d)\n" "$ERROR" "$c" "$COUNT" | color "$YELLOW" 1>&2
 			if [ "$c" != "$COUNT" ]; then
-				printf "retrying in %d seconds...\n" "$SLEEP" | color "$YELLOW"
+				printf "retrying in %d seconds...\n" "$SLEEP" | color "$YELLOW" 1>&2
 				sleep "$SLEEP"
 			fi
 		fi
