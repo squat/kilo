@@ -196,7 +196,7 @@ unit:
 test: lint unit e2e
 
 $(KIND_BINARY):
-	curl -Lo $@ https://kind.sigs.k8s.io/dl/v0.10.0/kind-linux-$(ARCH)
+	curl -Lo $@ https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-$(ARCH)
 	chmod +x $@
 
 $(KUBECTL_BINARY):
