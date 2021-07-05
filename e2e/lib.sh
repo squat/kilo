@@ -157,7 +157,7 @@ check_ping() {
 
 check_adjacent() {
         _kubectl get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" --kubeconfig="$KUBECONFIG" exec {} -- /bin/sh -c 'curl -m 1 -s adjacency:8080/?format=fancy'
-	[ "$(curl_pod -m 1 -s adjacency:8080/?format=json | jq | grep -c true)" -eq "$1" ]
+	[ "$(curl_pod -m 1 -s adjacency:8080/?format=json | jq '.[].latencies[].ok' | grep -c true)" -eq $(($1*$1)) ]
 }
 
 check_peer() {
