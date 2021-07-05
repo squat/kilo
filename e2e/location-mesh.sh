@@ -4,9 +4,9 @@
 
 setup_suite() {
 	# shellcheck disable=SC2016
-	$KUBECTL_BINARY patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=location"]}]}}}}'
+	_kubectl patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=location"]}]}}}}'
 	block_until_ready_by_name kube-system kilo-userspace 
-	$KUBECTL_BINARY wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
+	_kubectl wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
 }
 
 test_location_mesh_connectivity() {
@@ -22,5 +22,5 @@ test_location_mesh_peer() {
 }
 
 test_mesh_granularity_auto_detect() {
-	 assert_equals "$($KGCTL_BINARY graph)" "$($KGCTL_BINARY graph --mesh-granularity location)"
+	assert_equals "$(_kgctl graph)" "$(_kgctl graph --mesh-granularity location)"
 }
