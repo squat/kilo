@@ -48,6 +48,22 @@ _kind() {
 	$KIND_BINARY --kubeconfig="$KUBECONFIG" "$@"
 }
 
+# shellcheck disable=SC2120
+build_kind_config() {
+	local WORKER_COUNT="${1:-0}"
+	export API_SERVER_PORT="${2:-6443}"
+	export POD_SUBNET="${3:-10.42.0.0/16}"
+	export SERVICE_SUBNET="${4:-10.43.0.0/16}"
+	export WORKERS="" 
+	local i=0
+	while [ "$i" -lt "$WORKER_COUNT" ]; do
+		WORKERS="$(printf "%s\n- role: worker" "$WORKERS")"
+		((i++))
+	done
+	envsubst < ./kind-config.yaml
+	unset API_SERVER_PORT POD_SUBNET SERVICE_SUBNET WORKERS
+}
+
 create_interface() {
 	docker run -d --name="$1" --rm --network=host --cap-add=NET_ADMIN --device=/dev/net/tun -v /var/run/wireguard:/var/run/wireguard -e WG_LOG_LEVEL=debug leonnicolas/boringtun --foreground --disable-drop-privileges true "$1"
 }
@@ -96,9 +112,11 @@ block_until_ready() {
 
 # create_cluster launches a kind cluster and deploys Kilo, Adjacency, and a helper with curl.
 create_cluster() {
+	# shellcheck disable=SC2119
+	local CONFIG="${1:-$(build_kind_config)}"
 	_kind delete clusters $KIND_CLUSTER > /dev/null
 	# Create the kind cluster.
-	_kind create cluster --name $KIND_CLUSTER --config ./kind-config.yaml
+	_kind create cluster --name $KIND_CLUSTER --config <(echo "$CONFIG")
 	# Load the Kilo image into kind.
 	docker tag "$KILO_IMAGE" squat/kilo:test
 	# This command does not accept the --kubeconfig flag, so call the command directly.
