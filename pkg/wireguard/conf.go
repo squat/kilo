@@ -47,6 +47,30 @@ const (
 	publicKeyKey           key     = "PublicKey"
 )
 
+type dumpInterfaceIndex int
+
+const (
+	dumpInterfacePrivateKeyIndex = iota
+	dumpInterfacePublicKeyIndex
+	dumpInterfaceListenPortIndex
+	dumpInterfaceFWMarkIndex
+	dumpInterfaceLen
+)
+
+type dumpPeerIndex int
+
+const (
+	dumpPeerPublicKeyIndex = iota
+	dumpPeerPresharedKeyIndex
+	dumpPeerEndpointIndex
+	dumpPeerAllowedIPsIndex
+	dumpPeerLatestHandshakeIndex
+	dumpPeerTransferRXIndex
+	dumpPeerTransferTXIndex
+	dumpPeerPersistentKeepaliveIndex
+	dumpPeerLen
+)
+
 // Conf represents a WireGuard configuration file.
 type Conf struct {
 	Interface *Interface
@@ -500,10 +524,10 @@ func ParseDump(buf []byte) *Conf {
 		c      Conf
 		err    error
 		iface  *Interface
-		i      int
 		peer   *Peer
 		port   uint64
 		sec    int64
+		pka    int
 	)
 	// First line is Interface
 	active = interfaceSection
@@ -513,47 +537,70 @@ func ParseDump(buf []byte) *Conf {
 
 		switch active {
 		case interfaceSection:
-			if len(values) < 4 {
+			if len(values) < dumpInterfaceLen {
 				break
 			}
 			iface = new(Interface)
-
-			iface.PrivateKey = []byte(values[0])
-			port, err = strconv.ParseUint(values[2], 10, 32)
-			if err == nil {
-				iface.ListenPort = uint32(port)
+			for i := range values {
+				switch i {
+				case dumpInterfacePrivateKeyIndex:
+					iface.PrivateKey = []byte(values[i])
+				case dumpInterfaceListenPortIndex:
+					port, err = strconv.ParseUint(values[i], 10, 32)
+					if err != nil {
+						continue
+					}
+					iface.ListenPort = uint32(port)
+				}
 			}
-
 			c.Interface = iface
 			// Next lines are Peers
 			active = peerSection
 		case peerSection:
-			if len(values) < 8 {
+			if len(values) < dumpPeerLen {
 				break
 			}
 			peer = new(Peer)
 
-			peer.PublicKey = []byte(values[0])
-			if values[1] != dumpNone {
-				peer.PresharedKey = []byte(values[1])
-			}
-			if values[2] != dumpNone {
-				peer.parseEndpoint(values[2])
-			}
-			if values[3] != dumpNone {
-				peer.parseAllowedIPs(values[3])
-			}
-			if values[4] != "0" {
-				sec, err = strconv.ParseInt(values[4], 10, 64)
-				if err == nil {
+			for i := range values {
+				switch i {
+				case dumpPeerPublicKeyIndex:
+					peer.PublicKey = []byte(values[i])
+				case dumpPeerPresharedKeyIndex:
+					if values[i] == dumpNone {
+						continue
+					}
+					peer.PresharedKey = []byte(values[i])
+				case dumpPeerEndpointIndex:
+					if values[i] == dumpNone {
+						continue
+					}
+					peer.parseEndpoint(values[i])
+				case dumpPeerAllowedIPsIndex:
+					if values[i] == dumpNone {
+						continue
+					}
+					peer.parseAllowedIPs(values[i])
+				case dumpPeerLatestHandshakeIndex:
+					if values[i] == "0" {
+						// Use go zero value, not unix 0 timestamp.
+						peer.LatestHandshake = time.Time{}
+						continue
+					}
+					sec, err = strconv.ParseInt(values[i], 10, 64)
+					if err != nil {
+						continue
+					}
 					peer.LatestHandshake = time.Unix(sec, 0)
-				}
-			}
-
-			if values[7] != dumpOff {
-				i, err = strconv.Atoi(values[7])
-				if err == nil {
-					peer.PersistentKeepalive = i
+				case dumpPeerPersistentKeepaliveIndex:
+					if values[i] == dumpOff {
+						continue
+					}
+					pka, err = strconv.Atoi(values[i])
+					if err != nil {
+						continue
+					}
+					peer.PersistentKeepalive = pka
 				}
 			}
 			c.Peers = append(c.Peers, peer)
