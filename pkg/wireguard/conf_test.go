@@ -17,6 +17,8 @@ package wireguard
 import (
 	"net"
 	"testing"
+
+	"github.com/kylelemons/godebug/pretty"
 )
 
 func TestCompareConf(t *testing.T) {
@@ -305,6 +307,50 @@ func TestCompareEndpoint(t *testing.T) {
 		equal := tc.a.Equal(tc.b, tc.dnsFirst)
 		if equal != tc.out {
 			t.Errorf("test case %q: expected %t, got %t", tc.name, tc.out, equal)
+		}
+	}
+}
+
+func TestCompareDumpConf(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		d    []byte
+		c    []byte
+	}{
+		{
+			name: "empty",
+			d:    []byte{},
+			c:    []byte{},
+		},
+		{
+			name: "redacted copy from wg output",
+			d: []byte(`private	B7qk8EMlob0nfado0ABM6HulUV607r4yqtBKjhap7S4=	51820	off
+key1	(none)	10.254.1.1:51820	100.64.1.0/24,192.168.0.125/32,10.4.0.1/32	1619012801	67048	34952	10
+key2	(none)	10.254.2.1:51820	100.64.4.0/24,10.69.76.55/32,100.64.3.0/24,10.66.25.131/32,10.4.0.2/32	1619013058	1134456	10077852	10`),
+			c: []byte(`[Interface]
+		ListenPort = 51820
+		PrivateKey = private
+
+		[Peer]
+		PublicKey = key1
+		AllowedIPs = 100.64.1.0/24, 192.168.0.125/32, 10.4.0.1/32
+		Endpoint = 10.254.1.1:51820
+		PersistentKeepalive = 10
+
+		[Peer]
+		PublicKey = key2
+		AllowedIPs = 100.64.4.0/24, 10.69.76.55/32, 100.64.3.0/24, 10.66.25.131/32, 10.4.0.2/32
+		Endpoint = 10.254.2.1:51820
+		PersistentKeepalive = 10`),
+		},
+	} {
+
+		dumpConf, _ := ParseDump(tc.d)
+		conf := Parse(tc.c)
+		// Equal will ignore runtime fields and only compare configuration fields.
+		if !dumpConf.Equal(conf) {
+			diff := pretty.Compare(dumpConf, conf)
+			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}
 	}
 }
