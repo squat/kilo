@@ -519,8 +519,10 @@ func ParseDump(buf []byte) *Conf {
 			iface = new(Interface)
 
 			iface.PrivateKey = []byte(values[0])
-			port, _ = strconv.ParseUint(values[2], 10, 32)
-			iface.ListenPort = uint32(port)
+			port, err = strconv.ParseUint(values[2], 10, 32)
+			if err == nil {
+				iface.ListenPort = uint32(port)
+			}
 
 			c.Interface = iface
 			// Next lines are Peers
@@ -549,8 +551,10 @@ func ParseDump(buf []byte) *Conf {
 			}
 
 			if values[7] != dumpOff {
-				i, _ = strconv.Atoi(values[7])
-				peer.PersistentKeepalive = i
+				i, err = strconv.Atoi(values[7])
+				if err == nil {
+					peer.PersistentKeepalive = i
+				}
 			}
 			c.Peers = append(c.Peers, peer)
 			peer = nil
