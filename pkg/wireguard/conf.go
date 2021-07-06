@@ -512,7 +512,7 @@ func (p *Peer) parseAllowedIPs(v string) error {
 }
 
 // ParseDump parses a given WireGuard dump and produces a Conf struct.
-func ParseDump(buf []byte) *Conf {
+func ParseDump(buf []byte) (*Conf, error) {
 	// from man wg, show section:
 	// If dump is specified, then several lines are printed;
 	// the first contains in order separated by tab: private-key, public-key, listen-port, fw‐mark.
@@ -528,6 +528,7 @@ func ParseDump(buf []byte) *Conf {
 		port   uint64
 		sec    int64
 		pka    int
+		line   int
 	)
 	// First line is Interface
 	active = interfaceSection
@@ -538,7 +539,7 @@ func ParseDump(buf []byte) *Conf {
 		switch active {
 		case interfaceSection:
 			if len(values) < dumpInterfaceLen {
-				break
+				return nil, fmt.Errorf("invalid interface line: missing fields (%d < %d)", len(values), dumpInterfaceLen)
 			}
 			iface = new(Interface)
 			for i := range values {
@@ -548,7 +549,7 @@ func ParseDump(buf []byte) *Conf {
 				case dumpInterfaceListenPortIndex:
 					port, err = strconv.ParseUint(values[i], 10, 32)
 					if err != nil {
-						continue
+						return nil, fmt.Errorf("invalid interface line: error parsing listen-port: %w", err)
 					}
 					iface.ListenPort = uint32(port)
 				}
@@ -558,7 +559,7 @@ func ParseDump(buf []byte) *Conf {
 			active = peerSection
 		case peerSection:
 			if len(values) < dumpPeerLen {
-				break
+				return nil, fmt.Errorf("invalid peer line %d: missing fields (%d < %d)", line, len(values), dumpPeerLen)
 			}
 			peer = new(Peer)
 
@@ -575,12 +576,18 @@ func ParseDump(buf []byte) *Conf {
 					if values[i] == dumpNone {
 						continue
 					}
-					peer.parseEndpoint(values[i])
+					err = peer.parseEndpoint(values[i])
+					if err != nil {
+						return nil, fmt.Errorf("invalid peer line %d: error parsing endpoint: %w", line, err)
+					}
 				case dumpPeerAllowedIPsIndex:
 					if values[i] == dumpNone {
 						continue
 					}
-					peer.parseAllowedIPs(values[i])
+					err = peer.parseAllowedIPs(values[i])
+					if err != nil {
+						return nil, fmt.Errorf("invalid peer line %d: error parsing allowed-ips: %w", line, err)
+					}
 				case dumpPeerLatestHandshakeIndex:
 					if values[i] == "0" {
 						// Use go zero value, not unix 0 timestamp.
@@ -589,7 +596,7 @@ func ParseDump(buf []byte) *Conf {
 					}
 					sec, err = strconv.ParseInt(values[i], 10, 64)
 					if err != nil {
-						continue
+						return nil, fmt.Errorf("invalid peer line %d: error parsing latest-handshake: %w", line, err)
 					}
 					peer.LatestHandshake = time.Unix(sec, 0)
 				case dumpPeerPersistentKeepaliveIndex:
@@ -598,7 +605,7 @@ func ParseDump(buf []byte) *Conf {
 					}
 					pka, err = strconv.Atoi(values[i])
 					if err != nil {
-						continue
+						return nil, fmt.Errorf("invalid peer line %d: error parsing persistent-keepalive: %w", line, err)
 					}
 					peer.PersistentKeepalive = pka
 				}
@@ -606,6 +613,7 @@ func ParseDump(buf []byte) *Conf {
 			c.Peers = append(c.Peers, peer)
 			peer = nil
 		}
+		line++
 	}
-	return &c
+	return &c, nil
 }

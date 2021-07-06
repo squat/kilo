@@ -345,7 +345,7 @@ key2	(none)	10.254.2.1:51820	100.64.4.0/24,10.69.76.55/32,100.64.3.0/24,10.66.25
 		},
 	} {
 
-		dumpConf := ParseDump(tc.d)
+		dumpConf, _ := ParseDump(tc.d)
 		conf := Parse(tc.c)
 		// Equal will ignore runtime fields and only compare configuration fields.
 		if !dumpConf.Equal(conf) {

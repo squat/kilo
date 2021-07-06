@@ -460,7 +460,12 @@ func (m *Mesh) applyTopology() {
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	oldConf := wireguard.ParseDump(oldConfDump)
+	oldConf, err := wireguard.ParseDump(oldConfDump)
+	if err != nil {
+		level.Error(m.logger).Log("error", err)
+		m.errorCounter.WithLabelValues("apply").Inc()
+		return
+	}
 	natEndpoints := discoverNATEndpoints(nodes, peers, oldConf, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
 	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive, m.logger)
