@@ -3,5 +3,5 @@
 . lib.sh
 
 setup_suite() {
-	create_cluster
+	create_cluster "$(build_kind_config 2)"
 }
