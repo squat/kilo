@@ -4,4 +4,4 @@
 .push*
 bin/
 tmp/
-e2e/kind.yaml
+e2e/kind.yaml*
