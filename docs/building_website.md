@@ -41,4 +41,4 @@ Then, regenerate the markdown for the website with the command:
 make website/docs/README.md
 ```
 Edit `/website/sidebars.js` accordingly.
-_Note:_ The `id` in the header file `/website/docs/<new file>` must match the `id` specified in `website/sidebars.js`.
+> **Note**: The `id` in the header file `/website/docs/<new file>` must match the `id` specified in `website/sidebars.js`.

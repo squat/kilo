@@ -36,7 +36,7 @@ In some situations it may be desirable to manually select the leader for a locat
  * _firewall_: Kilo requires an open UDP port, which defaults to 51820, to communicate between locations; if only one node is configured to have that port open, then that node should be given the leader annotation;
  * _bandwidth_: if certain nodes in the cluster have a higher bandwidth or lower latency Internet connection, then those nodes should be given the leader annotation.
 
-_Note_: multiple nodes within a single location can be given the leader annotation; in this case, Kilo will select one leader from the set of annotated nodes. 
+> **Note**: multiple nodes within a single location can be given the leader annotation; in this case, Kilo will select one leader from the set of annotated nodes.
 
 ### location
 Kilo allows nodes in different logical or physical locations to route packets to one-another.
@@ -44,7 +44,7 @@ In order to know what connections to create, Kilo needs to know which nodes are 
 Kilo will try to infer each node's location from the [topology.kubernetes.io/region](https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#topologykubernetesioregion) node label.
 If the label is not present for a node, for example if running a bare-metal cluster or on an unsupported cloud provider, then the location annotation should be specified.
 
-_Note_: all nodes without a defined location will be considered to be in the default location `""`.
+> **Note**: all nodes without a defined location will be considered to be in the default location `""`.
 
 ### persistent-keepalive
 In certain deployments, cluster nodes may be located behind NAT or a firewall, e.g. edge nodes located behind a commodity router.
