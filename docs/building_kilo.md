@@ -55,7 +55,7 @@ To execute basic end to end tests, run:
 ```shell
 make e2e
 ```
-__Note__: The end to end tests are currently flaky, so try running them again if they fail.
+> **Note**: The end to end tests are currently flaky, so try running them again if they fail.
 
 To instead run all of the tests with a single command, run:
 ```shell

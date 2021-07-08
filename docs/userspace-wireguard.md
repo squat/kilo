@@ -13,7 +13,7 @@ One example of a userspace implementation of WireGuard is [BoringTun].
 In a homogeneous cluster where no node has the WireGuard kernel module, a userspace WireGuard implementation can be made available by deploying a DaemonSet.
 This DaemonSet creates a WireGuard interface that Kilo will manage.
 
-__Note:__ in order to avoid race conditions, `kg` needs to be passed the `--create-interface=false` flag. 
+> **Note**: in order to avoid race conditions, `kg` needs to be passed the `--create-interface=false` flag. 
 
 An example configuration for a K3s cluster with [BoringTun] can be applied with:
 
@@ -22,7 +22,7 @@ kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crd
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s-userspace.yaml
 ```
 
-__Note:__ even if some nodes have the WireGuard kernel module, this configuration will cause all nodes to use the userspace implementation of WireGuard.
+> **Note**: even if some nodes have the WireGuard kernel module, this configuration will cause all nodes to use the userspace implementation of WireGuard.
 
 ## Heterogeneous Clusters
 
@@ -39,6 +39,6 @@ It will also create two different DaemonSets with Kilo:
 1. `kilo` without userspace WireGuard; and
 1. `kilo-userspace` with [BoringTun] as a sidecar.
 
-__Note:__ because Kilo is dependant on nkml, nkml must be run on the host network before CNI is available and requires a kubeconfig in order to access the Kubernetes API.
+> **Note**: because Kilo is dependant on nkml, nkml must be run on the host network before CNI is available and requires a kubeconfig in order to access the Kubernetes API.
 
 [BoringTun]: https://github.com/cloudflare/boringtun
