@@ -134,7 +134,7 @@ create_cluster() {
 	_kubectl apply -f helper-curl.yaml
 	block_until_ready_by_name default curl
 	_kubectl taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/master:NoSchedule-
-	_kubectl apply -f https://raw.githubusercontent.com/heptoprint/adjacency/master/example.yaml
+	_kubectl apply -f https://raw.githubusercontent.com/kilo-io/adjacency/main/example.yaml
 	block_until_ready_by_name adjacency adjacency
 }
 
