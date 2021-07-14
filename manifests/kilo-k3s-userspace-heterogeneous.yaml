@@ -79,6 +79,35 @@ subjects:
     name: kilo
     namespace: kube-system
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kilo-scripts
+  namespace: kube-system
+data:
+  init.sh: |
+    #!/bin/sh
+    cat > /etc/kubernetes/kubeconfig <<EOF
+        apiVersion: v1
+        kind: Config
+        name: kilo
+        clusters:
+        - cluster:
+            server: $(sed -n 's/.*server: \(.*\)/\1/p' /var/lib/rancher/k3s/agent/kubelet.kubeconfig)
+            certificate-authority: /var/lib/rancher/k3s/agent/server-ca.crt
+        users:
+        - name: kilo
+          user:
+            token: $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+        contexts:
+        - name: kilo
+          context:
+            cluster: kilo
+            namespace: ${NAMESPACE}
+            user: kilo
+        current-context: kilo
+    EOF
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -125,7 +154,7 @@ spec:
         - name: kilo-dir
           mountPath: /var/lib/kilo
         - name: kubeconfig
-          mountPath: /etc/kubernetes/kubeconfig
+          mountPath: /etc/kubernetes
           readOnly: true
         - name: lib-modules
           mountPath: /lib/modules
@@ -134,6 +163,27 @@ spec:
           mountPath: /run/xtables.lock
           readOnly: false
       initContainers:
+      - name: generate-kubeconfig
+        image: squat/kilo
+        command:
+        - /bin/sh
+        args:
+        - /scripts/init.sh
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: kubeconfig
+          mountPath: /etc/kubernetes
+        - name: scripts
+          mountPath: /scripts/
+          readOnly: true
+        - name: k3s-agent
+          mountPath: /var/lib/rancher/k3s/agent/
+          readOnly: true
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       - name: install-cni
         image: squat/kilo
         command:
@@ -174,11 +224,13 @@ spec:
         hostPath:
           path: /var/lib/kilo
       - name: kubeconfig
-        hostPath: 
-          # Since kilo runs as a daemonset, it is recommended that you copy the
-          # k3s.yaml kubeconfig file from the master node to all worker nodes
-          # with the same path structure.
-          path: /etc/rancher/k3s/k3s.yaml
+        emptyDir: {}
+      - name: scripts
+        configMap:
+          name: kilo-scripts
+      - name: k3s-agent
+        hostPath:
+          path: /var/lib/rancher/k3s/agent
       - name: lib-modules
         hostPath:
           path: /lib/modules
@@ -234,7 +286,7 @@ spec:
         - name: kilo-dir
           mountPath: /var/lib/kilo
         - name: kubeconfig
-          mountPath: /etc/kubernetes/kubeconfig
+          mountPath: /etc/kubernetes
           readOnly: true
         - name: lib-modules
           mountPath: /lib/modules
@@ -258,6 +310,27 @@ spec:
           mountPath: /var/run/wireguard
           readOnly: false
       initContainers:
+      - name: generate-kubeconfig
+        image: squat/kilo
+        command:
+        - /bin/sh
+        args:
+        - /scripts/init.sh
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: kubeconfig
+          mountPath: /etc/kubernetes
+        - name: scripts
+          mountPath: /scripts/
+          readOnly: true
+        - name: k3s-agent
+          mountPath: /var/lib/rancher/k3s/agent/
+          readOnly: true
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       - name: install-cni
         image: squat/kilo
         command:
@@ -298,11 +371,13 @@ spec:
         hostPath:
           path: /var/lib/kilo
       - name: kubeconfig
-        hostPath: 
-          # Since kilo runs as a daemonset, it is recommended that you copy the
-          # k3s.yaml kubeconfig file from the master node to all worker nodes
-          # with the same path structure.
-          path: /etc/rancher/k3s/k3s.yaml
+        emptyDir: {}
+      - name: scripts
+        configMap:
+          name: kilo-scripts
+      - name: k3s-agent
+        hostPath:
+          path: /var/lib/rancher/k3s/agent
       - name: lib-modules
         hostPath:
           path: /lib/modules
@@ -348,13 +423,36 @@ spec:
           containerPort: 8080
         volumeMounts:
         - name: kubeconfig
-          mountPath: /etc/kubernetes/kubeconfig
+          mountPath: /etc/kubernetes
           readOnly: true
+      initContainers:
+      - name: generate-kubeconfig
+        image: squat/kilo
+        command:
+        - /bin/sh
+        args:
+        - /scripts/init.sh
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: kubeconfig
+          mountPath: /etc/kubernetes
+        - name: scripts
+          mountPath: /scripts/
+          readOnly: true
+        - name: k3s-agent
+          mountPath: /var/lib/rancher/k3s/agent/
+          readOnly: true
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       volumes:
       - name: kubeconfig
-        hostPath: 
-          # since the above DaemonSets are dependant on the labels
-          # and nkml would need a cni to start
-          # it needs run on the hostnetwork and use the kubeconfig
-          # to label the nodes
-          path: /etc/rancher/k3s/k3s.yaml
+        emptyDir: {}
+      - name: scripts
+        configMap:
+          name: kilo-scripts
+      - name: k3s-agent
+        hostPath:
+          path: /var/lib/rancher/k3s/agent
