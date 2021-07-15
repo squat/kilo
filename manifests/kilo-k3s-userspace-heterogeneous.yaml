@@ -406,6 +406,7 @@ spec:
         app.kubernetes.io/name: nkml
     spec:
       hostNetwork: true
+      serviceAccountName: kilo
       containers:
       - name: nkml
         image: leonnicolas/nkml
