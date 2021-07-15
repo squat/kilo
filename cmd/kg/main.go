@@ -196,9 +196,8 @@ func Main() error {
 	{
 		// Run the HTTP server.
 		mux := http.NewServeMux()
-		mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		})
+		mux.Handle("/health", &HealthHandler{})
+		mux.Handle("/graph", &GraphHandler{m, gr})
 		mux.Handle("/metrics", promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 		l, err := net.Listen("tcp", *listen)
 		if err != nil {
