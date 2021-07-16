@@ -34,12 +34,12 @@ type graphHandler struct {
 func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ns, err := h.mesh.Nodes().List()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to list nodes: %v", err), 500)
+		http.Error(w, fmt.Sprintf("failed to list nodes: %v", err), http.StatusInternalServerError)
 		return
 	}
 	ps, err := h.mesh.Peers().List()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to list peers: %v", err), 500)
+		http.Error(w, fmt.Sprintf("failed to list peers: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -57,7 +57,7 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	subnet.IP = subnet.IP.Mask(subnet.Mask)
 	if len(nodes) == 0 {
-		http.Error(w, "did not find any valid Kilo nodes in the cluster", 500)
+		http.Error(w, "did not find any valid Kilo nodes in the cluster", http.StatusInternalServerError)
 		return
 	}
 	peers := make(map[string]*mesh.Peer)
@@ -68,13 +68,13 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	topo, err := mesh.NewTopology(nodes, peers, h.granularity, hostname, 0, []byte{}, subnet, nodes[hostname].PersistentKeepalive, nil)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to create topology: %v", err), 500)
+		http.Error(w, fmt.Sprintf("failed to create topology: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	dot, err := topo.Dot()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to generate graph: %v", err), 500)
+		http.Error(w, fmt.Sprintf("failed to generate graph: %v", err), http.StatusInternalServerError)
 	}
 
 	buf := bytes.NewBufferString(dot)
@@ -94,25 +94,25 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	stdin, err := command.StdinPipe()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	_, err = io.Copy(stdin, buf)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = stdin.Close()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	output, err := command.Output()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("unable to execute dot: %v (is graphviz package installed?)", err), 500)
+		http.Error(w, fmt.Sprintf("unable to execute dot: %v (is graphviz package installed?)", err), http.StatusInternalServerError)
 		return
 	}
 
