@@ -98,14 +98,12 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = io.Copy(stdin, buf)
-	if err != nil {
+	if _, err = io.Copy(stdin, buf); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	err = stdin.Close()
-	if err != nil {
+	if err = stdin.Close(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
