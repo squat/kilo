@@ -12,8 +12,8 @@ test_graph_handler() {
     assert "curl_pod http://10.4.0.1:1107/graph?format=svg&layout=circo | grep -q '<svg'" "graph handler should produce SVG output"
     assert "curl_pod http://10.4.0.1:1107/graph?layout=circo | grep -q '<svg'" "graph handler should default to SVG output"
     assert "curl_pod http://10.4.0.1:1107/graph | grep -q '<svg'" "graph handler should default to SVG output"
-    assert _not "curl_pod http://10.4.0.1:1107/graph?layout=fake | grep -q '<svg'" "graph handler should reject invalid layout"
-    assert _not "curl_pod http://10.4.0.1:1107/graph?format=fake | grep -q '<svg'" "graph handler should reject invalid format"
+    assert_fail "curl_pod http://10.4.0.1:1107/graph?layout=fake | grep -q '<svg'" "graph handler should reject invalid layout"
+    assert_fail "curl_pod http://10.4.0.1:1107/graph?format=fake | grep -q '<svg'" "graph handler should reject invalid format"
 }
 
 test_health_handler() {
