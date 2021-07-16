@@ -110,7 +110,7 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	output, err := command.Output()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("unable to execute dot: %v (is graphviz package installed?)", err), http.StatusInternalServerError)
+		http.Error(w, "unable to render graph", http.StatusInternalServerError)
 		return
 	}
 
