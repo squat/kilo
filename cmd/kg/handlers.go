@@ -118,9 +118,6 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write(output)
 }
 
-type healthHandler struct {
-}
-
-func (h *healthHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
