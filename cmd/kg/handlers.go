@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -29,6 +30,8 @@ import (
 type graphHandler struct {
 	mesh        *mesh.Mesh
 	granularity mesh.Granularity
+	hostname    *string
+	subnet      *net.IPNet
 }
 
 func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -43,19 +46,12 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var hostname string
-	subnet := mesh.DefaultKiloSubnet
 	nodes := make(map[string]*mesh.Node)
 	for _, n := range ns {
 		if n.Ready() {
 			nodes[n.Name] = n
-			hostname = n.Name
-		}
-		if n.WireGuardIP != nil {
-			subnet = n.WireGuardIP
 		}
 	}
-	subnet.IP = subnet.IP.Mask(subnet.Mask)
 	if len(nodes) == 0 {
 		http.Error(w, "did not find any valid Kilo nodes in the cluster", http.StatusInternalServerError)
 		return
@@ -66,7 +62,7 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			peers[p.Name] = p
 		}
 	}
-	topo, err := mesh.NewTopology(nodes, peers, h.granularity, hostname, 0, []byte{}, subnet, nodes[hostname].PersistentKeepalive, nil)
+	topo, err := mesh.NewTopology(nodes, peers, h.granularity, *h.hostname, 0, []byte{}, h.subnet, nodes[*h.hostname].PersistentKeepalive, nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create topology: %v", err), http.StatusInternalServerError)
 		return
