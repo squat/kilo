@@ -26,12 +26,12 @@ import (
 	"github.com/squat/kilo/pkg/mesh"
 )
 
-type GraphHandler struct {
+type graphHandler struct {
 	mesh        *mesh.Mesh
 	granularity mesh.Granularity
 }
 
-func (h *GraphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ns, err := h.mesh.Nodes().List()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to list nodes: %v", err), 500)
@@ -124,9 +124,9 @@ func (h *GraphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write(output)
 }
 
-type HealthHandler struct {
+type healthHandler struct {
 }
 
-func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+func (h *healthHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
