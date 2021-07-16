@@ -86,7 +86,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, resyncPeriod time.Duration, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, logger log.Logger) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -111,7 +111,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	}
 	var kiloIface int
 	if createIface {
-		kiloIface, _, err = wireguard.New(iface)
+		kiloIface, _, err = wireguard.New(iface, mtu)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create WireGuard interface: %v", err)
 		}
