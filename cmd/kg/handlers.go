@@ -77,7 +77,7 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	format := r.URL.Query().Get("format")
 	if format == "" {
-		format = "png"
+		format = "svg"
 	} else if format == ".dot" || format == ".gv" {
 		// If the raw dot data is requested, return it as string.
 		// This allows client-side rendering rather than server-side.
