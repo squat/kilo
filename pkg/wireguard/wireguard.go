@@ -24,6 +24,9 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+// DefaultMTU is the the default MTU used by WireGuard.
+const DefaultMTU = 1420
+
 type wgLink struct {
 	a netlink.LinkAttrs
 	t string
@@ -41,7 +44,7 @@ func (w wgLink) Type() string {
 // If the interface exists, its index is returned.
 // Otherwise, a new interface is created.
 // The function also returns a boolean to indicate if the interface was created.
-func New(name string) (int, bool, error) {
+func New(name string, mtu uint) (int, bool, error) {
 	link, err := netlink.LinkByName(name)
 	if err == nil {
 		return link.Attrs().Index, false, nil
@@ -51,6 +54,7 @@ func New(name string) (int, bool, error) {
 	}
 	wl := wgLink{a: netlink.NewLinkAttrs(), t: "wireguard"}
 	wl.a.Name = name
+	wl.a.MTU = int(mtu)
 	if err := netlink.LinkAdd(wl); err != nil {
 		return 0, false, fmt.Errorf("failed to create interface %s: %v", name, err)
 	}

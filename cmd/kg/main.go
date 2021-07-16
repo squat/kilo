@@ -40,6 +40,7 @@ import (
 	kiloclient "github.com/squat/kilo/pkg/k8s/clientset/versioned"
 	"github.com/squat/kilo/pkg/mesh"
 	"github.com/squat/kilo/pkg/version"
+	"github.com/squat/kilo/pkg/wireguard"
 )
 
 const (
@@ -94,6 +95,7 @@ func Main() error {
 	local := flag.Bool("local", true, "Should Kilo manage routes within a location?")
 	logLevel := flag.String("log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 	master := flag.String("master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
+	mtu := flag.Uint("mtu", wireguard.DefaultMTU, "The MTU of the WireGuard interface created by Kilo.")
 	topologyLabel := flag.String("topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group nodes into logical locations.")
 	var port uint
 	flag.UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
@@ -180,7 +182,7 @@ func Main() error {
 		return fmt.Errorf("backend %v unknown; possible values are: %s", *backend, availableBackends)
 	}
 
-	m, err := mesh.New(b, enc, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, *iface, *cleanUpIface, *createIface, *resyncPeriod, log.With(logger, "component", "kilo"))
+	m, err := mesh.New(b, enc, gr, *hostname, uint32(port), s, *local, *cni, *cniPath, *iface, *cleanUpIface, *createIface, *mtu, *resyncPeriod, log.With(logger, "component", "kilo"))
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}
