@@ -76,22 +76,32 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	buf := bytes.NewBufferString(dot)
 
 	format := r.URL.Query().Get("format")
-	if format == "dot" || format == "gv" {
+	switch format {
+	case "":
+		format = "svg"
+	case "dot", "gv":
 		// If the raw dot data is requested, return it as string.
 		// This allows client-side rendering rather than server-side.
 		w.Write(buf.Bytes())
 		return
-	} else if format == "" {
-		format = "svg"
-	} else if format != "png" && format != "bmp" && format != "fig" && format != "gif" && format != "json" && format != "ps" {
+
+	case "svg", "png", "bmp", "fig", "gif", "json", "ps":
+		// Accepted format
+
+	default:
 		http.Error(w, "unsupported format", http.StatusInternalServerError)
 		return
 	}
 
 	layout := r.URL.Query().Get("layout")
-	if layout == "" {
+	switch layout {
+	case "":
 		layout = "circo"
-	} else if layout != "dot" && layout != "neato" && format != "twopi" && format != "fdp" {
+
+	case "circo", "dot", "neato", "twopi", "fdp":
+		// Accepted layout
+
+	default:
 		http.Error(w, "unsupported layout", http.StatusInternalServerError)
 		return
 	}
