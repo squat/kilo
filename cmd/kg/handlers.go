@@ -126,6 +126,7 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		mimeType = "application/octet-stream"
 	}
 
+	w.Header().Add("content-type", mimeType)
 	w.Write(output)
 }
 
