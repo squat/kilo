@@ -32,6 +32,7 @@ Usage of bin//linux/amd64/kg:
       --log-level string          Log level to use. Possible values: all, debug, info, warn, error, none (default "info")
       --master string             The address of the Kubernetes API server (overrides any value in kubeconfig).
       --mesh-granularity string   The granularity of the network mesh to create. Possible values: location, full (default "location")
+      --mtu uint                  The MTU of the WireGuard interface created by Kilo. (default 1420)
       --port uint                 The port over which WireGuard peers should communicate. (default 51820)
       --resync-period duration    How often should the Kilo controllers reconcile? (default 30s)
       --subnet string             CIDR from which to allocate addresses for WireGuard interfaces. (default "10.4.0.0/16")
