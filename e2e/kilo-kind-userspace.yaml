@@ -101,7 +101,7 @@ spec:
       hostNetwork: true
       containers:
       - name: kilo
-        image: squat/kilo:test
+        image: kiloio/kilo:test
         imagePullPolicy: Never
         args:
         - --hostname=$(NODE_NAME)
@@ -149,7 +149,7 @@ spec:
           readOnly: false
       initContainers:
       - name: install-cni
-        image: squat/kilo:test
+        image: kiloio/kilo:test
         imagePullPolicy: Never
         command:
         - /bin/sh

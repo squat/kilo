@@ -21,9 +21,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/squat/kilo/pkg/k8s/clientset/versioned"
-	internalinterfaces "github.com/squat/kilo/pkg/k8s/informers/internalinterfaces"
-	kilo "github.com/squat/kilo/pkg/k8s/informers/kilo"
+	versioned "github.com/kilo-io/kilo/pkg/k8s/clientset/versioned"
+	internalinterfaces "github.com/kilo-io/kilo/pkg/k8s/informers/internalinterfaces"
+	kilo "github.com/kilo-io/kilo/pkg/k8s/informers/kilo"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

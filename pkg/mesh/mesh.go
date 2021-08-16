@@ -30,11 +30,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 
-	"github.com/squat/kilo/pkg/encapsulation"
-	"github.com/squat/kilo/pkg/iproute"
-	"github.com/squat/kilo/pkg/iptables"
-	"github.com/squat/kilo/pkg/route"
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/kilo-io/kilo/pkg/encapsulation"
+	"github.com/kilo-io/kilo/pkg/iproute"
+	"github.com/kilo-io/kilo/pkg/iptables"
+	"github.com/kilo-io/kilo/pkg/route"
+	"github.com/kilo-io/kilo/pkg/wireguard"
 )
 
 const (

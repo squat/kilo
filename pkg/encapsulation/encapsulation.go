@@ -17,7 +17,7 @@ package encapsulation
 import (
 	"net"
 
-	"github.com/squat/kilo/pkg/iptables"
+	"github.com/kilo-io/kilo/pkg/iptables"
 )
 
 // Strategy identifies which packets within a location should

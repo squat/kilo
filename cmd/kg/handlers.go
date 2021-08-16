@@ -24,7 +24,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/squat/kilo/pkg/mesh"
+	"github.com/kilo-io/kilo/pkg/mesh"
 )
 
 type graphHandler struct {

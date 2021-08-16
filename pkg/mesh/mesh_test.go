@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/kilo-io/kilo/pkg/wireguard"
 )
 
 func TestReady(t *testing.T) {

@@ -22,8 +22,8 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/squat/kilo/pkg/encapsulation"
-	"github.com/squat/kilo/pkg/iptables"
+	"github.com/kilo-io/kilo/pkg/encapsulation"
+	"github.com/kilo-io/kilo/pkg/iptables"
 )
 
 const kiloTableIndex = 1107

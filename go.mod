@@ -1,4 +1,4 @@
-module github.com/squat/kilo
+module github.com/kilo-io/kilo
 
 go 1.15
 

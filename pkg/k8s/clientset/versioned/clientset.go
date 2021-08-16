@@ -19,7 +19,7 @@ package versioned
 import (
 	"fmt"
 
-	kilov1alpha1 "github.com/squat/kilo/pkg/k8s/clientset/versioned/typed/kilo/v1alpha1"
+	kilov1alpha1 "github.com/kilo-io/kilo/pkg/k8s/clientset/versioned/typed/kilo/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

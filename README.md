@@ -4,8 +4,8 @@
 
 Kilo is a multi-cloud network overlay built on WireGuard and designed for Kubernetes.
 
-[![Build Status](https://github.com/squat/kilo/workflows/CI/badge.svg)](https://github.com/squat/kilo/actions?query=workflow%3ACI)
-[![Go Report Card](https://goreportcard.com/badge/github.com/squat/kilo)](https://goreportcard.com/report/github.com/squat/kilo)
+[![Build Status](https://github.com/kilo-io/kilo/workflows/CI/badge.svg)](https://github.com/kilo-io/kilo/actions?query=workflow%3ACI)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kilo-io/kilo)](https://goreportcard.com/report/github.com/kilo-io/kilo)
 [![Docker Pulls](https://img.shields.io/docker/pulls/squat/kilo)](https://hub.docker.com/r/squat/kilo)
 [![Slack](https://img.shields.io/badge/join%20slack-%23kilo-brightgreen.svg)](https://slack.k8s.io/)
 
@@ -72,29 +72,29 @@ Kilo can be installed by deploying a DaemonSet to the cluster.
 To run Kilo on kubeadm:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-kubeadm.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/kilo-kubeadm.yaml
 ```
 
 To run Kilo on bootkube:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-bootkube.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/kilo-bootkube.yaml
 ```
 
 To run Kilo on Typhoon:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-typhoon.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/kilo-typhoon.yaml
 ```
 
 To run Kilo on k3s:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/kilo-k3s.yaml
 ```
 
 ## Add-on Mode
@@ -106,11 +106,11 @@ Kilo currently supports running on top of Flannel.
 For example, to run Kilo on a Typhoon cluster running Flannel:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-typhoon-flannel.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/kilo-typhoon-flannel.yaml
 ```
 
-[See the manifests directory for more examples](https://github.com/squat/kilo/tree/main/manifests).
+[See the manifests directory for more examples](https://github.com/kilo-io/kilo/tree/main/manifests).
 
 ## VPN
 

@@ -17,7 +17,7 @@
 package v1alpha1
 
 import (
-	internalinterfaces "github.com/squat/kilo/pkg/k8s/informers/internalinterfaces"
+	internalinterfaces "github.com/kilo-io/kilo/pkg/k8s/informers/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

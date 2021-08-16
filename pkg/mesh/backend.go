@@ -18,7 +18,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/kilo-io/kilo/pkg/wireguard"
 )
 
 const (

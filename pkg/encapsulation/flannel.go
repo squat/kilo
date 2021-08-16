@@ -19,8 +19,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/squat/kilo/pkg/iptables"
 	"github.com/vishvananda/netlink"
+
+	"github.com/kilo-io/kilo/pkg/iptables"
 )
 
 const flannelDeviceName = "flannel.1"
