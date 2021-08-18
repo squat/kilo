@@ -11,7 +11,7 @@ ARG GOARCH
 ARG ALPINE_VERSION=v3.12
 LABEL maintainer="squat <lserven@gmail.com>"
 RUN echo -e "https://alpine.global.ssl.fastly.net/alpine/$ALPINE_VERSION/main\nhttps://alpine.global.ssl.fastly.net/alpine/$ALPINE_VERSION/community" > /etc/apk/repositories && \
-    apk add --no-cache ipset iptables ip6tables wireguard-tools graphviz font-noto
+    apk add --no-cache ipset iptables ip6tables wireguard-tools
 COPY --from=cni bridge host-local loopback portmap /opt/cni/bin/
 COPY bin/linux/$GOARCH/kg /opt/bin/
 ENTRYPOINT ["/opt/bin/kg"]
