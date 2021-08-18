@@ -14,7 +14,6 @@ require (
 	github.com/oklog/run v1.0.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.1.3
-	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b

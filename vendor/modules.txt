@@ -121,7 +121,6 @@ github.com/prometheus/procfs/internal/util
 ## explicit
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
-## explicit
 github.com/spf13/pflag
 # github.com/vishvananda/netlink v1.0.0
 ## explicit
