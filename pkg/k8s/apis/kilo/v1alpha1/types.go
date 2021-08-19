@@ -48,6 +48,7 @@ var PeerShortNames = []string{"peer"}
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
+// +kubebuilder:resource:scope=Cluster
 
 // Peer is a WireGuard peer that should have access to the VPN.
 type Peer struct {
