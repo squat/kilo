@@ -12,7 +12,7 @@ spec:
     listKind: PeerList
     plural: peers
     singular: peer
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:
