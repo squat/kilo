@@ -86,7 +86,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr bool, logger log.Logger) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -143,6 +143,12 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		enc = encapsulation.Noop(enc.Strategy())
 		level.Debug(logger).Log("msg", "running without a private IP address")
 	}
+	var externalIP *net.IPNet
+	if prioritisePrivateAddr && privateIP != nil {
+		externalIP = privateIP
+	} else {
+		externalIP = publicIP
+	}
 	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the public IP address", publicIP.String()))
 	ipTables, err := iptables.New(iptables.WithLogger(log.With(logger, "component", "iptables")), iptables.WithResyncPeriod(resyncPeriod))
 	if err != nil {
@@ -154,7 +160,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		cni:          cni,
 		cniPath:      cniPath,
 		enc:          enc,
-		externalIP:   publicIP,
+		externalIP:   externalIP,
 		granularity:  granularity,
 		hostname:     hostname,
 		internalIP:   privateIP,

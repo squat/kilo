@@ -92,25 +92,26 @@ var cmd = &cobra.Command{
 }
 
 var (
-	backend       string
-	cleanUpIface  bool
-	createIface   bool
-	cni           bool
-	cniPath       string
-	compatibility string
-	encapsulate   string
-	granularity   string
-	hostname      string
-	kubeconfig    string
-	iface         string
-	listen        string
-	local         bool
-	master        string
-	mtu           uint
-	topologyLabel string
-	port          uint
-	subnet        string
-	resyncPeriod  time.Duration
+	backend               string
+	cleanUpIface          bool
+	createIface           bool
+	cni                   bool
+	cniPath               string
+	compatibility         string
+	encapsulate           string
+	granularity           string
+	hostname              string
+	kubeconfig            string
+	iface                 string
+	listen                string
+	local                 bool
+	master                string
+	mtu                   uint
+	topologyLabel         string
+	port                  uint
+	subnet                string
+	resyncPeriod          time.Duration
+	prioritisePrivateAddr bool
 
 	printVersion bool
 	logLevel     string
@@ -139,6 +140,7 @@ func init() {
 	cmd.Flags().UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
 	cmd.Flags().StringVar(&subnet, "subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
 	cmd.Flags().DurationVar(&resyncPeriod, "resync-period", 30*time.Second, "How often should the Kilo controllers reconcile?")
+	cmd.Flags().BoolVar(&prioritisePrivateAddr, "prioritise-private-addresses", false, "Prefer to assign a private IP address to the node's endpoint")
 
 	cmd.PersistentFlags().BoolVar(&printVersion, "version", false, "Print version and exit")
 	cmd.PersistentFlags().StringVar(&logLevel, "log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
@@ -234,7 +236,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("backend %v unknown; possible values are: %s", backend, availableBackends)
 	}
 
-	m, err := mesh.New(b, enc, gr, hostname, uint32(port), s, local, cni, cniPath, iface, cleanUpIface, createIface, mtu, resyncPeriod, log.With(logger, "component", "kilo"))
+	m, err := mesh.New(b, enc, gr, hostname, uint32(port), s, local, cni, cniPath, iface, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, log.With(logger, "component", "kilo"))
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}
