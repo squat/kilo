@@ -59,6 +59,7 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 			ignore[oneAddressCIDR(ip.IP).String()] = struct{}{}
 		}
 	}
+
 	var hostPriv, hostPub []*net.IPNet
 	{
 		// Check IPs to which hostname resolves first.
@@ -69,6 +70,9 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 				return nil, nil, fmt.Errorf("failed to search locally assigned addresses: %v", err)
 			}
 			if !ok {
+				continue
+			}
+			if isLocal(ip.IP) {
 				continue
 			}
 			ip.Mask = mask
