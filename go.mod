@@ -11,7 +11,7 @@ require (
 	github.com/go-kit/kit v0.9.0
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
-	github.com/oklog/run v1.0.0
+	github.com/oklog/run v1.1.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.1.3
 	github.com/vishvananda/netlink v1.0.0

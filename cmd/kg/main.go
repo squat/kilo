@@ -1,4 +1,4 @@
-// Copyright 2019 the Kilo authors
+// Copyright 2021 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,7 +85,10 @@ var cmd = &cobra.Command{
 		It runs on every node of a cluster,
 		setting up the public and private keys for the VPN
 		as well as the necessary rules to route packets between locations.`,
-	RunE: runRoot,
+	PreRunE:       preRun,
+	RunE:          runRoot,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
 var (
@@ -102,61 +105,47 @@ var (
 	iface         string
 	listen        string
 	local         bool
-	logLevel      string
 	master        string
 	mtu           uint
 	topologyLabel string
 	port          uint
 	subnet        string
 	resyncPeriod  time.Duration
-	printVersion  bool
+
+	printVersion bool
+	logLevel     string
+
+	logger   log.Logger
+	registry *prometheus.Registry
 )
 
 func init() {
-	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
-	cmd.PersistentFlags().BoolVar(&cleanUpIface, "clean-up-interface", false, "Should Kilo delete its interface when it shuts down?")
-	cmd.PersistentFlags().BoolVar(&createIface, "create-interface", true, "Should kilo create an interface on startup?")
-	cmd.PersistentFlags().BoolVar(&cni, "cni", true, "Should Kilo manage the node's CNI configuration?")
-	cmd.PersistentFlags().StringVar(&cniPath, "cni-path", mesh.DefaultCNIPath, "Path to CNI config.")
-	cmd.PersistentFlags().StringVar(&compatibility, "compatibility", "", fmt.Sprintf("Should Kilo run in compatibility mode? Possible values: %s", availableCompatibilities))
-	cmd.PersistentFlags().StringVar(&encapsulate, "encapsulate", string(encapsulation.Always), fmt.Sprintf("When should Kilo encapsulate packets within a location? Possible values: %s", availableEncapsulations))
-	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
-	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig.")
-	cmd.PersistentFlags().StringVar(&hostname, "hostname", "", "Hostname of the node on which this process is running.")
-	cmd.PersistentFlags().StringVar(&iface, "interface", mesh.DefaultKiloInterface, "Name of the Kilo interface to use; if it does not exist, it will be created.")
-	cmd.PersistentFlags().StringVar(&listen, "listen", ":1107", "The address at which to listen for health and metrics.")
-	cmd.PersistentFlags().BoolVar(&local, "local", true, "Should Kilo manage routes within a location?")
-	cmd.PersistentFlags().StringVar(&logLevel, "log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
-	cmd.PersistentFlags().StringVar(&master, "master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
-	cmd.PersistentFlags().UintVar(&mtu, "mtu", wireguard.DefaultMTU, "The MTU of the WireGuard interface created by Kilo.")
-	cmd.PersistentFlags().StringVar(&topologyLabel, "topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group nodes into logical locations.")
-	cmd.PersistentFlags().UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
-	cmd.PersistentFlags().StringVar(&subnet, "subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
-	cmd.PersistentFlags().DurationVar(&resyncPeriod, "resync-period", 30*time.Second, "How often should the Kilo controllers reconcile?")
+	cmd.Flags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
+	cmd.Flags().BoolVar(&cleanUpIface, "clean-up-interface", false, "Should Kilo delete its interface when it shuts down?")
+	cmd.Flags().BoolVar(&createIface, "create-interface", true, "Should kilo create an interface on startup?")
+	cmd.Flags().BoolVar(&cni, "cni", true, "Should Kilo manage the node's CNI configuration?")
+	cmd.Flags().StringVar(&cniPath, "cni-path", mesh.DefaultCNIPath, "Path to CNI config.")
+	cmd.Flags().StringVar(&compatibility, "compatibility", "", fmt.Sprintf("Should Kilo run in compatibility mode? Possible values: %s", availableCompatibilities))
+	cmd.Flags().StringVar(&encapsulate, "encapsulate", string(encapsulation.Always), fmt.Sprintf("When should Kilo encapsulate packets within a location? Possible values: %s", availableEncapsulations))
+	cmd.Flags().StringVar(&granularity, "mesh-granularity", string(mesh.LogicalGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
+	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig.")
+	cmd.Flags().StringVar(&hostname, "hostname", "", "Hostname of the node on which this process is running.")
+	cmd.Flags().StringVar(&iface, "interface", mesh.DefaultKiloInterface, "Name of the Kilo interface to use; if it does not exist, it will be created.")
+	cmd.Flags().StringVar(&listen, "listen", ":1107", "The address at which to listen for health and metrics.")
+	cmd.Flags().BoolVar(&local, "local", true, "Should Kilo manage routes within a location?")
+	cmd.Flags().StringVar(&master, "master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
+	cmd.Flags().UintVar(&mtu, "mtu", wireguard.DefaultMTU, "The MTU of the WireGuard interface created by Kilo.")
+	cmd.Flags().StringVar(&topologyLabel, "topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group nodes into logical locations.")
+	cmd.Flags().UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
+	cmd.Flags().StringVar(&subnet, "subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
+	cmd.Flags().DurationVar(&resyncPeriod, "resync-period", 30*time.Second, "How often should the Kilo controllers reconcile?")
+
 	cmd.PersistentFlags().BoolVar(&printVersion, "version", false, "Print version and exit")
+	cmd.PersistentFlags().StringVar(&logLevel, "log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 }
 
-// Main is the principal function for the binary, wrapped only by `main` for convenience.
-func runRoot(_ *cobra.Command, _ []string) error {
-	if printVersion {
-		fmt.Println(version.Version)
-		return nil
-	}
-
-	_, s, err := net.ParseCIDR(subnet)
-	if err != nil {
-		return fmt.Errorf("failed to parse %q as CIDR: %v", subnet, err)
-	}
-
-	if hostname == "" {
-		var err error
-		hostname, err = os.Hostname()
-		if hostname == "" || err != nil {
-			return errors.New("failed to determine hostname")
-		}
-	}
-
-	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
+func preRun(_ *cobra.Command, _ []string) error {
+	logger = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 	switch logLevel {
 	case logLevelAll:
 		logger = level.NewFilter(logger, level.AllowAll())
@@ -175,6 +164,35 @@ func runRoot(_ *cobra.Command, _ []string) error {
 	}
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
+
+	registry = prometheus.NewRegistry()
+	registry.MustRegister(
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+	)
+
+	return nil
+}
+
+// runRoot is the principal function for the binary.
+func runRoot(_ *cobra.Command, _ []string) error {
+	if printVersion {
+		fmt.Println(version.Version)
+		return nil
+	}
+
+	_, s, err := net.ParseCIDR(subnet)
+	if err != nil {
+		return fmt.Errorf("failed to parse %q as CIDR: %v", subnet, err)
+	}
+
+	if hostname == "" {
+		var err error
+		hostname, err = os.Hostname()
+		if hostname == "" || err != nil {
+			return errors.New("failed to determine hostname")
+		}
+	}
 
 	e := encapsulation.Strategy(encapsulate)
 	switch e {
@@ -221,20 +239,15 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}
 
-	r := prometheus.NewRegistry()
-	r.MustRegister(
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
-	)
-	m.RegisterMetrics(r)
+	m.RegisterMetrics(registry)
 
 	var g run.Group
 	{
 		// Run the HTTP server.
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", healthHandler)
-		mux.Handle("/graph", &graphHandler{m, gr, hostname, s})
-		mux.Handle("/metrics", promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
+		mux.Handle("/graph", &graphHandler{m, gr, &hostname, s})
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 		l, err := net.Listen("tcp", listen)
 		if err != nil {
 			return fmt.Errorf("failed to listen on %s: %v", listen, err)
@@ -286,7 +299,14 @@ func runRoot(_ *cobra.Command, _ []string) error {
 	return g.Run()
 }
 
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version and exit.",
+	Run:   func(_ *cobra.Command, _ []string) { fmt.Println(version.Version) },
+}
+
 func main() {
+	cmd.AddCommand(webhookCmd, versionCmd)
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
