@@ -95,7 +95,7 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/oklog/run v1.0.0
+# github.com/oklog/run v1.1.0
 ## explicit
 github.com/oklog/run
 # github.com/pkg/errors v0.9.1
@@ -121,7 +121,6 @@ github.com/prometheus/procfs/internal/util
 ## explicit
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
-## explicit
 github.com/spf13/pflag
 # github.com/vishvananda/netlink v1.0.0
 ## explicit
@@ -230,6 +229,7 @@ gopkg.in/yaml.v2
 gopkg.in/yaml.v3
 # k8s.io/api v0.21.1
 ## explicit
+k8s.io/api/admission/v1
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apiserverinternal/v1alpha1
