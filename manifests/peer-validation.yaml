@@ -51,7 +51,7 @@ spec:
         - webhook
         - --cert-file=/run/secrets/tls/tls.crt
         - --key-file=/run/secrets/tls/tls.key
-        - --metrics-address=:1107
+        - --listen-metrics=:1107
         - --listen=:8443
         ports:
         - containerPort: 8443
@@ -152,7 +152,7 @@ spec:
       serviceAccountName: kilo-peer-validation
       initContainers:
       - name: create
-        image: jettech/kube-webhook-certgen:v1.5.2
+        image: k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.0
         args:
         - create
         - --namespace=kilo
@@ -162,7 +162,7 @@ spec:
         - --cert-name=tls.crt
       containers:
       - name: patch
-        image: jettech/kube-webhook-certgen:v1.5.2
+        image: k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.0
         args:
         - patch
         - --webhook-name=peers.kilo.squat.ai
