@@ -110,6 +110,7 @@ func main() {
 		Long:              "",
 		PersistentPreRunE: runRoot,
 		Version:           version.Version,
+		SilenceErrors:     true,
 	}
 	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
 	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.AutoGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
