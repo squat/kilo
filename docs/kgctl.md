@@ -31,6 +31,17 @@ make
 
 This will produce a `kgctl` binary at `./bin/<your-os>/<your-architecture>/kgctl`.
 
+
+### Binary packages
+
+- Archlinux
+
+Install `kgctl` from the Arch User Repository using an AUR helper like `paru` or `yay`
+
+```shell
+paru -S kgctl-bin
+```
+
 ## Commands
 
 |Command|Syntax|Description|
