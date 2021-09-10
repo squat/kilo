@@ -36,7 +36,7 @@ This will produce a `kgctl` binary at `./bin/<your-os>/<your-architecture>/kgctl
 
 - Archlinux
 
-Install `kgctl` from the Arch User Repository using an AUR helper like `paru` or `yay`
+Install `kgctl` from the Arch User Repository using an AUR helper like `paru` or `yay`:
 
 ```shell
 paru -S kgctl-bin
