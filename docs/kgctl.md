@@ -32,7 +32,7 @@ make
 This will produce a `kgctl` binary at `./bin/<your-os>/<your-architecture>/kgctl`.
 
 
-### Binary packages
+### Binary Packages
 
 - Archlinux
 
