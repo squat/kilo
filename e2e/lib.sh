@@ -184,14 +184,14 @@ check_peer() {
 	local ALLOWED_IP=$3
 	local GRANULARITY=$4
 	create_interface "$INTERFACE"
-	docker run --rm --entrypoint=/usr/bin/wg "$KILO_IMAGE" genkey > "$INTERFACE"
-	assert "create_peer $PEER $ALLOWED_IP 10 $(docker run --rm --entrypoint=/bin/sh -v "$PWD/$INTERFACE":/key "$KILO_IMAGE" -c 'cat /key | wg pubkey')" "should be able to create Peer"
+	docker run --rm leonnicolas/wg-tools wg genkey > "$INTERFACE"
+	assert "create_peer $PEER $ALLOWED_IP 10 $(docker run --rm --entrypoint=/bin/sh -v "$PWD/$INTERFACE":/key leonnicolas/wg-tools -c 'cat /key | wg pubkey')" "should be able to create Peer"
 	assert "_kgctl showconf peer $PEER --mesh-granularity=$GRANULARITY > $PEER.ini" "should be able to get Peer configuration"
-	assert "docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/usr/bin/wg -v /var/run/wireguard:/var/run/wireguard -v $PWD/$PEER.ini:/peer.ini $KILO_IMAGE setconf $INTERFACE /peer.ini" "should be able to apply configuration from kgctl"
-	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/usr/bin/wg -v /var/run/wireguard:/var/run/wireguard -v "$PWD/$INTERFACE":/key "$KILO_IMAGE" set "$INTERFACE" private-key /key
-	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip "$KILO_IMAGE" address add "$ALLOWED_IP" dev "$INTERFACE"
-	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip "$KILO_IMAGE" link set "$INTERFACE" up
-	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip "$KILO_IMAGE" route add 10.42/16 dev "$INTERFACE"
+	assert "docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/usr/bin/wg -v /var/run/wireguard:/var/run/wireguard -v $PWD/$PEER.ini:/peer.ini leonnicolas/wg-tools setconf $INTERFACE /peer.ini" "should be able to apply configuration from kgctl"
+	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/usr/bin/wg -v /var/run/wireguard:/var/run/wireguard -v "$PWD/$INTERFACE":/key leonnicolas/wg-tools set "$INTERFACE" private-key /key
+	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip leonnicolas/wg-tools address add "$ALLOWED_IP" dev "$INTERFACE"
+	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip leonnicolas/wg-tools link set "$INTERFACE" up
+	docker run --rm --network=host --cap-add=NET_ADMIN --entrypoint=/sbin/ip leonnicolas/wg-tools route add 10.42/16 dev "$INTERFACE"
 	assert "retry 10 5 '' check_ping --local" "should be able to ping Pods from host"
 	assert_equals "$(_kgctl showconf peer "$PEER")" "$(_kgctl showconf peer "$PEER" --mesh-granularity="$GRANULARITY")" "kgctl should be able to auto detect the mesh granularity"
 	rm "$INTERFACE" "$PEER".ini

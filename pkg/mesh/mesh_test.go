@@ -20,7 +20,18 @@ import (
 	"time"
 
 	"github.com/squat/kilo/pkg/wireguard"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+func mustKey() wgtypes.Key {
+	if k, err := wgtypes.GeneratePrivateKey(); err != nil {
+		panic(err.Error())
+	} else {
+		return k
+	}
+}
+
+var key = mustKey()
 
 func TestReady(t *testing.T) {
 	internalIP := oneAddressCIDR(net.ParseIP("1.1.1.1"))
@@ -44,7 +55,7 @@ func TestReady(t *testing.T) {
 			name: "empty endpoint",
 			node: &Node{
 				InternalIP: internalIP,
-				Key:        []byte{},
+				Key:        key,
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
@@ -52,58 +63,58 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty endpoint IP",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{}, Port: DefaultKiloPort},
-				InternalIP: internalIP,
-				Key:        []byte{},
-				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{}, Port: DefaultKiloPort},
+				InternalIP:   internalIP,
+				Key:          wgtypes.Key{},
+				Subnet:       &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
 		},
 		{
 			name: "empty endpoint port",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}},
-				InternalIP: internalIP,
-				Key:        []byte{},
-				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}},
+				InternalIP:   internalIP,
+				Key:          wgtypes.Key{},
+				Subnet:       &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
 		},
 		{
 			name: "empty internal IP",
 			node: &Node{
-				Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
-				Key:      []byte{},
-				Subnet:   &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
+				Key:          wgtypes.Key{},
+				Subnet:       &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
 		},
 		{
 			name: "empty key",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
-				InternalIP: internalIP,
-				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
+				InternalIP:   internalIP,
+				Subnet:       &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
 		},
 		{
 			name: "empty subnet",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
-				InternalIP: internalIP,
-				Key:        []byte{},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
+				InternalIP:   internalIP,
+				Key:          wgtypes.Key{},
 			},
 			ready: false,
 		},
 		{
 			name: "valid",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
-				InternalIP: internalIP,
-				Key:        []byte{},
-				LastSeen:   time.Now().Unix(),
-				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
+				InternalIP:   internalIP,
+				Key:          key,
+				LastSeen:     time.Now().Unix(),
+				Subnet:       &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: true,
 		},

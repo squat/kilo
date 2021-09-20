@@ -65,7 +65,7 @@ func (t *Topology) Dot() (string, error) {
 			var endpoint *wireguard.Endpoint
 			if j == s.leader {
 				wg = s.wireGuardIP
-				endpoint = s.endpoint
+				endpoint = s.kiloEndpoint
 				if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Rank), "1"); err != nil {
 					return "", fmt.Errorf("failed to add rank to node")
 				}

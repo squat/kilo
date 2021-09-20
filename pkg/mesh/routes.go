@@ -40,7 +40,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		var gw net.IP
 		for _, segment := range t.segments {
 			if segment.location == t.location {
-				gw = enc.Gw(segment.endpoint.IP, segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
+				gw = enc.Gw(segment.kiloEndpoint.IP, segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
 				break
 			}
 		}
@@ -113,7 +113,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 			// we need to set routes for allowed location IPs over the leader in the current location.
 			for i := range segment.allowedLocationIPs {
 				routes = append(routes, encapsulateRoute(&netlink.Route{
-					Dst:       segment.allowedLocationIPs[i],
+					Dst:       &segment.allowedLocationIPs[i],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        gw,
 					LinkIndex: privIface,
@@ -125,7 +125,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		for _, peer := range t.peers {
 			for i := range peer.AllowedIPs {
 				routes = append(routes, encapsulateRoute(&netlink.Route{
-					Dst:       peer.AllowedIPs[i],
+					Dst:       &peer.AllowedIPs[i],
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        gw,
 					LinkIndex: privIface,
@@ -196,7 +196,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 			// equals the external IP. This means that the node
 			// is only accessible through an external IP and we
 			// cannot encapsulate traffic to an IP through the IP.
-			if segment.privateIPs == nil || segment.privateIPs[i].Equal(segment.endpoint.IP) {
+			if segment.privateIPs == nil || segment.privateIPs[i].Equal(segment.kiloEndpoint.IP) {
 				continue
 			}
 			// Add routes to the private IPs of nodes in other segments.
@@ -214,7 +214,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		// we need to set routes for allowed location IPs over the wg interface.
 		for i := range segment.allowedLocationIPs {
 			routes = append(routes, &netlink.Route{
-				Dst:       segment.allowedLocationIPs[i],
+				Dst:       &segment.allowedLocationIPs[i],
 				Flags:     int(netlink.FLAG_ONLINK),
 				Gw:        segment.wireGuardIP,
 				LinkIndex: kiloIface,
@@ -226,7 +226,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 	for _, peer := range t.peers {
 		for i := range peer.AllowedIPs {
 			routes = append(routes, &netlink.Route{
-				Dst:       peer.AllowedIPs[i],
+				Dst:       &peer.AllowedIPs[i],
 				LinkIndex: kiloIface,
 				Protocol:  unix.RTPROT_STATIC,
 			})

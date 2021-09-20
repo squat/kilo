@@ -17,13 +17,39 @@ package k8s
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/kylelemons/godebug/pretty"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	"github.com/squat/kilo/pkg/mesh"
 	"github.com/squat/kilo/pkg/wireguard"
+)
+
+func mustKey() (k wgtypes.Key) {
+	var err error
+	if k, err = wgtypes.GeneratePrivateKey(); err != nil {
+		panic(err.Error())
+	}
+	return
+}
+
+func mustPSKKey() (key *wgtypes.Key) {
+	if k, err := wgtypes.GenerateKey(); err != nil {
+		panic(err.Error())
+	} else {
+		key = &k
+	}
+	return
+}
+
+var (
+	fooKey = mustKey()
+	pskKey = mustPSKKey()
+	second = time.Second
+	zero   = time.Duration(0)
 )
 
 func TestTranslateNode(t *testing.T) {
@@ -54,8 +80,8 @@ func TestTranslateNode(t *testing.T) {
 				internalIPAnnotationKey: "10.0.0.2/32",
 			},
 			out: &mesh.Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: mesh.DefaultKiloPort},
-				InternalIP: &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(32, 32)},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: mesh.DefaultKiloPort},
+				InternalIP:   &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(32, 32)},
 			},
 		},
 		{
@@ -108,7 +134,7 @@ func TestTranslateNode(t *testing.T) {
 				forceEndpointAnnotationKey: "-10.0.0.2:51821",
 			},
 			out: &mesh.Node{
-				Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: mesh.DefaultKiloPort},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: mesh.DefaultKiloPort},
 			},
 		},
 		{
@@ -118,7 +144,7 @@ func TestTranslateNode(t *testing.T) {
 				forceEndpointAnnotationKey: "10.0.0.2:51821",
 			},
 			out: &mesh.Node{
-				Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.2")}, Port: 51821},
+				KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.2")}, Port: 51821},
 			},
 		},
 		{
@@ -127,7 +153,7 @@ func TestTranslateNode(t *testing.T) {
 				persistentKeepaliveKey: "25",
 			},
 			out: &mesh.Node{
-				PersistentKeepalive: 25,
+				PersistentKeepalive: 25 * time.Second,
 			},
 		},
 		{
@@ -166,7 +192,7 @@ func TestTranslateNode(t *testing.T) {
 				forceEndpointAnnotationKey:   "10.0.0.2:51821",
 				forceInternalIPAnnotationKey: "10.1.0.2/32",
 				internalIPAnnotationKey:      "10.1.0.1/32",
-				keyAnnotationKey:             "foo",
+				keyAnnotationKey:             fooKey.String(),
 				lastSeenAnnotationKey:        "1000000000",
 				leaderAnnotationKey:          "",
 				locationAnnotationKey:        "b",
@@ -177,14 +203,14 @@ func TestTranslateNode(t *testing.T) {
 				RegionLabelKey: "a",
 			},
 			out: &mesh.Node{
-				Endpoint:            &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.2")}, Port: 51821},
+				KiloEndpoint:        &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.2")}, Port: 51821},
 				NoInternalIP:        false,
 				InternalIP:          &net.IPNet{IP: net.ParseIP("10.1.0.2"), Mask: net.CIDRMask(32, 32)},
-				Key:                 []byte("foo"),
+				Key:                 fooKey,
 				LastSeen:            1000000000,
 				Leader:              true,
 				Location:            "b",
-				PersistentKeepalive: 25,
+				PersistentKeepalive: 25 * time.Second,
 				Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
 				WireGuardIP:         &net.IPNet{IP: net.ParseIP("10.4.0.1"), Mask: net.CIDRMask(16, 32)},
 			},
@@ -195,7 +221,7 @@ func TestTranslateNode(t *testing.T) {
 			annotations: map[string]string{
 				endpointAnnotationKey:    "10.0.0.1:51820",
 				internalIPAnnotationKey:  "",
-				keyAnnotationKey:         "foo",
+				keyAnnotationKey:         fooKey.String(),
 				lastSeenAnnotationKey:    "1000000000",
 				locationAnnotationKey:    "b",
 				persistentKeepaliveKey:   "25",
@@ -205,13 +231,13 @@ func TestTranslateNode(t *testing.T) {
 				RegionLabelKey: "a",
 			},
 			out: &mesh.Node{
-				Endpoint:            &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: 51820},
+				KiloEndpoint:        &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: 51820},
 				InternalIP:          nil,
-				Key:                 []byte("foo"),
+				Key:                 fooKey,
 				LastSeen:            1000000000,
 				Leader:              false,
 				Location:            "b",
-				PersistentKeepalive: 25,
+				PersistentKeepalive: 25 * time.Second,
 				Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
 				WireGuardIP:         &net.IPNet{IP: net.ParseIP("10.4.0.1"), Mask: net.CIDRMask(16, 32)},
 			},
@@ -223,7 +249,7 @@ func TestTranslateNode(t *testing.T) {
 				endpointAnnotationKey:        "10.0.0.1:51820",
 				internalIPAnnotationKey:      "10.1.0.1/32",
 				forceInternalIPAnnotationKey: "",
-				keyAnnotationKey:             "foo",
+				keyAnnotationKey:             fooKey.String(),
 				lastSeenAnnotationKey:        "1000000000",
 				locationAnnotationKey:        "b",
 				persistentKeepaliveKey:       "25",
@@ -233,14 +259,14 @@ func TestTranslateNode(t *testing.T) {
 				RegionLabelKey: "a",
 			},
 			out: &mesh.Node{
-				Endpoint:            &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: 51820},
+				KiloEndpoint:        &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")}, Port: 51820},
 				NoInternalIP:        true,
 				InternalIP:          nil,
-				Key:                 []byte("foo"),
+				Key:                 fooKey,
 				LastSeen:            1000000000,
 				Leader:              false,
 				Location:            "b",
-				PersistentKeepalive: 25,
+				PersistentKeepalive: 25 * time.Second,
 				Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
 				WireGuardIP:         &net.IPNet{IP: net.ParseIP("10.4.0.1"), Mask: net.CIDRMask(16, 32)},
 			},
@@ -266,7 +292,13 @@ func TestTranslatePeer(t *testing.T) {
 	}{
 		{
 			name: "empty",
-			out:  &mesh.Peer{},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
+					},
+				},
+			},
 		},
 		{
 			name: "invalid ips",
@@ -276,7 +308,13 @@ func TestTranslatePeer(t *testing.T) {
 					"foo",
 				},
 			},
-			out: &mesh.Peer{},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
+					},
+				},
+			},
 		},
 		{
 			name: "valid ips",
@@ -288,9 +326,12 @@ func TestTranslatePeer(t *testing.T) {
 			},
 			out: &mesh.Peer{
 				Peer: wireguard.Peer{
-					AllowedIPs: []*net.IPNet{
-						{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)},
-						{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(32, 32)},
+					PeerConfig: wgtypes.PeerConfig{
+						AllowedIPs: []net.IPNet{
+							{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)},
+							{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(32, 32)},
+						},
+						PersistentKeepaliveInterval: &zero,
 					},
 				},
 			},
@@ -305,7 +346,13 @@ func TestTranslatePeer(t *testing.T) {
 					Port: mesh.DefaultKiloPort,
 				},
 			},
-			out: &mesh.Peer{},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
+					},
+				},
+			},
 		},
 		{
 			name: "only endpoint port",
@@ -314,7 +361,13 @@ func TestTranslatePeer(t *testing.T) {
 					Port: mesh.DefaultKiloPort,
 				},
 			},
-			out: &mesh.Peer{},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
+					},
+				},
+			},
 		},
 		{
 			name: "valid endpoint ip",
@@ -328,9 +381,12 @@ func TestTranslatePeer(t *testing.T) {
 			},
 			out: &mesh.Peer{
 				Peer: wireguard.Peer{
-					Endpoint: &wireguard.Endpoint{
+					KiloEndpoint: &wireguard.Endpoint{
 						DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("10.0.0.1")},
 						Port:    mesh.DefaultKiloPort,
+					},
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
 					},
 				},
 			},
@@ -347,9 +403,12 @@ func TestTranslatePeer(t *testing.T) {
 			},
 			out: &mesh.Peer{
 				Peer: wireguard.Peer{
-					Endpoint: &wireguard.Endpoint{
+					KiloEndpoint: &wireguard.Endpoint{
 						DNSOrIP: wireguard.DNSOrIP{DNS: "example.com"},
 						Port:    mesh.DefaultKiloPort,
+					},
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
 					},
 				},
 			},
@@ -359,16 +418,25 @@ func TestTranslatePeer(t *testing.T) {
 			spec: v1alpha1.PeerSpec{
 				PublicKey: "",
 			},
-			out: &mesh.Peer{},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
+					},
+				},
+			},
 		},
 		{
 			name: "valid key",
 			spec: v1alpha1.PeerSpec{
-				PublicKey: "foo",
+				PublicKey: fooKey.String(),
 			},
 			out: &mesh.Peer{
 				Peer: wireguard.Peer{
-					PublicKey: []byte("foo"),
+					PeerConfig: wgtypes.PeerConfig{
+						PublicKey:                   fooKey,
+						PersistentKeepaliveInterval: &zero,
+					},
 				},
 			},
 		},
@@ -377,27 +445,38 @@ func TestTranslatePeer(t *testing.T) {
 			spec: v1alpha1.PeerSpec{
 				PersistentKeepalive: -1,
 			},
-			out: &mesh.Peer{},
+			out: &mesh.Peer{
+				Peer: wireguard.Peer{
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
+					},
+				},
+			},
 		},
 		{
 			name: "valid keepalive",
 			spec: v1alpha1.PeerSpec{
-				PersistentKeepalive: 1,
+				PersistentKeepalive: 1 * int(time.Second),
 			},
 			out: &mesh.Peer{
 				Peer: wireguard.Peer{
-					PersistentKeepalive: 1,
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &second,
+					},
 				},
 			},
 		},
 		{
 			name: "valid preshared key",
 			spec: v1alpha1.PeerSpec{
-				PresharedKey: "psk",
+				PresharedKey: pskKey.String(),
 			},
 			out: &mesh.Peer{
 				Peer: wireguard.Peer{
-					PresharedKey: []byte("psk"),
+					PeerConfig: wgtypes.PeerConfig{
+						PersistentKeepaliveInterval: &zero,
+						PresharedKey:                pskKey,
+					},
 				},
 			},
 		},

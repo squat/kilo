@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -212,13 +213,13 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 		return fmt.Errorf("failed to find node: %v", err)
 	}
 	n := old.DeepCopy()
-	n.ObjectMeta.Annotations[endpointAnnotationKey] = node.Endpoint.String()
+	n.ObjectMeta.Annotations[endpointAnnotationKey] = node.KiloEndpoint.String()
 	if node.InternalIP == nil {
 		n.ObjectMeta.Annotations[internalIPAnnotationKey] = ""
 	} else {
 		n.ObjectMeta.Annotations[internalIPAnnotationKey] = node.InternalIP.String()
 	}
-	n.ObjectMeta.Annotations[keyAnnotationKey] = string(node.Key)
+	n.ObjectMeta.Annotations[keyAnnotationKey] = node.Key.String()
 	n.ObjectMeta.Annotations[lastSeenAnnotationKey] = strconv.FormatInt(node.LastSeen, 10)
 	if node.WireGuardIP == nil {
 		n.ObjectMeta.Annotations[wireGuardIPAnnotationKey] = ""
@@ -292,13 +293,11 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		internalIP = nil
 	}
 	// Set Wireguard PersistentKeepalive setting for the node.
-	var persistentKeepalive int64
-	if keepAlive, ok := node.ObjectMeta.Annotations[persistentKeepaliveKey]; !ok {
-		persistentKeepalive = 0
-	} else {
-		if persistentKeepalive, err = strconv.ParseInt(keepAlive, 10, 64); err != nil {
-			persistentKeepalive = 0
-		}
+	var persistentKeepalive = time.Duration(0)
+	if keepAlive, ok := node.ObjectMeta.Annotations[persistentKeepaliveKey]; ok {
+		// We can ignore the error, because p will be set to 0 if an error occures.
+		p, _ := strconv.ParseInt(keepAlive, 10, 64)
+		persistentKeepalive = time.Duration(p) * time.Second
 	}
 	var lastSeen int64
 	if ls, ok := node.ObjectMeta.Annotations[lastSeenAnnotationKey]; !ok {
@@ -308,7 +307,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 			lastSeen = 0
 		}
 	}
-	var discoveredEndpoints map[string]*wireguard.Endpoint
+	var discoveredEndpoints map[string]*net.UDPAddr
 	if de, ok := node.ObjectMeta.Annotations[discoveredEndpointsKey]; ok {
 		err := json.Unmarshal([]byte(de), &discoveredEndpoints)
 		if err != nil {
@@ -316,11 +315,11 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		}
 	}
 	// Set allowed IPs for a location.
-	var allowedLocationIPs []*net.IPNet
+	var allowedLocationIPs []net.IPNet
 	if str, ok := node.ObjectMeta.Annotations[allowedLocationIPsKey]; ok {
 		for _, ip := range strings.Split(str, ",") {
 			if ipnet := normalizeIP(ip); ipnet != nil {
-				allowedLocationIPs = append(allowedLocationIPs, ipnet)
+				allowedLocationIPs = append(allowedLocationIPs, *ipnet)
 			}
 		}
 	}
@@ -335,6 +334,9 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		}
 	}
 
+	// TODO log some error or warning.
+	key, _ := wgtypes.ParseKey(node.ObjectMeta.Annotations[keyAnnotationKey])
+
 	return &mesh.Node{
 		// Endpoint and InternalIP should only ever fail to parse if the
 		// remote node's agent has not yet set its IP address;
@@ -342,15 +344,15 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		// the mesh can wait for the node to be updated.
 		// It is valid for the InternalIP to be nil,
 		// if the given node only has public IP addresses.
-		Endpoint:            endpoint,
+		KiloEndpoint:        endpoint,
 		NoInternalIP:        noInternalIP,
 		InternalIP:          internalIP,
-		Key:                 []byte(node.ObjectMeta.Annotations[keyAnnotationKey]),
+		Key:                 key,
 		LastSeen:            lastSeen,
 		Leader:              leader,
 		Location:            location,
 		Name:                node.Name,
-		PersistentKeepalive: int(persistentKeepalive),
+		PersistentKeepalive: persistentKeepalive,
 		Subnet:              subnet,
 		// WireGuardIP can fail to parse if the node is not a leader or if
 		// the node's agent has not yet reconciled. In either case, the IP
@@ -367,14 +369,14 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 	if peer == nil {
 		return nil
 	}
-	var aips []*net.IPNet
+	var aips []net.IPNet
 	for _, aip := range peer.Spec.AllowedIPs {
 		aip := normalizeIP(aip)
 		// Skip any invalid IPs.
 		if aip == nil {
 			continue
 		}
-		aips = append(aips, aip)
+		aips = append(aips, *aip)
 	}
 	var endpoint *wireguard.Endpoint
 	if peer.Spec.Endpoint != nil {
@@ -390,30 +392,34 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 					DNS: peer.Spec.Endpoint.DNS,
 					IP:  ip,
 				},
-				Port: peer.Spec.Endpoint.Port,
+				Port: int(peer.Spec.Endpoint.Port),
 			}
 		}
 	}
-	var key []byte
-	if len(peer.Spec.PublicKey) > 0 {
-		key = []byte(peer.Spec.PublicKey)
+
+	key, _ := wgtypes.ParseKey(peer.Spec.PublicKey)
+	var psk *wgtypes.Key
+	if k, err := wgtypes.ParseKey(peer.Spec.PresharedKey); err != nil {
+		// Set key to nil to avoid setting a key to the zero value wgtypes.Key{}
+		psk = nil
+	} else {
+		psk = &k
 	}
-	var psk []byte
-	if len(peer.Spec.PresharedKey) > 0 {
-		psk = []byte(peer.Spec.PresharedKey)
-	}
-	var pka int
+	var pka time.Duration
 	if peer.Spec.PersistentKeepalive > 0 {
-		pka = peer.Spec.PersistentKeepalive
+		pka = time.Duration(peer.Spec.PersistentKeepalive)
 	}
 	return &mesh.Peer{
 		Name: peer.Name,
 		Peer: wireguard.Peer{
-			AllowedIPs:          aips,
-			Endpoint:            endpoint,
-			PersistentKeepalive: pka,
-			PresharedKey:        psk,
-			PublicKey:           key,
+			PeerConfig: wgtypes.PeerConfig{
+				AllowedIPs:                  aips,
+				Endpoint:                    nil, // applyTopology will resolve this endpoint from the KiloEndpoint.
+				PersistentKeepaliveInterval: &pka,
+				PresharedKey:                psk,
+				PublicKey:                   key,
+			},
+			KiloEndpoint: endpoint,
 		},
 	}
 }
@@ -513,19 +519,27 @@ func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
 	if peer.Endpoint != nil {
 		var ip string
 		if peer.Endpoint.IP != nil {
-			ip = peer.Endpoint.IP.String()
+			ip = peer.KiloEndpoint.IP.String()
 		}
 		p.Spec.Endpoint = &v1alpha1.PeerEndpoint{
 			DNSOrIP: v1alpha1.DNSOrIP{
 				IP:  ip,
-				DNS: peer.Endpoint.DNS,
+				DNS: peer.KiloEndpoint.DNS,
 			},
-			Port: peer.Endpoint.Port,
+			Port: uint32(peer.KiloEndpoint.Port),
 		}
 	}
-	p.Spec.PersistentKeepalive = peer.PersistentKeepalive
-	p.Spec.PresharedKey = string(peer.PresharedKey)
-	p.Spec.PublicKey = string(peer.PublicKey)
+	if peer.PersistentKeepaliveInterval == nil {
+		p.Spec.PersistentKeepalive = 0
+	} else {
+		p.Spec.PersistentKeepalive = int(*peer.PersistentKeepaliveInterval)
+	}
+	if peer.PresharedKey == nil {
+		p.Spec.PresharedKey = ""
+	} else {
+		p.Spec.PresharedKey = peer.PresharedKey.String()
+	}
+	p.Spec.PublicKey = peer.PublicKey.String()
 	if _, err = pb.client.KiloV1alpha1().Peers().Update(context.TODO(), p, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update peer: %v", err)
 	}
@@ -570,7 +584,7 @@ func parseEndpoint(endpoint string) *wireguard.Endpoint {
 	ip := net.ParseIP(hostRaw)
 	if ip == nil {
 		if len(validation.IsDNS1123Subdomain(hostRaw)) == 0 {
-			return &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{DNS: hostRaw}, Port: uint32(port)}
+			return &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{DNS: hostRaw}, Port: int(port)}
 		}
 		return nil
 	}
@@ -579,5 +593,5 @@ func parseEndpoint(endpoint string) *wireguard.Endpoint {
 	} else {
 		ip = ip.To16()
 	}
-	return &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: ip}, Port: uint32(port)}
+	return &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: ip}, Port: int(port)}
 }

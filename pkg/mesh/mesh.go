@@ -1,4 +1,4 @@
-// Copyright 2019 the Kilo authors
+// Copyright 2021 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
+	"golang.zx2c4.com/wireguard/wgctrl"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/squat/kilo/pkg/encapsulation"
 	"github.com/squat/kilo/pkg/iproute"
@@ -43,8 +45,6 @@ const (
 	kiloPath = "/var/lib/kilo"
 	// privateKeyPath is the filepath where the WireGuard private key is stored.
 	privateKeyPath = kiloPath + "/key"
-	// confPath is the filepath where the WireGuard configuration is stored.
-	confPath = kiloPath + "/conf"
 )
 
 // Mesh is able to create Kilo network meshes.
@@ -60,12 +60,13 @@ type Mesh struct {
 	internalIP          *net.IPNet
 	ipTables            *iptables.Controller
 	kiloIface           int
+	kiloIfaceName       string
 	key                 []byte
 	local               bool
-	port                uint32
-	priv                []byte
+	port                int
+	priv                wgtypes.Key
 	privIface           int
-	pub                 []byte
+	pub                 wgtypes.Key
 	resyncPeriod        time.Duration
 	iptablesForwardRule bool
 	stop                chan struct{}
@@ -88,23 +89,24 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, logger log.Logger) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
-	private, err := ioutil.ReadFile(privateKeyPath)
-	private = bytes.Trim(private, "\n")
+	privateB, err := ioutil.ReadFile(privateKeyPath)
+	privateB = bytes.Trim(privateB, "\n")
+	private, err := wgtypes.ParseKey(string(privateB))
 	if err != nil {
 		level.Warn(logger).Log("msg", "no private key found on disk; generating one now")
-		if private, err = wireguard.GenKey(); err != nil {
+		if private, err = wgtypes.GenerateKey(); err != nil {
 			return nil, err
 		}
 	}
-	public, err := wireguard.PubKey(private)
+	public := private.PublicKey()
 	if err != nil {
 		return nil, err
 	}
-	if err := ioutil.WriteFile(privateKeyPath, private, 0600); err != nil {
+	if err := ioutil.WriteFile(privateKeyPath, []byte(private.String()), 0600); err != nil {
 		return nil, fmt.Errorf("failed to write private key to disk: %v", err)
 	}
 	cniIndex, err := cniDeviceIndex()
@@ -168,6 +170,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		internalIP:          privateIP,
 		ipTables:            ipTables,
 		kiloIface:           kiloIface,
+		kiloIfaceName:       iface,
 		nodes:               make(map[string]*Node),
 		peers:               make(map[string]*Peer),
 		port:                port,
@@ -314,7 +317,7 @@ func (m *Mesh) syncPeers(e *PeerEvent) {
 	var diff bool
 	m.mu.Lock()
 	// Peers are indexed by public key.
-	key := string(e.Peer.PublicKey)
+	key := e.Peer.PublicKey.String()
 	if !e.Peer.Ready() {
 		// Trace non ready peer with their presence in the mesh.
 		_, ok := m.peers[key]
@@ -324,8 +327,8 @@ func (m *Mesh) syncPeers(e *PeerEvent) {
 	case AddEvent:
 		fallthrough
 	case UpdateEvent:
-		if e.Old != nil && key != string(e.Old.PublicKey) {
-			delete(m.peers, string(e.Old.PublicKey))
+		if e.Old != nil && key != e.Old.PublicKey.String() {
+			delete(m.peers, e.Old.PublicKey.String())
 			diff = true
 		}
 		if !peersAreEqual(m.peers[key], e.Peer) {
@@ -367,8 +370,8 @@ func (m *Mesh) checkIn() {
 
 func (m *Mesh) handleLocal(n *Node) {
 	// Allow the IPs to be overridden.
-	if n.Endpoint == nil || (n.Endpoint.DNS == "" && n.Endpoint.IP == nil) {
-		n.Endpoint = &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: m.externalIP.IP}, Port: m.port}
+	if n.KiloEndpoint == nil || (n.KiloEndpoint.DNS == "" && n.KiloEndpoint.IP == nil) {
+		n.KiloEndpoint = &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: m.externalIP.IP}, Port: m.port}
 	}
 	if n.InternalIP == nil && !n.NoInternalIP {
 		n.InternalIP = m.internalIP
@@ -377,7 +380,7 @@ func (m *Mesh) handleLocal(n *Node) {
 	// Take leader, location, and subnet from the argument, as these
 	// are not determined by kilo.
 	local := &Node{
-		Endpoint:            n.Endpoint,
+		KiloEndpoint:        n.KiloEndpoint,
 		Key:                 m.pub,
 		NoInternalIP:        n.NoInternalIP,
 		InternalIP:          n.InternalIP,
@@ -462,22 +465,26 @@ func (m *Mesh) applyTopology() {
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	// Find the old configuration.
-	oldConfDump, err := wireguard.ShowDump(link.Attrs().Name)
+
+	wgClient, err := wgctrl.New()
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	oldConf, err := wireguard.ParseDump(oldConfDump)
+	defer wgClient.Close()
+
+	// wgDevice is the current configuration of the wg interface.
+	wgDevice, err := wgClient.Device(m.kiloIfaceName)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	natEndpoints := discoverNATEndpoints(nodes, peers, oldConf, m.logger)
+
+	natEndpoints := discoverNATEndpoints(nodes, peers, wgDevice, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
-	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive, m.logger)
+	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].KiloEndpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive, m.logger)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
@@ -489,19 +496,8 @@ func (m *Mesh) applyTopology() {
 	} else {
 		m.wireGuardIP = nil
 	}
-	conf := t.Conf()
-	buf, err := conf.Bytes()
-	if err != nil {
-		level.Error(m.logger).Log("error", err)
-		m.errorCounter.WithLabelValues("apply").Inc()
-		return
-	}
-	if err := ioutil.WriteFile(confPath, buf, 0600); err != nil {
-		level.Error(m.logger).Log("error", err)
-		m.errorCounter.WithLabelValues("apply").Inc()
-		return
-	}
 	ipRules := t.Rules(m.cni, m.iptablesForwardRule)
+
 	// If we are handling local routes, ensure the local
 	// tunnel has an IP address and IPIP traffic is allowed.
 	if m.enc.Strategy() != encapsulation.Never && m.local {
@@ -540,10 +536,12 @@ func (m *Mesh) applyTopology() {
 		}
 		// Setting the WireGuard configuration interrupts existing connections
 		// so only set the configuration if it has changed.
-		equal := conf.Equal(oldConf)
+		conf := t.Conf()
+		equal, diff := conf.Equal(wgDevice)
 		if !equal {
-			level.Info(m.logger).Log("msg", "WireGuard configurations are different")
-			if err := wireguard.SetConf(link.Attrs().Name, confPath); err != nil {
+			level.Info(m.logger).Log("msg", "WireGuard configurations are different", "diff", diff)
+			level.Debug(m.logger).Log("changing wg config", "config", conf.WGConfig())
+			if err := wgClient.ConfigureDevice(m.kiloIfaceName, conf.WGConfig()); err != nil {
 				level.Error(m.logger).Log("error", err)
 				m.errorCounter.WithLabelValues("apply").Inc()
 				return
@@ -598,10 +596,6 @@ func (m *Mesh) cleanUp() {
 		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up routes: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
-	if err := os.Remove(confPath); err != nil {
-		level.Error(m.logger).Log("error", fmt.Sprintf("failed to delete configuration file: %v", err))
-		m.errorCounter.WithLabelValues("cleanUp").Inc()
-	}
 	if m.cleanUpIface {
 		if err := iproute.RemoveInterface(m.kiloIface); err != nil {
 			level.Error(m.logger).Log("error", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
@@ -631,10 +625,13 @@ func (m *Mesh) resolveEndpoints() error {
 		}
 		// If the node is ready, then the endpoint is not nil
 		// but it may not have a DNS name.
-		if m.nodes[k].Endpoint.DNS == "" {
+		if m.nodes[k].KiloEndpoint.DNS == "" {
 			continue
 		}
-		if err := resolveEndpoint(m.nodes[k].Endpoint); err != nil {
+		if u, err := net.ResolveUDPAddr("udp", m.nodes[k].KiloEndpoint.String()); err == nil {
+			m.nodes[k].Endpoint = u
+			m.nodes[k].KiloEndpoint.IP = u.IP
+		} else {
 			return err
 		}
 	}
@@ -645,30 +642,16 @@ func (m *Mesh) resolveEndpoints() error {
 			continue
 		}
 		// Peers may have nil endpoints.
-		if m.peers[k].Endpoint == nil || m.peers[k].Endpoint.DNS == "" {
+		if m.peers[k].KiloEndpoint == nil || m.peers[k].KiloEndpoint.DNS == "" {
 			continue
 		}
-		if err := resolveEndpoint(m.peers[k].Endpoint); err != nil {
+		if u, err := net.ResolveUDPAddr("udp", m.peers[k].KiloEndpoint.String()); err == nil {
+			m.peers[k].Endpoint = u
+			m.peers[k].KiloEndpoint.IP = u.IP
+		} else {
 			return err
 		}
 	}
-	return nil
-}
-
-func resolveEndpoint(endpoint *wireguard.Endpoint) error {
-	ips, err := net.LookupIP(endpoint.DNS)
-	if err != nil {
-		return fmt.Errorf("failed to look up DNS name %q: %v", endpoint.DNS, err)
-	}
-	nets := make([]*net.IPNet, len(ips), len(ips))
-	for i := range ips {
-		nets[i] = oneAddressCIDR(ips[i])
-	}
-	sortIPs(nets)
-	if len(nets) == 0 {
-		return fmt.Errorf("did not find any addresses for DNS name %q", endpoint.DNS)
-	}
-	endpoint.IP = nets[0].IP
 	return nil
 }
 
@@ -685,13 +668,24 @@ func nodesAreEqual(a, b *Node) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if !a.Endpoint.Equal(b.Endpoint, true) {
+	if !a.KiloEndpoint.Equal(b.KiloEndpoint, true) {
 		return false
 	}
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
 	// equivalent. However, we do want to check if LastSeen has transitioned
 	// between valid and invalid.
-	return string(a.Key) == string(b.Key) && ipNetsEqual(a.WireGuardIP, b.WireGuardIP) && ipNetsEqual(a.InternalIP, b.InternalIP) && a.Leader == b.Leader && a.Location == b.Location && a.Name == b.Name && subnetsEqual(a.Subnet, b.Subnet) && a.Ready() == b.Ready() && a.PersistentKeepalive == b.PersistentKeepalive && discoveredEndpointsAreEqual(a.DiscoveredEndpoints, b.DiscoveredEndpoints) && ipNetSlicesEqual(a.AllowedLocationIPs, b.AllowedLocationIPs) && a.Granularity == b.Granularity
+	return a.Key.String() == b.Key.String() &&
+		ipNetsEqual(a.WireGuardIP, b.WireGuardIP) &&
+		ipNetsEqual(a.InternalIP, b.InternalIP) &&
+		a.Leader == b.Leader &&
+		a.Location == b.Location &&
+		a.Name == b.Name &&
+		subnetsEqual(a.Subnet, b.Subnet) &&
+		a.Ready() == b.Ready() &&
+		a.PersistentKeepalive == b.PersistentKeepalive &&
+		discoveredEndpointsAreEqual(a.DiscoveredEndpoints, b.DiscoveredEndpoints) &&
+		ipNetSlicesEqual(a.AllowedLocationIPs, b.AllowedLocationIPs) &&
+		a.Granularity == b.Granularity
 }
 
 func peersAreEqual(a, b *Peer) bool {
@@ -703,18 +697,22 @@ func peersAreEqual(a, b *Peer) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if !a.Endpoint.Equal(b.Endpoint, true) {
+	if !a.KiloEndpoint.Equal(b.KiloEndpoint, true) {
 		return false
 	}
 	if len(a.AllowedIPs) != len(b.AllowedIPs) {
 		return false
 	}
 	for i := range a.AllowedIPs {
-		if !ipNetsEqual(a.AllowedIPs[i], b.AllowedIPs[i]) {
+		if !ipNetsEqual(&a.AllowedIPs[i], &b.AllowedIPs[i]) {
 			return false
 		}
 	}
-	return string(a.PublicKey) == string(b.PublicKey) && string(a.PresharedKey) == string(b.PresharedKey) && a.PersistentKeepalive == b.PersistentKeepalive
+	return a.PublicKey.String() == b.PublicKey.String() &&
+		(a.PresharedKey == nil) == (b.PresharedKey == nil) &&
+		(a.PresharedKey == nil || a.PresharedKey.String() == b.PresharedKey.String()) &&
+		(a.PersistentKeepaliveInterval == nil) == (b.PersistentKeepaliveInterval == nil) &&
+		(a.PersistentKeepaliveInterval == nil || a.PersistentKeepaliveInterval == b.PersistentKeepaliveInterval)
 }
 
 func ipNetsEqual(a, b *net.IPNet) bool {
@@ -730,12 +728,12 @@ func ipNetsEqual(a, b *net.IPNet) bool {
 	return a.IP.Equal(b.IP)
 }
 
-func ipNetSlicesEqual(a, b []*net.IPNet) bool {
+func ipNetSlicesEqual(a, b []net.IPNet) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if !ipNetsEqual(a[i], b[i]) {
+		if !ipNetsEqual(&a[i], &b[i]) {
 			return false
 		}
 	}
@@ -761,7 +759,7 @@ func subnetsEqual(a, b *net.IPNet) bool {
 	return true
 }
 
-func discoveredEndpointsAreEqual(a, b map[string]*wireguard.Endpoint) bool {
+func discoveredEndpointsAreEqual(a, b map[string]*net.UDPAddr) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -772,7 +770,7 @@ func discoveredEndpointsAreEqual(a, b map[string]*wireguard.Endpoint) bool {
 		return false
 	}
 	for k := range a {
-		if !a[k].Equal(b[k], false) {
+		if a[k] != b[k] {
 			return false
 		}
 	}
@@ -788,24 +786,26 @@ func linkByIndex(index int) (netlink.Link, error) {
 }
 
 // discoverNATEndpoints uses the node's WireGuard configuration to returns a list of the most recently discovered endpoints for all nodes and peers behind NAT so that they can roam.
-func discoverNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *wireguard.Conf, logger log.Logger) map[string]*wireguard.Endpoint {
-	natEndpoints := make(map[string]*wireguard.Endpoint)
-	keys := make(map[string]*wireguard.Peer)
+// Discovered endpionts will never be DNS names, because WireGuard will always resolve them to net.UDPAddr.
+func discoverNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *wgtypes.Device, logger log.Logger) map[string]*net.UDPAddr {
+	natEndpoints := make(map[string]*net.UDPAddr)
+	keys := make(map[string]wgtypes.Peer)
 	for i := range conf.Peers {
-		keys[string(conf.Peers[i].PublicKey)] = conf.Peers[i]
+		keys[conf.Peers[i].PublicKey.String()] = conf.Peers[i]
 	}
 	for _, n := range nodes {
-		if peer, ok := keys[string(n.Key)]; ok && n.PersistentKeepalive > 0 {
-			level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", n.Endpoint.Equal(peer.Endpoint, false), "latest-handshake", peer.LatestHandshake)
-			if (peer.LatestHandshake != time.Time{}) {
-				natEndpoints[string(n.Key)] = peer.Endpoint
+		if peer, ok := keys[n.Key.String()]; ok && n.PersistentKeepalive != time.Duration(0) {
+			level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", peer.Endpoint.String() == n.Endpoint.String(), "latest-handshake", peer.LastHandshakeTime)
+			// Don't update the endpoint, if there was never any handshake.
+			if !peer.LastHandshakeTime.Equal(time.Time{}) {
+				natEndpoints[n.Key.String()] = peer.Endpoint
 			}
 		}
 	}
 	for _, p := range peers {
-		if peer, ok := keys[string(p.PublicKey)]; ok && p.PersistentKeepalive > 0 {
-			if (peer.LatestHandshake != time.Time{}) {
-				natEndpoints[string(p.PublicKey)] = peer.Endpoint
+		if peer, ok := keys[p.PublicKey.String()]; ok && p.PersistentKeepaliveInterval != nil {
+			if !peer.LastHandshakeTime.Equal(time.Time{}) {
+				natEndpoints[p.PublicKey.String()] = peer.Endpoint
 			}
 		}
 	}

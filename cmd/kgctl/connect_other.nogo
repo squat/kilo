@@ -1,0 +1,20 @@
+// +build !linux
+
+package main
+
+import (
+	"errors"
+
+	"github.com/spf13/cobra"
+)
+
+func connect() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connect",
+		Short: "not supporred on you OS",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return errors.New("this command is not supported on your OS")
+		},
+	}
+	return cmd
+}

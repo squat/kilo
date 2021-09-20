@@ -239,7 +239,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("backend %v unknown; possible values are: %s", backend, availableBackends)
 	}
 
-	m, err := mesh.New(b, enc, gr, hostname, uint32(port), s, local, cni, cniPath, iface, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, log.With(logger, "component", "kilo"))
+	m, err := mesh.New(b, enc, gr, hostname, int(port), s, local, cni, cniPath, iface, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, log.With(logger, "component", "kilo"))
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}

@@ -15,27 +15,20 @@
 package wireguard
 
 import (
-	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/validation"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type section string
 type key string
 
 const (
-	separator                      = "="
-	dumpSeparator                  = "\t"
-	dumpNone                       = "(none)"
-	dumpOff                        = "off"
 	interfaceSection       section = "Interface"
 	peerSection            section = "Peer"
 	listenPortKey          key     = "ListenPort"
@@ -47,34 +40,24 @@ const (
 	publicKeyKey           key     = "PublicKey"
 )
 
-type dumpInterfaceIndex int
-
-const (
-	dumpInterfacePrivateKeyIndex = iota
-	dumpInterfacePublicKeyIndex
-	dumpInterfaceListenPortIndex
-	dumpInterfaceFWMarkIndex
-	dumpInterfaceLen
-)
-
-type dumpPeerIndex int
-
-const (
-	dumpPeerPublicKeyIndex = iota
-	dumpPeerPresharedKeyIndex
-	dumpPeerEndpointIndex
-	dumpPeerAllowedIPsIndex
-	dumpPeerLatestHandshakeIndex
-	dumpPeerTransferRXIndex
-	dumpPeerTransferTXIndex
-	dumpPeerPersistentKeepaliveIndex
-	dumpPeerLen
-)
-
 // Conf represents a WireGuard configuration file.
 type Conf struct {
-	Interface *Interface
-	Peers     []*Peer
+	wgtypes.Config
+	// The Peers field is shadowed because every Peer needs the KiloEndpoint field that contains a DNS endpoint.
+	Peers []Peer
+}
+
+// WGConfig returns a wgytpes.Config from a Conf.
+func (c Conf) WGConfig() wgtypes.Config {
+	r := c.Config
+	wgPs := make([]wgtypes.PeerConfig, len(c.Peers))
+	for i, p := range c.Peers {
+		wgPs[i] = p.PeerConfig
+		wgPs[i].ReplaceAllowedIPs = true
+	}
+	r.Peers = wgPs
+	r.ReplacePeers = true
+	return r
 }
 
 // Interface represents the `interface` section of a WireGuard configuration.
@@ -85,18 +68,13 @@ type Interface struct {
 
 // Peer represents a `peer` section of a WireGuard configuration.
 type Peer struct {
-	AllowedIPs          []*net.IPNet
-	Endpoint            *Endpoint
-	PersistentKeepalive int
-	PresharedKey        []byte
-	PublicKey           []byte
-	// The following fields are part of the runtime information, not the configuration.
-	LatestHandshake time.Time
+	wgtypes.PeerConfig
+	KiloEndpoint *Endpoint
 }
 
 // DeduplicateIPs eliminates duplicate allowed IPs.
 func (p *Peer) DeduplicateIPs() {
-	var ips []*net.IPNet
+	var ips []net.IPNet
 	seen := make(map[string]struct{})
 	for _, ip := range p.AllowedIPs {
 		if _, ok := seen[ip.String()]; ok {
@@ -111,7 +89,7 @@ func (p *Peer) DeduplicateIPs() {
 // Endpoint represents an `endpoint` key of a `peer` section.
 type Endpoint struct {
 	DNSOrIP
-	Port uint32
+	Port int
 }
 
 // String prints the string representation of the endpoint.
@@ -124,6 +102,14 @@ func (e *Endpoint) String() string {
 		dnsOrIP = "[" + dnsOrIP + "]"
 	}
 	return dnsOrIP + ":" + strconv.FormatUint(uint64(e.Port), 10)
+}
+
+// UDPAddr returns the corresponding net.UDPAddr of the Endpoint or nil.
+func (e *Endpoint) UDPAddr() (u *net.UDPAddr) {
+	if a, err := net.ResolveUDPAddr("udp", e.String()); err == nil {
+		u = a
+	}
+	return
 }
 
 // Equal compares two endpoints.
@@ -173,116 +159,24 @@ func (d DNSOrIP) String() string {
 	return d.DNS
 }
 
-// Parse parses a given WireGuard configuration file and produces a Conf struct.
-func Parse(buf []byte) *Conf {
-	var (
-		active  section
-		kv      []string
-		c       Conf
-		err     error
-		iface   *Interface
-		i       int
-		k       key
-		line, v string
-		peer    *Peer
-		port    uint64
-	)
-	s := bufio.NewScanner(bytes.NewBuffer(buf))
-	for s.Scan() {
-		line = strings.TrimSpace(s.Text())
-		// Skip comments.
-		if strings.HasPrefix(line, "#") {
-			continue
-		}
-		// Line is a section title.
-		if strings.HasPrefix(line, "[") {
-			if peer != nil {
-				c.Peers = append(c.Peers, peer)
-				peer = nil
-			}
-			if iface != nil {
-				c.Interface = iface
-				iface = nil
-			}
-			active = section(strings.TrimSpace(strings.Trim(line, "[]")))
-			switch active {
-			case interfaceSection:
-				iface = new(Interface)
-			case peerSection:
-				peer = new(Peer)
-			}
-			continue
-		}
-		kv = strings.SplitN(line, separator, 2)
-		if len(kv) != 2 {
-			continue
-		}
-		k = key(strings.TrimSpace(kv[0]))
-		v = strings.TrimSpace(kv[1])
-		switch active {
-		case interfaceSection:
-			switch k {
-			case listenPortKey:
-				port, err = strconv.ParseUint(v, 10, 32)
-				if err != nil {
-					continue
-				}
-				iface.ListenPort = uint32(port)
-			case privateKeyKey:
-				iface.PrivateKey = []byte(v)
-			}
-		case peerSection:
-			switch k {
-			case allowedIPsKey:
-				err = peer.parseAllowedIPs(v)
-				if err != nil {
-					continue
-				}
-			case endpointKey:
-				err = peer.parseEndpoint(v)
-				if err != nil {
-					continue
-				}
-			case persistentKeepaliveKey:
-				i, err = strconv.Atoi(v)
-				if err != nil {
-					continue
-				}
-				peer.PersistentKeepalive = i
-			case presharedKeyKey:
-				peer.PresharedKey = []byte(v)
-			case publicKeyKey:
-				peer.PublicKey = []byte(v)
-			}
-		}
-	}
-	if peer != nil {
-		c.Peers = append(c.Peers, peer)
-	}
-	if iface != nil {
-		c.Interface = iface
-	}
-	return &c
-}
-
 // Bytes renders a WireGuard configuration to bytes.
-func (c *Conf) Bytes() ([]byte, error) {
+func (c Conf) Bytes() ([]byte, error) {
 	var err error
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
-	if c.Interface != nil {
+	if c.PrivateKey != nil {
 		if err = writeSection(buf, interfaceSection); err != nil {
 			return nil, fmt.Errorf("failed to write interface: %v", err)
 		}
-		if err = writePKey(buf, privateKeyKey, c.Interface.PrivateKey); err != nil {
+		if err = writePKey(buf, privateKeyKey, c.PrivateKey); err != nil {
 			return nil, fmt.Errorf("failed to write private key: %v", err)
 		}
-		if err = writeValue(buf, listenPortKey, strconv.FormatUint(uint64(c.Interface.ListenPort), 10)); err != nil {
+		if err = writeValue(buf, listenPortKey, strconv.Itoa(*c.ListenPort)); err != nil {
 			return nil, fmt.Errorf("failed to write listen port: %v", err)
 		}
 	}
 	for i, p := range c.Peers {
 		// Add newlines to make the formatting nicer.
-		if i == 0 && c.Interface != nil || i != 0 {
+		if i == 0 && c.PrivateKey != nil || i != 0 {
 			if err = buf.WriteByte('\n'); err != nil {
 				return nil, err
 			}
@@ -294,74 +188,99 @@ func (c *Conf) Bytes() ([]byte, error) {
 		if err = writeAllowedIPs(buf, p.AllowedIPs); err != nil {
 			return nil, fmt.Errorf("failed to write allowed IPs: %v", err)
 		}
-		if err = writeEndpoint(buf, p.Endpoint); err != nil {
+		if err = writeEndpoint(buf, p.KiloEndpoint); err != nil {
 			return nil, fmt.Errorf("failed to write endpoint: %v", err)
 		}
-		if err = writeValue(buf, persistentKeepaliveKey, strconv.Itoa(p.PersistentKeepalive)); err != nil {
+		if p.PersistentKeepaliveInterval == nil {
+			p.PersistentKeepaliveInterval = new(time.Duration)
+		}
+		if err = writeValue(buf, persistentKeepaliveKey, strconv.FormatUint(uint64(*p.PersistentKeepaliveInterval), 10)); err != nil {
 			return nil, fmt.Errorf("failed to write persistent keepalive: %v", err)
 		}
 		if err = writePKey(buf, presharedKeyKey, p.PresharedKey); err != nil {
 			return nil, fmt.Errorf("failed to write preshared key: %v", err)
 		}
-		if err = writePKey(buf, publicKeyKey, p.PublicKey); err != nil {
+		if err = writePKey(buf, publicKeyKey, &p.PublicKey); err != nil {
 			return nil, fmt.Errorf("failed to write public key: %v", err)
 		}
 	}
 	return buf.Bytes(), nil
 }
 
-// Equal checks if two WireGuard configurations are equivalent.
-func (c *Conf) Equal(b *Conf) bool {
-	if (c.Interface == nil) != (b.Interface == nil) {
-		return false
+// Equal returns true if the Conf and wgtypes.Device are equal.
+func (c *Conf) Equal(d *wgtypes.Device) (bool, string) {
+	if c == nil || d == nil {
+		return c == nil && d == nil, "nil values"
 	}
-	if c.Interface != nil {
-		if c.Interface.ListenPort != b.Interface.ListenPort || !bytes.Equal(c.Interface.PrivateKey, b.Interface.PrivateKey) {
-			return false
-		}
+	if c.ListenPort == nil || *c.ListenPort != d.ListenPort {
+		return false, fmt.Sprintf("port: old=%q, new=\"%v\"", d.ListenPort, c.ListenPort)
 	}
-	if len(c.Peers) != len(b.Peers) {
-		return false
+	if c.PrivateKey == nil || *c.PrivateKey != d.PrivateKey {
+		return false, fmt.Sprintf("private key: old=\"%s...\", new=\"%s\"", d.PrivateKey.String()[0:5], c.PrivateKey.String()[0:5])
 	}
+	if len(c.Peers) != len(d.Peers) {
+		return false, fmt.Sprintf("number of peers: old=%d, new=%d", len(d.Peers), len(c.Peers))
+	}
+	sortPeerConfigs(d.Peers)
 	sortPeers(c.Peers)
-	sortPeers(b.Peers)
 	for i := range c.Peers {
-		if len(c.Peers[i].AllowedIPs) != len(b.Peers[i].AllowedIPs) {
-			return false
+		if len(c.Peers[i].AllowedIPs) != len(d.Peers[i].AllowedIPs) {
+			return false, fmt.Sprintf("Peer %d allowed IP length: old=%d, new=%d", i, len(d.Peers[i].AllowedIPs), len(c.Peers[i].AllowedIPs))
 		}
 		sortCIDRs(c.Peers[i].AllowedIPs)
-		sortCIDRs(b.Peers[i].AllowedIPs)
+		sortCIDRs(d.Peers[i].AllowedIPs)
 		for j := range c.Peers[i].AllowedIPs {
-			if c.Peers[i].AllowedIPs[j].String() != b.Peers[i].AllowedIPs[j].String() {
-				return false
+			if c.Peers[i].AllowedIPs[j].String() != d.Peers[i].AllowedIPs[j].String() {
+				return false, fmt.Sprintf("Peer %d allowed IP: old=%q, new=%q", i, d.Peers[i].AllowedIPs[j].String(), c.Peers[i].AllowedIPs[j].String())
 			}
 		}
-		if !c.Peers[i].Endpoint.Equal(b.Peers[i].Endpoint, false) {
-			return false
+		if c.Peers[i].Endpoint == nil || d.Peers[i].Endpoint == nil {
+			return c.Peers[i].Endpoint == nil && d.Peers[i].Endpoint == nil, "peer endpoints: nil value"
 		}
-		if c.Peers[i].PersistentKeepalive != b.Peers[i].PersistentKeepalive || !bytes.Equal(c.Peers[i].PresharedKey, b.Peers[i].PresharedKey) || !bytes.Equal(c.Peers[i].PublicKey, b.Peers[i].PublicKey) {
-			return false
+		if !c.Peers[i].Endpoint.IP.Equal(d.Peers[i].Endpoint.IP) || c.Peers[i].Endpoint.Port != d.Peers[i].Endpoint.Port {
+			return false, fmt.Sprintf("Peer %d endpoint: old=%q, new=%q", i, d.Peers[i].Endpoint.String(), c.Peers[i].Endpoint.String())
+		}
+
+		pki := time.Duration(0)
+		if p := c.Peers[i].PersistentKeepaliveInterval; p != nil {
+			pki = *p
+		}
+		psk := wgtypes.Key{}
+		if p := c.Peers[i].PresharedKey; p != nil {
+			psk = *p
+		}
+		if pki != d.Peers[i].PersistentKeepaliveInterval || psk != d.Peers[i].PresharedKey || c.Peers[i].PublicKey != d.Peers[i].PublicKey {
+			return false, "persistent keepalive or pershared key"
 		}
 	}
-	return true
+	return true, ""
 }
 
-func sortPeers(peers []*Peer) {
+func sortPeerConfigs(peers []wgtypes.Peer) {
 	sort.Slice(peers, func(i, j int) bool {
-		if bytes.Compare(peers[i].PublicKey, peers[j].PublicKey) < 0 {
+		if peers[i].PublicKey.String() < peers[j].PublicKey.String() {
 			return true
 		}
 		return false
 	})
 }
 
-func sortCIDRs(cidrs []*net.IPNet) {
+func sortPeers(peers []Peer) {
+	sort.Slice(peers, func(i, j int) bool {
+		if peers[i].PublicKey.String() < peers[j].PublicKey.String() {
+			return true
+		}
+		return false
+	})
+}
+
+func sortCIDRs(cidrs []net.IPNet) {
 	sort.Slice(cidrs, func(i, j int) bool {
 		return cidrs[i].String() < cidrs[j].String()
 	})
 }
 
-func writeAllowedIPs(buf *bytes.Buffer, ais []*net.IPNet) error {
+func writeAllowedIPs(buf *bytes.Buffer, ais []net.IPNet) error {
 	if len(ais) == 0 {
 		return nil
 	}
@@ -382,15 +301,16 @@ func writeAllowedIPs(buf *bytes.Buffer, ais []*net.IPNet) error {
 	return buf.WriteByte('\n')
 }
 
-func writePKey(buf *bytes.Buffer, k key, b []byte) error {
-	if len(b) == 0 {
+func writePKey(buf *bytes.Buffer, k key, b *wgtypes.Key) error {
+	// Print nothing if the public key was never initialized.
+	if b == nil || (wgtypes.Key{}) == *b {
 		return nil
 	}
 	var err error
 	if err = writeKey(buf, k); err != nil {
 		return err
 	}
-	if _, err = buf.Write(b); err != nil {
+	if _, err = buf.Write([]byte(b.String())); err != nil {
 		return err
 	}
 	return buf.WriteByte('\n')
@@ -442,178 +362,4 @@ func writeKey(buf *bytes.Buffer, k key) error {
 	}
 	_, err = buf.WriteString(" = ")
 	return err
-}
-
-var (
-	errParseEndpoint = errors.New("could not parse Endpoint")
-)
-
-func (p *Peer) parseEndpoint(v string) error {
-	var (
-		kv      []string
-		err     error
-		ip, ip4 net.IP
-		port    uint64
-	)
-	kv = strings.Split(v, ":")
-	if len(kv) < 2 {
-		return errParseEndpoint
-	}
-	port, err = strconv.ParseUint(kv[len(kv)-1], 10, 32)
-	if err != nil {
-		return err
-	}
-	d := DNSOrIP{}
-	ip = net.ParseIP(strings.Trim(strings.Join(kv[:len(kv)-1], ":"), "[]"))
-	if ip == nil {
-		if len(validation.IsDNS1123Subdomain(kv[0])) != 0 {
-			return errParseEndpoint
-		}
-		d.DNS = kv[0]
-	} else {
-		if ip4 = ip.To4(); ip4 != nil {
-			d.IP = ip4
-		} else {
-			d.IP = ip.To16()
-		}
-	}
-
-	p.Endpoint = &Endpoint{
-		DNSOrIP: d,
-		Port:    uint32(port),
-	}
-	return nil
-}
-
-func (p *Peer) parseAllowedIPs(v string) error {
-	var (
-		ai      *net.IPNet
-		kv      []string
-		err     error
-		i       int
-		ip, ip4 net.IP
-	)
-
-	kv = strings.Split(v, ",")
-	for i = range kv {
-		ip, ai, err = net.ParseCIDR(strings.TrimSpace(kv[i]))
-		if err != nil {
-			return err
-		}
-		if ip4 = ip.To4(); ip4 != nil {
-			ip = ip4
-		} else {
-			ip = ip.To16()
-		}
-		ai.IP = ip
-		p.AllowedIPs = append(p.AllowedIPs, ai)
-	}
-	return nil
-}
-
-// ParseDump parses a given WireGuard dump and produces a Conf struct.
-func ParseDump(buf []byte) (*Conf, error) {
-	// from man wg, show section:
-	// If dump is specified, then several lines are printed;
-	// the first contains in order separated by tab: private-key, public-key, listen-port, fw‐mark.
-	// Subsequent lines are printed for each peer and contain in order separated by tab:
-	// public-key, preshared-key, endpoint, allowed-ips, latest-handshake, transfer-rx, transfer-tx, persistent-keepalive.
-	var (
-		active section
-		values []string
-		c      Conf
-		err    error
-		iface  *Interface
-		peer   *Peer
-		port   uint64
-		sec    int64
-		pka    int
-		line   int
-	)
-	// First line is Interface
-	active = interfaceSection
-	s := bufio.NewScanner(bytes.NewBuffer(buf))
-	for s.Scan() {
-		values = strings.Split(s.Text(), dumpSeparator)
-
-		switch active {
-		case interfaceSection:
-			if len(values) < dumpInterfaceLen {
-				return nil, fmt.Errorf("invalid interface line: missing fields (%d < %d)", len(values), dumpInterfaceLen)
-			}
-			iface = new(Interface)
-			for i := range values {
-				switch i {
-				case dumpInterfacePrivateKeyIndex:
-					iface.PrivateKey = []byte(values[i])
-				case dumpInterfaceListenPortIndex:
-					port, err = strconv.ParseUint(values[i], 10, 32)
-					if err != nil {
-						return nil, fmt.Errorf("invalid interface line: error parsing listen-port: %w", err)
-					}
-					iface.ListenPort = uint32(port)
-				}
-			}
-			c.Interface = iface
-			// Next lines are Peers
-			active = peerSection
-		case peerSection:
-			if len(values) < dumpPeerLen {
-				return nil, fmt.Errorf("invalid peer line %d: missing fields (%d < %d)", line, len(values), dumpPeerLen)
-			}
-			peer = new(Peer)
-
-			for i := range values {
-				switch i {
-				case dumpPeerPublicKeyIndex:
-					peer.PublicKey = []byte(values[i])
-				case dumpPeerPresharedKeyIndex:
-					if values[i] == dumpNone {
-						continue
-					}
-					peer.PresharedKey = []byte(values[i])
-				case dumpPeerEndpointIndex:
-					if values[i] == dumpNone {
-						continue
-					}
-					err = peer.parseEndpoint(values[i])
-					if err != nil {
-						return nil, fmt.Errorf("invalid peer line %d: error parsing endpoint: %w", line, err)
-					}
-				case dumpPeerAllowedIPsIndex:
-					if values[i] == dumpNone {
-						continue
-					}
-					err = peer.parseAllowedIPs(values[i])
-					if err != nil {
-						return nil, fmt.Errorf("invalid peer line %d: error parsing allowed-ips: %w", line, err)
-					}
-				case dumpPeerLatestHandshakeIndex:
-					if values[i] == "0" {
-						// Use go zero value, not unix 0 timestamp.
-						peer.LatestHandshake = time.Time{}
-						continue
-					}
-					sec, err = strconv.ParseInt(values[i], 10, 64)
-					if err != nil {
-						return nil, fmt.Errorf("invalid peer line %d: error parsing latest-handshake: %w", line, err)
-					}
-					peer.LatestHandshake = time.Unix(sec, 0)
-				case dumpPeerPersistentKeepaliveIndex:
-					if values[i] == dumpOff {
-						continue
-					}
-					pka, err = strconv.Atoi(values[i])
-					if err != nil {
-						return nil, fmt.Errorf("invalid peer line %d: error parsing persistent-keepalive: %w", line, err)
-					}
-					peer.PersistentKeepalive = pka
-				}
-			}
-			c.Peers = append(c.Peers, peer)
-			peer = nil
-		}
-		line++
-	}
-	return &c, nil
 }
