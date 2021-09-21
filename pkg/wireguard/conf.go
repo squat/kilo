@@ -43,7 +43,7 @@ const (
 // Conf represents a WireGuard configuration file.
 type Conf struct {
 	wgtypes.Config
-	// The Peers field is shadowed because every Peer needs the KiloEndpoint field that contains a DNS endpoint.
+	// The Peers field is shadowed because every Peer needs the Endpoint field that contains a DNS endpoint.
 	Peers []Peer
 }
 
@@ -60,16 +60,10 @@ func (c Conf) WGConfig() wgtypes.Config {
 	return r
 }
 
-// Interface represents the `interface` section of a WireGuard configuration.
-type Interface struct {
-	ListenPort uint32
-	PrivateKey []byte
-}
-
 // Peer represents a `peer` section of a WireGuard configuration.
 type Peer struct {
 	wgtypes.PeerConfig
-	KiloEndpoint *Endpoint
+	Addr string // eg: dnsname:port
 }
 
 // DeduplicateIPs eliminates duplicate allowed IPs.
@@ -84,79 +78,6 @@ func (p *Peer) DeduplicateIPs() {
 		seen[ip.String()] = struct{}{}
 	}
 	p.AllowedIPs = ips
-}
-
-// Endpoint represents an `endpoint` key of a `peer` section.
-type Endpoint struct {
-	DNSOrIP
-	Port int
-}
-
-// String prints the string representation of the endpoint.
-func (e *Endpoint) String() string {
-	if e == nil {
-		return ""
-	}
-	dnsOrIP := e.DNSOrIP.String()
-	if e.IP != nil && len(e.IP) == net.IPv6len {
-		dnsOrIP = "[" + dnsOrIP + "]"
-	}
-	return dnsOrIP + ":" + strconv.FormatUint(uint64(e.Port), 10)
-}
-
-// UDPAddr returns the corresponding net.UDPAddr of the Endpoint or nil.
-func (e *Endpoint) UDPAddr() (u *net.UDPAddr) {
-	if a, err := net.ResolveUDPAddr("udp", e.String()); err == nil {
-		u = a
-	}
-	return
-}
-
-// Equal compares two endpoints.
-func (e *Endpoint) Equal(b *Endpoint, DNSFirst bool) bool {
-	if (e == nil) != (b == nil) {
-		return false
-	}
-	if e != nil {
-		if e.Port != b.Port {
-			return false
-		}
-		if DNSFirst {
-			// Check the DNS name first if it was resolved.
-			if e.DNS != b.DNS {
-				return false
-			}
-			if e.DNS == "" && !e.IP.Equal(b.IP) {
-				return false
-			}
-		} else {
-			// IPs take priority, so check them first.
-			if !e.IP.Equal(b.IP) {
-				return false
-			}
-			// Only check the DNS name if the IP is empty.
-			if e.IP == nil && e.DNS != b.DNS {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-// DNSOrIP represents either a DNS name or an IP address.
-// IPs, as they are more specific, are preferred.
-type DNSOrIP struct {
-	DNS string
-	IP  net.IP
-}
-
-// String prints the string representation of the struct.
-func (d DNSOrIP) String() string {
-	if d.IP != nil {
-		return d.IP.String()
-	}
-	return d.DNS
 }
 
 // Bytes renders a WireGuard configuration to bytes.
@@ -188,13 +109,13 @@ func (c Conf) Bytes() ([]byte, error) {
 		if err = writeAllowedIPs(buf, p.AllowedIPs); err != nil {
 			return nil, fmt.Errorf("failed to write allowed IPs: %v", err)
 		}
-		if err = writeEndpoint(buf, p.KiloEndpoint); err != nil {
+		if err = writeEndpoint(buf, p.Endpoint, p.Addr); err != nil {
 			return nil, fmt.Errorf("failed to write endpoint: %v", err)
 		}
 		if p.PersistentKeepaliveInterval == nil {
 			p.PersistentKeepaliveInterval = new(time.Duration)
 		}
-		if err = writeValue(buf, persistentKeepaliveKey, strconv.FormatUint(uint64(*p.PersistentKeepaliveInterval), 10)); err != nil {
+		if err = writeValue(buf, persistentKeepaliveKey, strconv.FormatUint(uint64(*p.PersistentKeepaliveInterval/time.Second), 10)); err != nil {
 			return nil, fmt.Errorf("failed to write persistent keepalive: %v", err)
 		}
 		if err = writePKey(buf, presharedKeyKey, p.PresharedKey); err != nil {
@@ -327,15 +248,20 @@ func writeValue(buf *bytes.Buffer, k key, v string) error {
 	return buf.WriteByte('\n')
 }
 
-func writeEndpoint(buf *bytes.Buffer, e *Endpoint) error {
-	if e == nil {
+func writeEndpoint(buf *bytes.Buffer, e *net.UDPAddr, d string) error {
+	str := ""
+	if d != "" {
+		str = d
+	} else if e != nil {
+		str = e.String()
+	} else {
 		return nil
 	}
 	var err error
 	if err = writeKey(buf, endpointKey); err != nil {
 		return err
 	}
-	if _, err = buf.WriteString(e.String()); err != nil {
+	if _, err = buf.WriteString(str); err != nil {
 		return err
 	}
 	return buf.WriteByte('\n')

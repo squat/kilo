@@ -60,7 +60,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 	nodes := map[string]*Node{
 		"a": {
 			Name:                "a",
-			KiloEndpoint:        &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e1.IP}, Port: DefaultKiloPort},
+			Endpoint:            &net.UDPAddr{IP: e1.IP, Port: DefaultKiloPort},
 			InternalIP:          i1,
 			Location:            "1",
 			Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
@@ -69,7 +69,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 		},
 		"b": {
 			Name:               "b",
-			KiloEndpoint:       &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
+			Endpoint:           &net.UDPAddr{IP: e2.IP, Port: DefaultKiloPort},
 			InternalIP:         i1,
 			Location:           "2",
 			Subnet:             &net.IPNet{IP: net.ParseIP("10.2.2.0"), Mask: net.CIDRMask(24, 32)},
@@ -77,17 +77,17 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 			AllowedLocationIPs: []net.IPNet{*i3},
 		},
 		"c": {
-			Name:         "c",
-			KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e3.IP}, Port: DefaultKiloPort},
-			InternalIP:   i2,
+			Name:       "c",
+			Endpoint:   &net.UDPAddr{IP: e3.IP, Port: DefaultKiloPort},
+			InternalIP: i2,
 			// Same location as node b.
 			Location: "2",
 			Subnet:   &net.IPNet{IP: net.ParseIP("10.2.3.0"), Mask: net.CIDRMask(24, 32)},
 			Key:      key3,
 		},
 		"d": {
-			Name:         "d",
-			KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e4.IP}, Port: DefaultKiloPort},
+			Name:     "d",
+			Endpoint: &net.UDPAddr{IP: e4.IP, Port: DefaultKiloPort},
 			// Same location as node a, but without private IP
 			Location: "1",
 			Subnet:   &net.IPNet{IP: net.ParseIP("10.2.4.0"), Mask: net.CIDRMask(24, 32)},
@@ -115,10 +115,10 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 						{IP: net.ParseIP("10.5.0.3"), Mask: net.CIDRMask(24, 32)},
 					},
 					PublicKey: key5,
-				},
-				KiloEndpoint: &wireguard.Endpoint{
-					DNSOrIP: wireguard.DNSOrIP{IP: net.ParseIP("192.168.0.1")},
-					Port:    DefaultKiloPort,
+					Endpoint: &net.UDPAddr{
+						IP:   net.ParseIP("192.168.0.1"),
+						Port: DefaultKiloPort,
+					},
 				},
 			},
 		},
@@ -153,7 +153,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["a"].KiloEndpoint,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						persistentKeepalive: nodes["a"].PersistentKeepalive,
 						location:            logicalLocationPrefix + nodes["a"].Location,
@@ -164,7 +164,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, *nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["b"].KiloEndpoint,
+						endpoint:            nodes["b"].Endpoint,
 						key:                 nodes["b"].Key,
 						persistentKeepalive: nodes["b"].PersistentKeepalive,
 						location:            logicalLocationPrefix + nodes["b"].Location,
@@ -176,7 +176,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["d"].KiloEndpoint,
+						endpoint:            nodes["d"].Endpoint,
 						key:                 nodes["d"].Key,
 						persistentKeepalive: nodes["d"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["d"].Name,
@@ -204,7 +204,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["a"].KiloEndpoint,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						persistentKeepalive: nodes["a"].PersistentKeepalive,
 						location:            logicalLocationPrefix + nodes["a"].Location,
@@ -215,7 +215,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, *nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["b"].KiloEndpoint,
+						endpoint:            nodes["b"].Endpoint,
 						key:                 nodes["b"].Key,
 						persistentKeepalive: nodes["b"].PersistentKeepalive,
 						location:            logicalLocationPrefix + nodes["b"].Location,
@@ -227,7 +227,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["d"].KiloEndpoint,
+						endpoint:            nodes["d"].Endpoint,
 						key:                 nodes["d"].Key,
 						persistentKeepalive: nodes["d"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["d"].Name,
@@ -255,7 +255,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["a"].KiloEndpoint,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						persistentKeepalive: nodes["a"].PersistentKeepalive,
 						location:            logicalLocationPrefix + nodes["a"].Location,
@@ -266,7 +266,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, *nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["b"].KiloEndpoint,
+						endpoint:            nodes["b"].Endpoint,
 						key:                 nodes["b"].Key,
 						persistentKeepalive: nodes["b"].PersistentKeepalive,
 						location:            logicalLocationPrefix + nodes["b"].Location,
@@ -278,7 +278,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["d"].KiloEndpoint,
+						endpoint:            nodes["d"].Endpoint,
 						key:                 nodes["d"].Key,
 						persistentKeepalive: nodes["d"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["d"].Name,
@@ -306,7 +306,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["a"].KiloEndpoint,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						persistentKeepalive: nodes["a"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["a"].Name,
@@ -317,7 +317,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["b"].KiloEndpoint,
+						endpoint:            nodes["b"].Endpoint,
 						key:                 nodes["b"].Key,
 						persistentKeepalive: nodes["b"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["b"].Name,
@@ -329,7 +329,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["c"].KiloEndpoint,
+						endpoint:            nodes["c"].Endpoint,
 						key:                 nodes["c"].Key,
 						persistentKeepalive: nodes["c"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["c"].Name,
@@ -340,7 +340,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["d"].KiloEndpoint,
+						endpoint:            nodes["d"].Endpoint,
 						key:                 nodes["d"].Key,
 						persistentKeepalive: nodes["d"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["d"].Name,
@@ -368,7 +368,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["a"].KiloEndpoint,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						persistentKeepalive: nodes["a"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["a"].Name,
@@ -379,7 +379,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["b"].KiloEndpoint,
+						endpoint:            nodes["b"].Endpoint,
 						key:                 nodes["b"].Key,
 						persistentKeepalive: nodes["b"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["b"].Name,
@@ -391,7 +391,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["c"].KiloEndpoint,
+						endpoint:            nodes["c"].Endpoint,
 						key:                 nodes["c"].Key,
 						persistentKeepalive: nodes["c"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["c"].Name,
@@ -402,7 +402,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["d"].KiloEndpoint,
+						endpoint:            nodes["d"].Endpoint,
 						key:                 nodes["d"].Key,
 						persistentKeepalive: nodes["d"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["d"].Name,
@@ -430,7 +430,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["a"].KiloEndpoint,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						persistentKeepalive: nodes["a"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["a"].Name,
@@ -441,7 +441,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["b"].KiloEndpoint,
+						endpoint:            nodes["b"].Endpoint,
 						key:                 nodes["b"].Key,
 						persistentKeepalive: nodes["b"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["b"].Name,
@@ -453,7 +453,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["c"].KiloEndpoint,
+						endpoint:            nodes["c"].Endpoint,
 						key:                 nodes["c"].Key,
 						persistentKeepalive: nodes["c"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["c"].Name,
@@ -464,7 +464,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["d"].KiloEndpoint,
+						endpoint:            nodes["d"].Endpoint,
 						key:                 nodes["d"].Key,
 						persistentKeepalive: nodes["d"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["d"].Name,
@@ -492,7 +492,7 @@ func TestNewTopology(t *testing.T) {
 				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["a"].KiloEndpoint,
+						endpoint:            nodes["a"].Endpoint,
 						key:                 nodes["a"].Key,
 						persistentKeepalive: nodes["a"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["a"].Name,
@@ -503,7 +503,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["b"].KiloEndpoint,
+						endpoint:            nodes["b"].Endpoint,
 						key:                 nodes["b"].Key,
 						persistentKeepalive: nodes["b"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["b"].Name,
@@ -515,7 +515,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["c"].KiloEndpoint,
+						endpoint:            nodes["c"].Endpoint,
 						key:                 nodes["c"].Key,
 						persistentKeepalive: nodes["c"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["c"].Name,
@@ -526,7 +526,7 @@ func TestNewTopology(t *testing.T) {
 					},
 					{
 						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
-						kiloEndpoint:        nodes["d"].KiloEndpoint,
+						endpoint:            nodes["d"].Endpoint,
 						key:                 nodes["d"].Key,
 						persistentKeepalive: nodes["d"].PersistentKeepalive,
 						location:            nodeLocationPrefix + nodes["d"].Name,
@@ -575,26 +575,26 @@ func TestFindLeader(t *testing.T) {
 
 	nodes := []*Node{
 		{
-			Name:         "a",
-			KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e1.IP}, Port: DefaultKiloPort},
+			Name:     "a",
+			Endpoint: &net.UDPAddr{IP: e1.IP, Port: DefaultKiloPort},
 		},
 		{
-			Name:         "b",
-			KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
+			Name:     "b",
+			Endpoint: &net.UDPAddr{IP: e2.IP, Port: DefaultKiloPort},
 		},
 		{
-			Name:         "c",
-			KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
+			Name:     "c",
+			Endpoint: &net.UDPAddr{IP: e2.IP, Port: DefaultKiloPort},
 		},
 		{
-			Name:         "d",
-			KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e1.IP}, Port: DefaultKiloPort},
-			Leader:       true,
+			Name:     "d",
+			Endpoint: &net.UDPAddr{IP: e1.IP, Port: DefaultKiloPort},
+			Leader:   true,
 		},
 		{
-			Name:         "2",
-			KiloEndpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: e2.IP}, Port: DefaultKiloPort},
-			Leader:       true,
+			Name:     "2",
+			Endpoint: &net.UDPAddr{IP: e2.IP, Port: DefaultKiloPort},
+			Leader:   true,
 		},
 	}
 	for _, tc := range []struct {

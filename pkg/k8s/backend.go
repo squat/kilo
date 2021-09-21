@@ -213,7 +213,7 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 		return fmt.Errorf("failed to find node: %v", err)
 	}
 	n := old.DeepCopy()
-	n.ObjectMeta.Annotations[endpointAnnotationKey] = node.KiloEndpoint.String()
+	n.ObjectMeta.Annotations[endpointAnnotationKey] = node.Endpoint.String()
 	if node.InternalIP == nil {
 		n.ObjectMeta.Annotations[internalIPAnnotationKey] = ""
 	} else {
@@ -277,9 +277,9 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		location = node.ObjectMeta.Labels[topologyLabel]
 	}
 	// Allow the endpoint to be overridden.
-	endpoint := parseEndpoint(node.ObjectMeta.Annotations[forceEndpointAnnotationKey])
-	if endpoint == nil {
-		endpoint = parseEndpoint(node.ObjectMeta.Annotations[endpointAnnotationKey])
+	endpoint, addr := parseEndpoint(node.ObjectMeta.Annotations[forceEndpointAnnotationKey])
+	if endpoint == nil && addr == "" {
+		endpoint, addr = parseEndpoint(node.ObjectMeta.Annotations[endpointAnnotationKey])
 	}
 	// Allow the internal IP to be overridden.
 	internalIP := normalizeIP(node.ObjectMeta.Annotations[forceInternalIPAnnotationKey])
@@ -344,7 +344,8 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		// the mesh can wait for the node to be updated.
 		// It is valid for the InternalIP to be nil,
 		// if the given node only has public IP addresses.
-		KiloEndpoint:        endpoint,
+		Endpoint:            endpoint,
+		Addr:                addr,
 		NoInternalIP:        noInternalIP,
 		InternalIP:          internalIP,
 		Key:                 key,
@@ -378,7 +379,8 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		}
 		aips = append(aips, *aip)
 	}
-	var endpoint *wireguard.Endpoint
+	var endpoint *net.UDPAddr
+	var addr string
 	if peer.Spec.Endpoint != nil {
 		ip := net.ParseIP(peer.Spec.Endpoint.IP)
 		if ip4 := ip.To4(); ip4 != nil {
@@ -386,13 +388,12 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		} else {
 			ip = ip.To16()
 		}
-		if peer.Spec.Endpoint.Port > 0 && (ip != nil || peer.Spec.Endpoint.DNS != "") {
-			endpoint = &wireguard.Endpoint{
-				DNSOrIP: wireguard.DNSOrIP{
-					DNS: peer.Spec.Endpoint.DNS,
-					IP:  ip,
-				},
-				Port: int(peer.Spec.Endpoint.Port),
+		if peer.Spec.Endpoint.Port > 0 {
+			if ip != nil {
+				endpoint = &net.UDPAddr{IP: ip, Port: int(peer.Spec.Endpoint.Port)}
+			}
+			if peer.Spec.Endpoint.DNS != "" {
+				addr = fmt.Sprintf("%s:%d", peer.Spec.Endpoint.DNS, peer.Spec.Endpoint.Port)
 			}
 		}
 	}
@@ -414,12 +415,12 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		Peer: wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
 				AllowedIPs:                  aips,
-				Endpoint:                    nil, // applyTopology will resolve this endpoint from the KiloEndpoint.
+				Endpoint:                    endpoint, // applyTopology will resolve this endpoint from the KiloEndpoint.
 				PersistentKeepaliveInterval: &pka,
 				PresharedKey:                psk,
 				PublicKey:                   key,
 			},
-			KiloEndpoint: endpoint,
+			Addr: addr,
 		},
 	}
 }
@@ -519,14 +520,20 @@ func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
 	if peer.Endpoint != nil {
 		var ip string
 		if peer.Endpoint.IP != nil {
-			ip = peer.KiloEndpoint.IP.String()
+			ip = peer.Endpoint.IP.String()
+		}
+		var dns string
+		if peer.Addr != "" {
+			if strs := strings.Split(peer.Addr, ":"); len(strs) == 2 && strs[0] != "" {
+				dns = strs[0]
+			}
 		}
 		p.Spec.Endpoint = &v1alpha1.PeerEndpoint{
 			DNSOrIP: v1alpha1.DNSOrIP{
 				IP:  ip,
-				DNS: peer.KiloEndpoint.DNS,
+				DNS: dns,
 			},
-			Port: uint32(peer.KiloEndpoint.Port),
+			Port: uint32(peer.Endpoint.Port),
 		}
 	}
 	if peer.PersistentKeepaliveInterval == nil {
@@ -564,34 +571,33 @@ func normalizeIP(ip string) *net.IPNet {
 	return ipNet
 }
 
-func parseEndpoint(endpoint string) *wireguard.Endpoint {
+func parseEndpoint(endpoint string) (*net.UDPAddr, string) {
 	if len(endpoint) == 0 {
-		return nil
+		return nil, ""
 	}
 	parts := strings.Split(endpoint, ":")
 	if len(parts) < 2 {
-		return nil
+		return nil, ""
 	}
 	portRaw := parts[len(parts)-1]
 	hostRaw := strings.Trim(strings.Join(parts[:len(parts)-1], ":"), "[]")
 	port, err := strconv.ParseUint(portRaw, 10, 32)
 	if err != nil {
-		return nil
+		return nil, ""
 	}
 	if len(validation.IsValidPortNum(int(port))) != 0 {
-		return nil
+		return nil, ""
 	}
 	ip := net.ParseIP(hostRaw)
 	if ip == nil {
 		if len(validation.IsDNS1123Subdomain(hostRaw)) == 0 {
-			return &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{DNS: hostRaw}, Port: int(port)}
+			return nil, endpoint
 		}
-		return nil
+		return nil, ""
 	}
-	if ip4 := ip.To4(); ip4 != nil {
-		ip = ip4
-	} else {
-		ip = ip.To16()
+	u, err := net.ResolveUDPAddr("udp", endpoint)
+	if err != nil {
+		return nil, ""
 	}
-	return &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: ip}, Port: int(port)}
+	return u, ""
 }

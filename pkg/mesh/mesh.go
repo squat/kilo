@@ -370,8 +370,8 @@ func (m *Mesh) checkIn() {
 
 func (m *Mesh) handleLocal(n *Node) {
 	// Allow the IPs to be overridden.
-	if n.KiloEndpoint == nil || (n.KiloEndpoint.DNS == "" && n.KiloEndpoint.IP == nil) {
-		n.KiloEndpoint = &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: m.externalIP.IP}, Port: m.port}
+	if n.Endpoint == nil || n.Addr == "" {
+		n.Endpoint = &net.UDPAddr{IP: m.externalIP.IP, Port: m.port}
 	}
 	if n.InternalIP == nil && !n.NoInternalIP {
 		n.InternalIP = m.internalIP
@@ -380,7 +380,7 @@ func (m *Mesh) handleLocal(n *Node) {
 	// Take leader, location, and subnet from the argument, as these
 	// are not determined by kilo.
 	local := &Node{
-		KiloEndpoint:        n.KiloEndpoint,
+		Endpoint:            n.Endpoint,
 		Key:                 m.pub,
 		NoInternalIP:        n.NoInternalIP,
 		InternalIP:          n.InternalIP,
@@ -484,7 +484,7 @@ func (m *Mesh) applyTopology() {
 
 	natEndpoints := discoverNATEndpoints(nodes, peers, wgDevice, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
-	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].KiloEndpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive, m.logger)
+	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive, m.logger)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
@@ -625,12 +625,12 @@ func (m *Mesh) resolveEndpoints() error {
 		}
 		// If the node is ready, then the endpoint is not nil
 		// but it may not have a DNS name.
-		if m.nodes[k].KiloEndpoint.DNS == "" {
+		if m.nodes[k].Addr == "" {
 			continue
 		}
-		if u, err := net.ResolveUDPAddr("udp", m.nodes[k].KiloEndpoint.String()); err == nil {
+		if u, err := net.ResolveUDPAddr("udp", m.nodes[k].Addr); err == nil {
 			m.nodes[k].Endpoint = u
-			m.nodes[k].KiloEndpoint.IP = u.IP
+			m.nodes[k].Endpoint.IP = u.IP
 		} else {
 			return err
 		}
@@ -642,12 +642,11 @@ func (m *Mesh) resolveEndpoints() error {
 			continue
 		}
 		// Peers may have nil endpoints.
-		if m.peers[k].KiloEndpoint == nil || m.peers[k].KiloEndpoint.DNS == "" {
+		if m.peers[k].Addr == "" {
 			continue
 		}
-		if u, err := net.ResolveUDPAddr("udp", m.peers[k].KiloEndpoint.String()); err == nil {
+		if u, err := net.ResolveUDPAddr("udp", m.peers[k].Addr); err == nil {
 			m.peers[k].Endpoint = u
-			m.peers[k].KiloEndpoint.IP = u.IP
 		} else {
 			return err
 		}
@@ -668,7 +667,7 @@ func nodesAreEqual(a, b *Node) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if !a.KiloEndpoint.Equal(b.KiloEndpoint, true) {
+	if a.Addr != b.Addr || a.Endpoint.String() != b.Endpoint.String() {
 		return false
 	}
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
@@ -697,7 +696,7 @@ func peersAreEqual(a, b *Peer) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if !a.KiloEndpoint.Equal(b.KiloEndpoint, true) {
+	if a.Addr != b.Addr || a.Endpoint.String() != b.Endpoint.String() {
 		return false
 	}
 	if len(a.AllowedIPs) != len(b.AllowedIPs) {

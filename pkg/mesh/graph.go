@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/awalterschulze/gographviz"
-	"github.com/squat/kilo/pkg/wireguard"
 )
 
 // Dot generates a Graphviz graph of the Topology in DOT fomat.
@@ -62,10 +61,10 @@ func (t *Topology) Dot() (string, error) {
 				return "", fmt.Errorf("failed to add node to subgraph")
 			}
 			var wg net.IP
-			var endpoint *wireguard.Endpoint
+			var endpoint *net.UDPAddr
 			if j == s.leader {
 				wg = s.wireGuardIP
-				endpoint = s.kiloEndpoint
+				endpoint = s.endpoint
 				if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Rank), "1"); err != nil {
 					return "", fmt.Errorf("failed to add rank to node")
 				}
@@ -74,7 +73,7 @@ func (t *Topology) Dot() (string, error) {
 			if s.privateIPs != nil {
 				priv = s.privateIPs[j]
 			}
-			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], priv, wg, endpoint)); err != nil {
+			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], priv, wg, endpoint, s.addr)); err != nil {
 				return "", fmt.Errorf("failed to add label to node")
 			}
 		}
@@ -154,7 +153,7 @@ func subGraphName(name string) string {
 	return graphEscape(fmt.Sprintf("cluster_location_%s", name))
 }
 
-func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP, endpoint *wireguard.Endpoint) string {
+func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP, endpoint *net.UDPAddr, addr string) string {
 	label := []string{
 		location,
 		name,
@@ -166,8 +165,14 @@ func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP, endpoi
 	if wgIP != nil {
 		label = append(label, wgIP.String())
 	}
-	if endpoint != nil {
-		label = append(label, endpoint.String())
+	var str string
+	if addr != "" {
+		str = addr
+	} else if endpoint != nil {
+		str = endpoint.String()
+	}
+	if str != "" {
+		label = append(label, str)
 	}
 	return graphEscape(strings.Join(label, "\\n"))
 }
