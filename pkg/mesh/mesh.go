@@ -370,8 +370,10 @@ func (m *Mesh) checkIn() {
 
 func (m *Mesh) handleLocal(n *Node) {
 	// Allow the IPs to be overridden.
-	if n.Endpoint == nil || n.Addr == "" {
-		n.Endpoint = &net.UDPAddr{IP: m.externalIP.IP, Port: m.port}
+	if !n.Endpoint.Ready() {
+		e := wireguard.NewEndpoint(m.externalIP.IP, m.port)
+		level.Info(m.logger).Log("msg", "overriding endpoint", "node", m.hostname, "old endpoint", n.Endpoint.String(), "new endpoint", e.String())
+		n.Endpoint = e
 	}
 	if n.InternalIP == nil && !n.NoInternalIP {
 		n.InternalIP = m.internalIP
@@ -484,7 +486,7 @@ func (m *Mesh) applyTopology() {
 
 	natEndpoints := discoverNATEndpoints(nodes, peers, wgDevice, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
-	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port, m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive, m.logger)
+	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port(), m.priv, m.subnet, nodes[m.hostname].PersistentKeepalive, m.logger)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
@@ -623,15 +625,8 @@ func (m *Mesh) resolveEndpoints() error {
 		if !m.nodes[k].Ready() {
 			continue
 		}
-		// If the node is ready, then the endpoint is not nil
-		// but it may not have a DNS name.
-		if m.nodes[k].Addr == "" {
-			continue
-		}
-		if u, err := net.ResolveUDPAddr("udp", m.nodes[k].Addr); err == nil {
-			m.nodes[k].Endpoint = u
-			m.nodes[k].Endpoint.IP = u.IP
-		} else {
+		// Resolve the Endpoint
+		if _, err := m.nodes[k].Endpoint.UDPAddr(true); err != nil {
 			return err
 		}
 	}
@@ -642,12 +637,10 @@ func (m *Mesh) resolveEndpoints() error {
 			continue
 		}
 		// Peers may have nil endpoints.
-		if m.peers[k].Addr == "" {
+		if !m.peers[k].Endpoint.Ready() {
 			continue
 		}
-		if u, err := net.ResolveUDPAddr("udp", m.peers[k].Addr); err == nil {
-			m.peers[k].Endpoint = u
-		} else {
+		if _, err := m.peers[k].Endpoint.UDPAddr(true); err != nil {
 			return err
 		}
 	}
@@ -667,7 +660,7 @@ func nodesAreEqual(a, b *Node) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if a.Addr != b.Addr || a.Endpoint.String() != b.Endpoint.String() {
+	if a.Endpoint.StringOpt(false) != b.Endpoint.StringOpt(false) {
 		return false
 	}
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
@@ -696,7 +689,7 @@ func peersAreEqual(a, b *Peer) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if a.Addr != b.Addr || a.Endpoint.String() != b.Endpoint.String() {
+	if a.Endpoint.StringOpt(false) != b.Endpoint.StringOpt(false) {
 		return false
 	}
 	if len(a.AllowedIPs) != len(b.AllowedIPs) {

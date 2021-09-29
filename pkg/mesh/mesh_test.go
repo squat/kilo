@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+
+	"github.com/squat/kilo/pkg/wireguard"
 )
 
 func mustKey() wgtypes.Key {
@@ -62,7 +64,7 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty endpoint IP",
 			node: &Node{
-				Endpoint:   &net.UDPAddr{Port: DefaultKiloPort},
+				Endpoint:   wireguard.NewEndpoint(nil, DefaultKiloPort),
 				InternalIP: internalIP,
 				Key:        wgtypes.Key{},
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
@@ -72,7 +74,7 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty endpoint port",
 			node: &Node{
-				Endpoint:   &net.UDPAddr{IP: externalIP.IP},
+				Endpoint:   wireguard.NewEndpoint(externalIP.IP, 0),
 				InternalIP: internalIP,
 				Key:        wgtypes.Key{},
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
@@ -82,7 +84,7 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty internal IP",
 			node: &Node{
-				Endpoint: &net.UDPAddr{IP: externalIP.IP, Port: DefaultKiloPort},
+				Endpoint: wireguard.NewEndpoint(externalIP.IP, DefaultKiloPort),
 				Key:      wgtypes.Key{},
 				Subnet:   &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
@@ -91,7 +93,7 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty key",
 			node: &Node{
-				Endpoint:   &net.UDPAddr{IP: externalIP.IP, Port: DefaultKiloPort},
+				Endpoint:   wireguard.NewEndpoint(externalIP.IP, DefaultKiloPort),
 				InternalIP: internalIP,
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
@@ -100,7 +102,7 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty subnet",
 			node: &Node{
-				Endpoint:   &net.UDPAddr{IP: externalIP.IP, Port: DefaultKiloPort},
+				Endpoint:   wireguard.NewEndpoint(externalIP.IP, DefaultKiloPort),
 				InternalIP: internalIP,
 				Key:        wgtypes.Key{},
 			},
@@ -109,7 +111,7 @@ func TestReady(t *testing.T) {
 		{
 			name: "valid",
 			node: &Node{
-				Endpoint:   &net.UDPAddr{IP: externalIP.IP, Port: DefaultKiloPort},
+				Endpoint:   wireguard.NewEndpoint(externalIP.IP, DefaultKiloPort),
 				InternalIP: internalIP,
 				Key:        key,
 				LastSeen:   time.Now().Unix(),

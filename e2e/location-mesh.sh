@@ -18,7 +18,7 @@ test_location_mesh_connectivity() {
 }
 
 test_location_mesh_peer() {
-	check_peer wg1 e2e 10.5.0.1/32 location
+	check_peer wg99 e2e 10.5.0.1/32 location
 }
 
 test_mesh_granularity_auto_detect() {

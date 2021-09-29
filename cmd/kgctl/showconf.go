@@ -289,6 +289,7 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 }
 
 // translatePeer translates a wireguard.Peer to a Peer CRD.
+// TODO this function has many similarities to peerBackend.Set(name, peer)
 func translatePeer(peer *wireguard.Peer) *v1alpha1.Peer {
 	if peer == nil {
 		return &v1alpha1.Peer{}
@@ -303,21 +304,13 @@ func translatePeer(peer *wireguard.Peer) *v1alpha1.Peer {
 		aips = append(aips, aip.String())
 	}
 	var endpoint *v1alpha1.PeerEndpoint
-	if (peer.Endpoint != nil && peer.Endpoint.Port > 0) || peer.Addr != "" {
-		var ip string
-		if peer.Endpoint.IP != nil {
-			ip = peer.Endpoint.IP.String()
-		}
-		var dns string
-		if strs := strings.Split(peer.Addr, ":"); len(strs) == 2 && strs[0] != "" {
-			dns = strs[0]
-		}
+	if peer.Endpoint.Port() > 0 || !peer.Endpoint.HasDNS() {
 		endpoint = &v1alpha1.PeerEndpoint{
 			DNSOrIP: v1alpha1.DNSOrIP{
-				DNS: dns,
-				IP:  ip,
+				IP:  peer.Endpoint.IP().String(),
+				DNS: peer.Endpoint.DNS(),
 			},
-			Port: uint32(peer.Endpoint.Port),
+			Port: uint32(peer.Endpoint.Port()),
 		}
 	}
 	var key string

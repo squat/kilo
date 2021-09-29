@@ -67,8 +67,7 @@ type Topology struct {
 
 type segment struct {
 	allowedIPs          []net.IPNet
-	addr                string
-	endpoint            *net.UDPAddr
+	endpoint            *wireguard.Endpoint
 	key                 wgtypes.Key
 	persistentKeepalive time.Duration
 	// Location is the logical location of this segment.
@@ -178,7 +177,6 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		})
 		t.segments = append(t.segments, &segment{
 			allowedIPs:          allowedIPs,
-			addr:                topoMap[location][leader].Addr,
 			endpoint:            topoMap[location][leader].Endpoint,
 			key:                 topoMap[location][leader].Key,
 			persistentKeepalive: topoMap[location][leader].PersistentKeepalive,
@@ -287,14 +285,14 @@ CheckIPs:
 	return
 }
 
-func (t *Topology) updateEndpoint(endpoint *net.UDPAddr, key wgtypes.Key, persistentKeepalive *time.Duration) *net.UDPAddr {
+func (t *Topology) updateEndpoint(endpoint *wireguard.Endpoint, key wgtypes.Key, persistentKeepalive *time.Duration) *wireguard.Endpoint {
 	// Do not update non-nat peers
 	if persistentKeepalive == nil || *persistentKeepalive == time.Duration(0) {
 		return endpoint
 	}
 	e, ok := t.discoveredEndpoints[key.String()]
 	if ok {
-		return e
+		return wireguard.NewEndpointFromUDPAddr(e)
 	}
 	return nil
 }
@@ -315,12 +313,11 @@ func (t *Topology) Conf() *wireguard.Conf {
 		peer := wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
 				AllowedIPs:                  append(s.allowedIPs, s.allowedLocationIPs...),
-				Endpoint:                    t.updateEndpoint(s.endpoint, s.key, &s.persistentKeepalive),
 				PersistentKeepaliveInterval: &t.persistentKeepalive,
 				PublicKey:                   s.key,
 				ReplaceAllowedIPs:           true,
 			},
-			Addr: s.addr,
+			Endpoint: t.updateEndpoint(s.endpoint, s.key, &s.persistentKeepalive),
 		}
 		c.Peers = append(c.Peers, peer)
 	}
@@ -328,13 +325,12 @@ func (t *Topology) Conf() *wireguard.Conf {
 		peer := wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
 				AllowedIPs:                  p.AllowedIPs,
-				Endpoint:                    t.updateEndpoint(p.Endpoint, p.PublicKey, p.PersistentKeepaliveInterval),
 				PersistentKeepaliveInterval: &t.persistentKeepalive,
 				PresharedKey:                p.PresharedKey,
 				PublicKey:                   p.PublicKey,
 				ReplaceAllowedIPs:           true,
 			},
-			Addr: p.Addr,
+			Endpoint: t.updateEndpoint(p.Endpoint, p.PublicKey, p.PersistentKeepaliveInterval),
 		}
 		c.Peers = append(c.Peers, peer)
 	}
@@ -352,9 +348,8 @@ func (t *Topology) AsPeer() wireguard.Peer {
 			PeerConfig: wgtypes.PeerConfig{
 				AllowedIPs: s.allowedIPs,
 				PublicKey:  s.key,
-				Endpoint:   s.endpoint,
 			},
-			Addr: s.addr,
+			Endpoint: s.endpoint,
 		}
 		return p
 	}
@@ -377,12 +372,11 @@ func (t *Topology) PeerConf(name string) wireguard.Conf {
 		peer := wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
 				AllowedIPs:                  s.allowedIPs,
-				Endpoint:                    s.endpoint,
 				PersistentKeepaliveInterval: pka,
 				PresharedKey:                psk,
 				PublicKey:                   s.key,
 			},
-			Addr: s.addr,
+			Endpoint: s.endpoint,
 		}
 		c.Peers = append(c.Peers, peer)
 	}
@@ -395,8 +389,8 @@ func (t *Topology) PeerConf(name string) wireguard.Conf {
 				AllowedIPs:                  t.peers[i].AllowedIPs,
 				PersistentKeepaliveInterval: pka,
 				PublicKey:                   t.peers[i].PublicKey,
-				Endpoint:                    t.peers[i].Endpoint,
 			},
+			Endpoint: t.peers[i].Endpoint,
 		}
 		c.Peers = append(c.Peers, peer)
 	}
@@ -417,13 +411,13 @@ func findLeader(nodes []*Node) int {
 	var leaders, public []int
 	for i := range nodes {
 		if nodes[i].Leader {
-			if isPublic(nodes[i].Endpoint.IP) {
+			if isPublic(nodes[i].Endpoint.IP()) {
 				return i
 			}
 			leaders = append(leaders, i)
 
 		}
-		if nodes[i].Endpoint != nil && isPublic(nodes[i].Endpoint.IP) {
+		if nodes[i].Endpoint != nil && isPublic(nodes[i].Endpoint.IP()) {
 			public = append(public, i)
 		}
 	}
@@ -444,12 +438,11 @@ func deduplicatePeerIPs(peers []*Peer) []*Peer {
 			Name: peer.Name,
 			Peer: wireguard.Peer{
 				PeerConfig: wgtypes.PeerConfig{
-					Endpoint:                    peer.Endpoint,
 					PersistentKeepaliveInterval: peer.PersistentKeepaliveInterval,
 					PresharedKey:                peer.PresharedKey,
 					PublicKey:                   peer.PublicKey,
 				},
-				Addr: peer.Addr,
+				Endpoint: peer.Endpoint,
 			},
 		}
 		for _, ip := range peer.AllowedIPs {

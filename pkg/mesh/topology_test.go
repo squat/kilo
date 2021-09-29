@@ -60,7 +60,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 	nodes := map[string]*Node{
 		"a": {
 			Name:                "a",
-			Endpoint:            &net.UDPAddr{IP: e1.IP, Port: DefaultKiloPort},
+			Endpoint:            wireguard.NewEndpoint(e1.IP, DefaultKiloPort),
 			InternalIP:          i1,
 			Location:            "1",
 			Subnet:              &net.IPNet{IP: net.ParseIP("10.2.1.0"), Mask: net.CIDRMask(24, 32)},
@@ -69,7 +69,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 		},
 		"b": {
 			Name:               "b",
-			Endpoint:           &net.UDPAddr{IP: e2.IP, Port: DefaultKiloPort},
+			Endpoint:           wireguard.NewEndpoint(e2.IP, DefaultKiloPort),
 			InternalIP:         i1,
 			Location:           "2",
 			Subnet:             &net.IPNet{IP: net.ParseIP("10.2.2.0"), Mask: net.CIDRMask(24, 32)},
@@ -78,7 +78,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 		},
 		"c": {
 			Name:       "c",
-			Endpoint:   &net.UDPAddr{IP: e3.IP, Port: DefaultKiloPort},
+			Endpoint:   wireguard.NewEndpoint(e3.IP, DefaultKiloPort),
 			InternalIP: i2,
 			// Same location as node b.
 			Location: "2",
@@ -87,7 +87,7 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 		},
 		"d": {
 			Name:     "d",
-			Endpoint: &net.UDPAddr{IP: e4.IP, Port: DefaultKiloPort},
+			Endpoint: wireguard.NewEndpoint(e4.IP, DefaultKiloPort),
 			// Same location as node a, but without private IP
 			Location: "1",
 			Subnet:   &net.IPNet{IP: net.ParseIP("10.2.4.0"), Mask: net.CIDRMask(24, 32)},
@@ -115,11 +115,8 @@ func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) 
 						{IP: net.ParseIP("10.5.0.3"), Mask: net.CIDRMask(24, 32)},
 					},
 					PublicKey: key5,
-					Endpoint: &net.UDPAddr{
-						IP:   net.ParseIP("192.168.0.1"),
-						Port: DefaultKiloPort,
-					},
 				},
+				Endpoint: wireguard.NewEndpoint(net.ParseIP("192.168.0.1"), DefaultKiloPort),
 			},
 		},
 	}
@@ -576,24 +573,24 @@ func TestFindLeader(t *testing.T) {
 	nodes := []*Node{
 		{
 			Name:     "a",
-			Endpoint: &net.UDPAddr{IP: e1.IP, Port: DefaultKiloPort},
+			Endpoint: wireguard.NewEndpoint(e1.IP, DefaultKiloPort),
 		},
 		{
 			Name:     "b",
-			Endpoint: &net.UDPAddr{IP: e2.IP, Port: DefaultKiloPort},
+			Endpoint: wireguard.NewEndpoint(e2.IP, DefaultKiloPort),
 		},
 		{
 			Name:     "c",
-			Endpoint: &net.UDPAddr{IP: e2.IP, Port: DefaultKiloPort},
+			Endpoint: wireguard.NewEndpoint(e2.IP, DefaultKiloPort),
 		},
 		{
 			Name:     "d",
-			Endpoint: &net.UDPAddr{IP: e1.IP, Port: DefaultKiloPort},
+			Endpoint: wireguard.NewEndpoint(e1.IP, DefaultKiloPort),
 			Leader:   true,
 		},
 		{
 			Name:     "2",
-			Endpoint: &net.UDPAddr{IP: e2.IP, Port: DefaultKiloPort},
+			Endpoint: wireguard.NewEndpoint(e2.IP, DefaultKiloPort),
 			Leader:   true,
 		},
 	}

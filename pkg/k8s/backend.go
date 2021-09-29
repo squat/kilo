@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/apimachinery/pkg/util/validation"
 	v1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	v1listers "k8s.io/client-go/listers/core/v1"
@@ -277,9 +276,9 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		location = node.ObjectMeta.Labels[topologyLabel]
 	}
 	// Allow the endpoint to be overridden.
-	endpoint, addr := parseEndpoint(node.ObjectMeta.Annotations[forceEndpointAnnotationKey])
-	if endpoint == nil && addr == "" {
-		endpoint, addr = parseEndpoint(node.ObjectMeta.Annotations[endpointAnnotationKey])
+	endpoint := wireguard.ParseEndpoint(node.ObjectMeta.Annotations[forceEndpointAnnotationKey])
+	if endpoint == nil {
+		endpoint = wireguard.ParseEndpoint(node.ObjectMeta.Annotations[endpointAnnotationKey])
 	}
 	// Allow the internal IP to be overridden.
 	internalIP := normalizeIP(node.ObjectMeta.Annotations[forceInternalIPAnnotationKey])
@@ -345,7 +344,6 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		// It is valid for the InternalIP to be nil,
 		// if the given node only has public IP addresses.
 		Endpoint:            endpoint,
-		Addr:                addr,
 		NoInternalIP:        noInternalIP,
 		InternalIP:          internalIP,
 		Key:                 key,
@@ -379,8 +377,7 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		}
 		aips = append(aips, *aip)
 	}
-	var endpoint *net.UDPAddr
-	var addr string
+	var endpoint *wireguard.Endpoint
 	if peer.Spec.Endpoint != nil {
 		ip := net.ParseIP(peer.Spec.Endpoint.IP)
 		if ip4 := ip.To4(); ip4 != nil {
@@ -390,10 +387,10 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		}
 		if peer.Spec.Endpoint.Port > 0 {
 			if ip != nil {
-				endpoint = &net.UDPAddr{IP: ip, Port: int(peer.Spec.Endpoint.Port)}
+				endpoint = wireguard.NewEndpoint(ip, int(peer.Spec.Endpoint.Port))
 			}
 			if peer.Spec.Endpoint.DNS != "" {
-				addr = fmt.Sprintf("%s:%d", peer.Spec.Endpoint.DNS, peer.Spec.Endpoint.Port)
+				endpoint = wireguard.ParseEndpoint(fmt.Sprintf("%s:%d", peer.Spec.Endpoint.DNS, peer.Spec.Endpoint.Port))
 			}
 		}
 	}
@@ -415,12 +412,11 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		Peer: wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
 				AllowedIPs:                  aips,
-				Endpoint:                    endpoint, // applyTopology will resolve this endpoint from the KiloEndpoint.
 				PersistentKeepaliveInterval: &pka,
 				PresharedKey:                psk,
 				PublicKey:                   key,
 			},
-			Addr: addr,
+			Endpoint: endpoint,
 		},
 	}
 }
@@ -518,22 +514,12 @@ func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
 		p.Spec.AllowedIPs[i] = peer.AllowedIPs[i].String()
 	}
 	if peer.Endpoint != nil {
-		var ip string
-		if peer.Endpoint.IP != nil {
-			ip = peer.Endpoint.IP.String()
-		}
-		var dns string
-		if peer.Addr != "" {
-			if strs := strings.Split(peer.Addr, ":"); len(strs) == 2 && strs[0] != "" {
-				dns = strs[0]
-			}
-		}
 		p.Spec.Endpoint = &v1alpha1.PeerEndpoint{
 			DNSOrIP: v1alpha1.DNSOrIP{
-				IP:  ip,
-				DNS: dns,
+				IP:  peer.Endpoint.IP().String(),
+				DNS: peer.Endpoint.DNS(),
 			},
-			Port: uint32(peer.Endpoint.Port),
+			Port: uint32(peer.Endpoint.Port()),
 		}
 	}
 	if peer.PersistentKeepaliveInterval == nil {
@@ -569,35 +555,4 @@ func normalizeIP(ip string) *net.IPNet {
 	}
 	ipNet.IP = i.To16()
 	return ipNet
-}
-
-func parseEndpoint(endpoint string) (*net.UDPAddr, string) {
-	if len(endpoint) == 0 {
-		return nil, ""
-	}
-	parts := strings.Split(endpoint, ":")
-	if len(parts) < 2 {
-		return nil, ""
-	}
-	portRaw := parts[len(parts)-1]
-	hostRaw := strings.Trim(strings.Join(parts[:len(parts)-1], ":"), "[]")
-	port, err := strconv.ParseUint(portRaw, 10, 32)
-	if err != nil {
-		return nil, ""
-	}
-	if len(validation.IsValidPortNum(int(port))) != 0 {
-		return nil, ""
-	}
-	ip := net.ParseIP(hostRaw)
-	if ip == nil {
-		if len(validation.IsDNS1123Subdomain(hostRaw)) == 0 {
-			return nil, endpoint
-		}
-		return nil, ""
-	}
-	u, err := net.ResolveUDPAddr("udp", endpoint)
-	if err != nil {
-		return nil, ""
-	}
-	return u, ""
 }

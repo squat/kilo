@@ -56,8 +56,7 @@ const (
 
 // Node represents a node in the network.
 type Node struct {
-	Endpoint     *net.UDPAddr
-	Addr         string // eg. dnsname:port
+	Endpoint     *wireguard.Endpoint
 	Key          wgtypes.Key
 	NoInternalIP bool
 	InternalIP   *net.IPNet
@@ -82,7 +81,7 @@ type Node struct {
 func (n *Node) Ready() bool {
 	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
 	return n != nil &&
-		(n.Endpoint != nil || n.Addr != "") &&
+		n.Endpoint.Ready() &&
 		n.Key != wgtypes.Key{} &&
 		n.Subnet != nil &&
 		time.Now().Unix()-n.LastSeen < int64(checkInPeriod)*2/int64(time.Second)
