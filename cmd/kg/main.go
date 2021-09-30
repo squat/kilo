@@ -141,7 +141,7 @@ func init() {
 	cmd.Flags().UintVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
 	cmd.Flags().StringVar(&subnet, "subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
 	cmd.Flags().DurationVar(&resyncPeriod, "resync-period", 30*time.Second, "How often should the Kilo controllers reconcile?")
-	cmd.Flags().BoolVar(&iptablesForwardRule, "ip-tables-forward-rules", false, "Add default accept rules to the FORWARD chain in iptables.")
+	cmd.Flags().BoolVar(&iptablesForwardRule, "iptables-forward-rules", false, "Add default accept rules to the FORWARD chain in iptables.")
 	cmd.Flags().BoolVar(&prioritisePrivateAddr, "prioritise-private-addresses", false, "Prefer to assign a private IP address to the node's endpoint.")
 
 	cmd.PersistentFlags().BoolVar(&printVersion, "version", false, "Print version and exit")
