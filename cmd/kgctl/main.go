@@ -62,7 +62,7 @@ var (
 	opts struct {
 		backend     mesh.Backend
 		granularity mesh.Granularity
-		port        uint32
+		port        int
 	}
 	backend       string
 	granularity   string
@@ -71,6 +71,10 @@ var (
 )
 
 func runRoot(_ *cobra.Command, _ []string) error {
+	if opts.port < 1 || opts.port > 1<<16-1 {
+		return fmt.Errorf("invalid port: port mus be in range [%d:%d], but got %d", 1, 1<<16-1, opts.port)
+	}
+
 	opts.granularity = mesh.Granularity(granularity)
 	switch opts.granularity {
 	case mesh.LogicalGranularity:
@@ -120,7 +124,7 @@ func main() {
 		defaultKubeconfig = filepath.Join(os.Getenv("HOME"), ".kube/config")
 	}
 	cmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", defaultKubeconfig, "Path to kubeconfig.")
-	cmd.PersistentFlags().Uint32Var(&opts.port, "port", mesh.DefaultKiloPort, "The WireGuard port over which the nodes communicate.")
+	cmd.PersistentFlags().IntVar(&opts.port, "port", mesh.DefaultKiloPort, "The WireGuard port over which the nodes communicate.")
 	cmd.PersistentFlags().StringVar(&topologyLabel, "topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group nodes into logical locations.")
 
 	for _, subCmd := range []*cobra.Command{
