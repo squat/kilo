@@ -49,27 +49,28 @@ const (
 // Mesh is able to create Kilo network meshes.
 type Mesh struct {
 	Backend
-	cleanUpIface bool
-	cni          bool
-	cniPath      string
-	enc          encapsulation.Encapsulator
-	externalIP   *net.IPNet
-	granularity  Granularity
-	hostname     string
-	internalIP   *net.IPNet
-	ipTables     *iptables.Controller
-	kiloIface    int
-	key          []byte
-	local        bool
-	port         uint32
-	priv         []byte
-	privIface    int
-	pub          []byte
-	resyncPeriod time.Duration
-	stop         chan struct{}
-	subnet       *net.IPNet
-	table        *route.Table
-	wireGuardIP  *net.IPNet
+	cleanUpIface        bool
+	cni                 bool
+	cniPath             string
+	enc                 encapsulation.Encapsulator
+	externalIP          *net.IPNet
+	granularity         Granularity
+	hostname            string
+	internalIP          *net.IPNet
+	ipTables            *iptables.Controller
+	kiloIface           int
+	key                 []byte
+	local               bool
+	port                uint32
+	priv                []byte
+	privIface           int
+	pub                 []byte
+	resyncPeriod        time.Duration
+	iptablesForwardRule bool
+	stop                chan struct{}
+	subnet              *net.IPNet
+	table               *route.Table
+	wireGuardIP         *net.IPNet
 
 	// nodes and peers are mutable fields in the struct
 	// and need to be guarded.
@@ -86,7 +87,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr bool, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port uint32, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, logger log.Logger) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -155,28 +156,29 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		return nil, fmt.Errorf("failed to IP tables controller: %v", err)
 	}
 	return &Mesh{
-		Backend:      backend,
-		cleanUpIface: cleanUpIface,
-		cni:          cni,
-		cniPath:      cniPath,
-		enc:          enc,
-		externalIP:   externalIP,
-		granularity:  granularity,
-		hostname:     hostname,
-		internalIP:   privateIP,
-		ipTables:     ipTables,
-		kiloIface:    kiloIface,
-		nodes:        make(map[string]*Node),
-		peers:        make(map[string]*Peer),
-		port:         port,
-		priv:         private,
-		privIface:    privIface,
-		pub:          public,
-		resyncPeriod: resyncPeriod,
-		local:        local,
-		stop:         make(chan struct{}),
-		subnet:       subnet,
-		table:        route.NewTable(),
+		Backend:             backend,
+		cleanUpIface:        cleanUpIface,
+		cni:                 cni,
+		cniPath:             cniPath,
+		enc:                 enc,
+		externalIP:          externalIP,
+		granularity:         granularity,
+		hostname:            hostname,
+		internalIP:          privateIP,
+		ipTables:            ipTables,
+		kiloIface:           kiloIface,
+		nodes:               make(map[string]*Node),
+		peers:               make(map[string]*Peer),
+		port:                port,
+		priv:                private,
+		privIface:           privIface,
+		pub:                 public,
+		resyncPeriod:        resyncPeriod,
+		iptablesForwardRule: iptablesForwardRule,
+		local:               local,
+		stop:                make(chan struct{}),
+		subnet:              subnet,
+		table:               route.NewTable(),
 		errorCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kilo_errors_total",
 			Help: "Number of errors that occurred while administering the mesh.",
@@ -498,7 +500,7 @@ func (m *Mesh) applyTopology() {
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	ipRules := t.Rules(m.cni)
+	ipRules := t.Rules(m.cni, m.iptablesForwardRule)
 	// If we are handling local routes, ensure the local
 	// tunnel has an IP address and IPIP traffic is allowed.
 	if m.enc.Strategy() != encapsulation.Never && m.local {
