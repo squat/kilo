@@ -304,3 +304,148 @@ func TestReady(t *testing.T) {
 		}
 	}
 }
+
+func TestEqual(t *testing.T) {
+	for i, tc := range []struct {
+		name string
+		a    *Endpoint
+		b    *Endpoint
+		df   bool
+		r    bool
+	}{
+		{
+			name: "nil dns last",
+			r:    true,
+		},
+		{
+			name: "nil dns first",
+			df:   true,
+			r:    true,
+		},
+		{
+			name: "equal: only port",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+				},
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+				},
+			},
+			r: true,
+		},
+		{
+			name: "not equal: only port",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+				},
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1001,
+				},
+			},
+			r: false,
+		},
+		{
+			name: "equal dns first",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "example.com:1000",
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "example.com:1000",
+			},
+			r: true,
+		},
+		{
+			name: "equal dns last",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "example.com:1000",
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "foo",
+			},
+			r: true,
+		},
+		{
+			name: "unequal dns first",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "example.com:1000",
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "foo",
+			},
+			df: true,
+			r:  false,
+		},
+		{
+			name: "unequal dns last",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "foo",
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("11.0.0.0"),
+				},
+				addr: "foo",
+			},
+			r: false,
+		},
+		{
+			name: "unequal dns last empty IP",
+			a: &Endpoint{
+				addr: "foo",
+			},
+			b: &Endpoint{
+				addr: "bar",
+			},
+			r: false,
+		},
+		{
+			name: "equal dns last empty IP",
+			a: &Endpoint{
+				addr: "foo",
+			},
+			b: &Endpoint{
+				addr: "foo",
+			},
+			r: true,
+		},
+	} {
+		if out := tc.a.Equal(tc.b, tc.df); out != tc.r {
+			t.Errorf("ParseEndpoint %s(%d): expected: %v\tgot: %v\n", tc.name, i, tc.r, out)
+		}
+	}
+}

@@ -216,7 +216,7 @@ func (e *Endpoint) String() string {
 	return e.StringOpt(true)
 }
 
-// StringOpt will return string of the Endpoint.
+// StringOpt will return the string of the Endpoint.
 // If dnsFirst is false, the resolved Endpoint will
 // take precedence over the DN.
 func (e *Endpoint) StringOpt(dnsFirst bool) string {
@@ -227,6 +227,13 @@ func (e *Endpoint) StringOpt(dnsFirst bool) string {
 		return e.udpAddr.String()
 	}
 	return e.addr
+}
+
+// Equal will return true, if the Enpoints are equal.
+// If dnsFirst is false, the DN will only be compared if
+// the IPs are nil.
+func (e *Endpoint) Equal(b *Endpoint, dnsFirst bool) bool {
+	return e.StringOpt(dnsFirst) == b.StringOpt(dnsFirst)
 }
 
 // Peer represents a `peer` section of a WireGuard configuration.

@@ -660,7 +660,7 @@ func nodesAreEqual(a, b *Node) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if a.Endpoint.StringOpt(true) != b.Endpoint.StringOpt(true) {
+	if !a.Endpoint.Equal(b.Endpoint, true) {
 		return false
 	}
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
@@ -689,7 +689,7 @@ func peersAreEqual(a, b *Peer) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if a.Endpoint.StringOpt(true) != b.Endpoint.StringOpt(true) {
+	if !a.Endpoint.Equal(b.Endpoint, true) {
 		return false
 	}
 	if len(a.AllowedIPs) != len(b.AllowedIPs) {
