@@ -242,12 +242,16 @@ func encapsulateRoute(route *netlink.Route, encapsulate encapsulation.Strategy, 
 }
 
 // Rules returns the iptables rules required by the local node.
-func (t *Topology) Rules(cni bool) []iptables.Rule {
+func (t *Topology) Rules(cni, iptablesForwardRule bool) []iptables.Rule {
 	var rules []iptables.Rule
 	rules = append(rules, iptables.NewIPv4Chain("nat", "KILO-NAT"))
 	rules = append(rules, iptables.NewIPv6Chain("nat", "KILO-NAT"))
 	if cni {
 		rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "nat", "POSTROUTING", "-s", t.subnet.String(), "-m", "comment", "--comment", "Kilo: jump to KILO-NAT chain", "-j", "KILO-NAT"))
+		if iptablesForwardRule {
+			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the pod subnet", "-s", t.subnet.String(), "-j", "ACCEPT"))
+			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the pod subnet", "-d", t.subnet.String(), "-j", "ACCEPT"))
+		}
 	}
 	for _, s := range t.segments {
 		rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(s.wireGuardIP)), "nat", "KILO-NAT", "-d", oneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuared IPs", "-j", "RETURN"))
