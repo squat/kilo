@@ -234,7 +234,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		c := kubernetes.NewForConfigOrDie(config)
 		kc := kiloclient.NewForConfigOrDie(config)
 		ec := apiextensions.NewForConfigOrDie(config)
-		b = k8s.New(c, kc, ec, topologyLabel)
+		b = k8s.New(c, kc, ec, topologyLabel, log.With(logger, "component", "k8s backend"))
 	default:
 		return fmt.Errorf("backend %v unknown; possible values are: %s", backend, availableBackends)
 	}

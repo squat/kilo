@@ -50,7 +50,11 @@ type Conf struct {
 }
 
 // WGConfig returns a wgytpes.Config from a Conf.
-func (c Conf) WGConfig() wgtypes.Config {
+func (c *Conf) WGConfig() wgtypes.Config {
+	if c == nil {
+		// The empty Config will do nothing, when applied.
+		return wgtypes.Config{}
+	}
 	r := c.Config
 	wgPs := make([]wgtypes.PeerConfig, len(c.Peers))
 	for i, p := range c.Peers {
@@ -246,7 +250,10 @@ func (p *Peer) DeduplicateIPs() {
 }
 
 // Bytes renders a WireGuard configuration to bytes.
-func (c Conf) Bytes() ([]byte, error) {
+func (c *Conf) Bytes() ([]byte, error) {
+	if c == nil {
+		return nil, nil
+	}
 	var err error
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
 	if c.PrivateKey != nil {

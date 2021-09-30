@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -67,6 +69,8 @@ const (
 	jsonRemovePatch = `{"op": "remove", "path": "%s"}`
 )
 
+var logger = log.NewNopLogger()
+
 type backend struct {
 	nodes *nodeBackend
 	peers *peerBackend
@@ -99,9 +103,11 @@ type peerBackend struct {
 }
 
 // New creates a new instance of a mesh.Backend.
-func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface, topologyLabel string) mesh.Backend {
+func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface, topologyLabel string, l log.Logger) mesh.Backend {
 	ni := v1informers.NewNodeInformer(c, 5*time.Minute, nil)
 	pi := v1alpha1informers.NewPeerInformer(kc, 5*time.Minute, nil)
+
+	logger = l
 
 	return &backend{
 		&nodeBackend{
@@ -395,7 +401,10 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 		}
 	}
 
-	key, _ := wgtypes.ParseKey(peer.Spec.PublicKey)
+	key, err := wgtypes.ParseKey(peer.Spec.PublicKey)
+	if err != nil {
+		level.Error(logger).Log("msg", "failed to parse public key", "peer", peer.Name, "err", err.Error())
+	}
 	var psk *wgtypes.Key
 	if k, err := wgtypes.ParseKey(peer.Spec.PresharedKey); err != nil {
 		// Set key to nil to avoid setting a key to the zero value wgtypes.Key{}

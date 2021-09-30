@@ -294,7 +294,7 @@ func (t *Topology) updateEndpoint(endpoint *wireguard.Endpoint, key wgtypes.Key,
 	if ok {
 		return wireguard.NewEndpointFromUDPAddr(e)
 	}
-	return nil
+	return endpoint
 }
 
 // Conf generates a WireGuard configuration file for a given Topology.
@@ -339,12 +339,12 @@ func (t *Topology) Conf() *wireguard.Conf {
 
 // AsPeer generates the WireGuard peer configuration for the local location of the given Topology.
 // This configuration can be used to configure this location as a peer of another WireGuard interface.
-func (t *Topology) AsPeer() wireguard.Peer {
+func (t *Topology) AsPeer() *wireguard.Peer {
 	for _, s := range t.segments {
 		if s.location != t.location {
 			continue
 		}
-		p := wireguard.Peer{
+		p := &wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
 				AllowedIPs: s.allowedIPs,
 				PublicKey:  s.key,
@@ -353,11 +353,11 @@ func (t *Topology) AsPeer() wireguard.Peer {
 		}
 		return p
 	}
-	return wireguard.Peer{}
+	return nil
 }
 
 // PeerConf generates a WireGuard configuration file for a given peer in a Topology.
-func (t *Topology) PeerConf(name string) wireguard.Conf {
+func (t *Topology) PeerConf(name string) *wireguard.Conf {
 	var pka *time.Duration
 	var psk *wgtypes.Key
 	for i := range t.peers {
@@ -367,7 +367,7 @@ func (t *Topology) PeerConf(name string) wireguard.Conf {
 			break
 		}
 	}
-	c := wireguard.Conf{}
+	c := &wireguard.Conf{}
 	for _, s := range t.segments {
 		peer := wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
@@ -417,7 +417,7 @@ func findLeader(nodes []*Node) int {
 			leaders = append(leaders, i)
 
 		}
-		if nodes[i].Endpoint != nil && isPublic(nodes[i].Endpoint.IP()) {
+		if nodes[i].Endpoint.IP() != nil && isPublic(nodes[i].Endpoint.IP()) {
 			public = append(public, i)
 		}
 	}

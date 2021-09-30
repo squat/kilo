@@ -542,7 +542,7 @@ func (m *Mesh) applyTopology() {
 		equal, diff := conf.Equal(wgDevice)
 		if !equal {
 			level.Info(m.logger).Log("msg", "WireGuard configurations are different", "diff", diff)
-			level.Debug(m.logger).Log("changing wg config", "config", conf.WGConfig())
+			level.Debug(m.logger).Log("msg", "changing wg config", "config", conf.WGConfig())
 			if err := wgClient.ConfigureDevice(m.kiloIfaceName, conf.WGConfig()); err != nil {
 				level.Error(m.logger).Log("error", err)
 				m.errorCounter.WithLabelValues("apply").Inc()
@@ -660,7 +660,7 @@ func nodesAreEqual(a, b *Node) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if a.Endpoint.StringOpt(false) != b.Endpoint.StringOpt(false) {
+	if a.Endpoint.StringOpt(true) != b.Endpoint.StringOpt(true) {
 		return false
 	}
 	// Ignore LastSeen when comparing equality we want to check if the nodes are
@@ -689,7 +689,7 @@ func peersAreEqual(a, b *Peer) bool {
 	}
 	// Check the DNS name first since this package
 	// is doing the DNS resolution.
-	if a.Endpoint.StringOpt(false) != b.Endpoint.StringOpt(false) {
+	if a.Endpoint.StringOpt(true) != b.Endpoint.StringOpt(true) {
 		return false
 	}
 	if len(a.AllowedIPs) != len(b.AllowedIPs) {

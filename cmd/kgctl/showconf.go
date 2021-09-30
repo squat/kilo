@@ -183,17 +183,23 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		fallthrough
 	case outputFormatYAML:
 		p := t.AsPeer()
+		if p == nil {
+			return errors.New("cannot generate config from nil peer")
+		}
 		p.AllowedIPs = append(p.AllowedIPs, showConfOpts.allowedIPs...)
 		p.DeduplicateIPs()
-		k8sp := translatePeer(&p)
+		k8sp := translatePeer(p)
 		k8sp.Name = hostname
 		return showConfOpts.serializer.Encode(k8sp, os.Stdout)
 	case outputFormatWireGuard:
 		p := t.AsPeer()
+		if p == nil {
+			return errors.New("cannot generate config from nil peer")
+		}
 		p.AllowedIPs = append(p.AllowedIPs, showConfOpts.allowedIPs...)
 		p.DeduplicateIPs()
 		c, err := (&wireguard.Conf{
-			Peers: []wireguard.Peer{p},
+			Peers: []wireguard.Peer{*p},
 		}).Bytes()
 		if err != nil {
 			return fmt.Errorf("failed to generate configuration: %v", err)

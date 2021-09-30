@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-kit/kit/log"
 	"github.com/spf13/cobra"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
@@ -88,7 +89,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		c := kubernetes.NewForConfigOrDie(config)
 		kc := kiloclient.NewForConfigOrDie(config)
 		ec := apiextensions.NewForConfigOrDie(config)
-		opts.backend = k8s.New(c, kc, ec, topologyLabel)
+		opts.backend = k8s.New(c, kc, ec, topologyLabel, log.NewNopLogger())
 	default:
 		return fmt.Errorf("backend %v unknown; posible values are: %s", backend, availableBackends)
 	}
