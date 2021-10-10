@@ -249,9 +249,22 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) []iptables.Rule {
 	rules = append(rules, iptables.NewIPv6Chain("nat", "KILO-NAT"))
 	if cni {
 		rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "nat", "POSTROUTING", "-s", t.subnet.String(), "-m", "comment", "--comment", "Kilo: jump to KILO-NAT chain", "-j", "KILO-NAT"))
-		if iptablesForwardRule {
-			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the pod subnet", "-s", t.subnet.String(), "-j", "ACCEPT"))
-			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the pod subnet", "-d", t.subnet.String(), "-j", "ACCEPT"))
+		// Some linux distros or docker will set forward DROP in the filter table.
+		// To still be able to have pod to pod communication we need to ALLOW packages from and to pod CIDRs within a location.
+		// Leader nodes will forward packages from all nodes within a location because they act as a gateway for them.
+		// Non leader nodes only need to allow packages from and to their own pod CIDR.
+		if iptablesForwardRule && t.leader {
+			for _, s := range t.segments {
+				if t.location == s.location {
+					for _, c := range s.cidrs {
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the pod subnet", "-s", c.String(), "-j", "ACCEPT"))
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the pod subnet", "-d", c.String(), "-j", "ACCEPT"))
+					}
+				}
+			}
+		} else if iptablesForwardRule {
+			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the node's pod subnet", "-s", t.subnet.String(), "-j", "ACCEPT"))
+			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the node's pod subnet", "-d", t.subnet.String(), "-j", "ACCEPT"))
 		}
 	}
 	for _, s := range t.segments {
