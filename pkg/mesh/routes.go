@@ -256,9 +256,20 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) []iptables.Rule {
 		if iptablesForwardRule && t.leader {
 			for _, s := range t.segments {
 				if t.location == s.location {
+					// Make sure packets to and from pod cidrs are not dropped in the forward chain.
 					for _, c := range s.cidrs {
 						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the pod subnet", "-s", c.String(), "-j", "ACCEPT"))
 						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the pod subnet", "-d", c.String(), "-j", "ACCEPT"))
+					}
+					// Make sure packets to and from allowed location IPs are not dropped in the forward chain.
+					for _, c := range s.allowedLocationIPs {
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from allowed location IPs", "-s", c.String(), "-j", "ACCEPT"))
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to allowed location IPs", "-d", c.String(), "-j", "ACCEPT"))
+					}
+					// Make sure packets to and from private IPs are not dropped in the forward chain.
+					for _, c := range s.privateIPs {
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from private IPs", "-s", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to private IPs", "-d", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
 					}
 				}
 			}
