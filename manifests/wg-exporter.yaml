@@ -1,0 +1,67 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    app.kubernetes.io/name: wg-exporter
+    app.kubernetes.io/part-of: kilo
+  name: wg-exporter
+  namespace: kilo
+spec:
+  namespaceSelector:
+    matchNames:
+    - kilo
+  podMetricsEndpoints:
+  - interval: 15s
+    port: metrics
+    path: /metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: kilo
+      app.kubernetes.io/name: wg-exporter
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/name: wg-exporter
+    app.kubernetes.io/part-of: kilo
+  name: wg-exporter
+  namespace: kilo
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wg-exporter
+      app.kubernetes.io/part-of: kilo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wg-exporter
+        app.kubernetes.io/part-of: kilo
+    spec:
+      containers:
+      - args:
+        - -a
+        - -i=kilo0
+        - -p=9586
+        image: mindflavor/prometheus-wireguard-exporter
+        name: wg-exporter
+        ports:
+        - containerPort: 9586
+          name: metrics
+          protocol: TCP
+        securityContext:
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - name: wireguard
+          mountPath: /var/run/wireguard
+      volumes:
+      - name: wireguard
+        hostPath:
+          path: /var/run/wireguard
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
