@@ -4,7 +4,7 @@ The following assumes that you have applied the [kube-prometheus](https://github
 
 ## Kilo
 
-Monitor the Kilo daemon set with:
+Monitor the Kilo DaemonSet with:
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/podmonitor.yaml
 ```
@@ -17,12 +17,12 @@ kubectl create ns kilo
 kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/wg-exporter.yaml
 ```
 
-The manifest will deploy [Prometheus WireGuard Exporter](https://github.com/MindFlavor/prometheus_wireguard_exporter) as a daemon set and a [podmonitor](https://docs.openshift.com/container-platform/4.8/rest_api/monitoring_apis/podmonitor-monitoring-coreos-com-v1.html).
+The manifest will deploy the [Prometheus WireGuard Exporter](https://github.com/MindFlavor/prometheus_wireguard_exporter) as a DaemonSet and a [PodMonitor](https://docs.openshift.com/container-platform/4.8/rest_api/monitoring_apis/podmonitor-monitoring-coreos-com-v1.html).
 
-By default kube-prometheus will only monitor the default, kube-system and monitoring namespaces.
-In order to allow prometheus-k8s to monitor the kilo namespace, apply the Role and RoleBinding with:
+By default the kube-prometheus stack only monitors the `default`, `kube-system` and `monitoring` namespaces.
+In order to allow Prometheus to monitor the `kilo` namespace, apply the Role and RoleBinding with:
 ```shell
-kubectl apply -f kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/wg-exporter-role-kube-prometheus.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/wg-exporter-role-kube-prometheus.yaml
 ```
 
 ## Metrics
@@ -30,7 +30,7 @@ kubectl apply -f kubectl apply -f https://raw.githubusercontent.com/squat/kilo/m
 ### Kilo
 
 Kilo exports some standard metrics with the Prometheus GoCollector and ProcessCollector.
-It also exposes some Kilo specific metrics.
+It also exposes some Kilo-specific metrics.
 
 ```
 # HELP kilo_errors_total Number of errors that occurred while administering the mesh.
@@ -66,23 +66,23 @@ The [Prometheus WireGuard Exporter](https://github.com/MindFlavor/prometheus_wir
 
 ## Display some Metrics
 
-If your laptop is a Kilo peer of the cluster you can navigate you browser directly to the service IP of prometheus-k8s.
+If your laptop is a Kilo peer of the cluster you can access the Prometheus UI by navigating your browser directly to the cluster IP of the `prometheus-k8s` service.
 Otherwise use `port-forward`:
 ```shell
 kubectl -n monitoring port-forward svc/prometheus-k8s 9090
 ```
 and navigate your browser to `localhost:9090`.
-Check if you can see the podmonitor of Kilo and the WireGuard Exporter under **Status** -> **Targets** in the web frontend.
+Check if you can see the PodMonitors for Kilo and the WireGuard Exporter under **Status** -> **Targets** in the Prometheus web UI.
 
-If you don't see them, check the logs of the `prometheus-k8s` pods, maybe they don't have the permission to get the pods in their namespaces.
+If you don't see them, check the logs of the `prometheus-k8s` Pods; it may be that Prometheus doesn't have the permission to get Pods in the `kilo` namespace.
 In this case, you need to apply the Role and RoleBinding from above.
 
-Navigate to **Graph** and try to execute a simple query, eg. type `kilo_nodes` and klick execute.
+Navigate to **Graph** and try to execute a simple query, e.g. type `kilo_nodes` and click on `execute`.
 You should see some data.
 
 ## Using Grafana
 
-Let't navigate to the Grafana dashboard.
+Let's navigate to the Grafana dashboard.
 Again, if your laptop is not a Kilo peer, use `port-forward`:
 ```shell
 kubectl -n monitoring port-forward svc/grafana 3000
@@ -91,8 +91,8 @@ kubectl -n monitoring port-forward svc/grafana 3000
 Now navigate your browser to `localhost:3000`.
 The default user and password is `admin` `admin`.
 
-There is an example configuration for a dashboard [here](https://raw.githubusercontent.com/squat/kilo/main/docs/grafana/kilo.json).
-You can import this dashboard if you hit **+** -> **Import** on the Grafana dashboard.
+An example configuration for a dashboard displaying Kilo metrics can be found [here](https://raw.githubusercontent.com/squat/kilo/main/docs/grafana/kilo.json).
+You can import this dashboard by hitting **+** -> **Import** on the Grafana dashboard.
 
 The dashboard looks like this:
 
