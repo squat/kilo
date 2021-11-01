@@ -249,9 +249,33 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) []iptables.Rule {
 	rules = append(rules, iptables.NewIPv6Chain("nat", "KILO-NAT"))
 	if cni {
 		rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "nat", "POSTROUTING", "-s", t.subnet.String(), "-m", "comment", "--comment", "Kilo: jump to KILO-NAT chain", "-j", "KILO-NAT"))
-		if iptablesForwardRule {
-			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the pod subnet", "-s", t.subnet.String(), "-j", "ACCEPT"))
-			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the pod subnet", "-d", t.subnet.String(), "-j", "ACCEPT"))
+		// Some linux distros or docker will set forward DROP in the filter table.
+		// To still be able to have pod to pod communication we need to ALLOW packets from and to pod CIDRs within a location.
+		// Leader nodes will forward packets from all nodes within a location because they act as a gateway for them.
+		// Non leader nodes only need to allow packages from and to their own pod CIDR.
+		if iptablesForwardRule && t.leader {
+			for _, s := range t.segments {
+				if s.location == t.location {
+					// Make sure packets to and from pod cidrs are not dropped in the forward chain.
+					for _, c := range s.cidrs {
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the pod subnet", "-s", c.String(), "-j", "ACCEPT"))
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the pod subnet", "-d", c.String(), "-j", "ACCEPT"))
+					}
+					// Make sure packets to and from allowed location IPs are not dropped in the forward chain.
+					for _, c := range s.allowedLocationIPs {
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from allowed location IPs", "-s", c.String(), "-j", "ACCEPT"))
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to allowed location IPs", "-d", c.String(), "-j", "ACCEPT"))
+					}
+					// Make sure packets to and from private IPs are not dropped in the forward chain.
+					for _, c := range s.privateIPs {
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from private IPs", "-s", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(c)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to private IPs", "-d", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
+					}
+				}
+			}
+		} else if iptablesForwardRule {
+			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the node's pod subnet", "-s", t.subnet.String(), "-j", "ACCEPT"))
+			rules = append(rules, iptables.NewRule(iptables.GetProtocol(len(t.subnet.IP)), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the node's pod subnet", "-d", t.subnet.String(), "-j", "ACCEPT"))
 		}
 	}
 	for _, s := range t.segments {

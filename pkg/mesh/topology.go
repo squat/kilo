@@ -172,6 +172,8 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			privateIPs:          privateIPs,
 			allowedLocationIPs:  allowedLocationIPs,
 		})
+		level.Debug(t.logger).Log("msg", "generated segment", "location", location, "allowedIPs", allowedIPs, "endpoint", topoMap[location][leader].Endpoint, "cidrs", cidrs, "hostnames", hostnames, "leader", leader, "privateIPs", privateIPs, "allowedLocationIPs", allowedLocationIPs)
+
 	}
 	// Sort the Topology segments so the result is stable.
 	sort.Slice(t.segments, func(i, j int) bool {
@@ -218,6 +220,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		segment.allowedLocationIPs = t.filterAllowedLocationIPs(segment.allowedLocationIPs, segment.location)
 	}
 
+	level.Debug(t.logger).Log("msg", "generated topology", "location", t.location, "hostname", t.hostname, "wireGuardIP", t.wireGuardCIDR, "privateIP", t.privateIP, "subnet", t.subnet, "leader", t.leader)
 	return &t, nil
 }
 
