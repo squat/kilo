@@ -28,9 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
-	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
-	"github.com/squat/kilo/pkg/mesh"
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/kilo-io/kilo/pkg/k8s/apis/kilo/v1alpha1"
+	"github.com/kilo-io/kilo/pkg/mesh"
+	"github.com/kilo-io/kilo/pkg/wireguard"
 )
 
 const (

@@ -14,7 +14,7 @@ To follow along, you need to install the following utilities:
 
 Clone the Repository and `cd` into it.
 ```shell
-git clone https://github.com/squat/kilo.git
+git clone https://github.com/kilo-io/kilo.git
 cd kilo
 ```
 

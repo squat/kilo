@@ -18,8 +18,8 @@ This DaemonSet creates a WireGuard interface that Kilo will manage.
 An example configuration for a K3s cluster with [BoringTun] can be applied with:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s-userspace.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/kilo-k3s-userspace.yaml
 ```
 
 > **Note**: even if some nodes have the WireGuard kernel module, this configuration will cause all nodes to use the userspace implementation of WireGuard.
@@ -30,8 +30,8 @@ In a heterogeneous cluster where some nodes are missing the WireGuard kernel mod
 An example of such a configuration for a K3s cluster can by applied with:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s-userspace-heterogeneous.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/kilo-io/kilo/main/manifests/kilo-k3s-userspace-heterogeneous.yaml
 ```
 
 This configuration will deploy [nkml](https://github.com/leonnicolas/nkml) as a DaemonSet to label all nodes according to the presence of the WireGuard kernel module.

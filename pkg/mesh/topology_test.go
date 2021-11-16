@@ -22,7 +22,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/kylelemons/godebug/pretty"
 
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/kilo-io/kilo/pkg/wireguard"
 )
 
 func allowedIPs(ips ...string) string {

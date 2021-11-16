@@ -36,12 +36,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/squat/kilo/pkg/encapsulation"
-	"github.com/squat/kilo/pkg/k8s"
-	kiloclient "github.com/squat/kilo/pkg/k8s/clientset/versioned"
-	"github.com/squat/kilo/pkg/mesh"
-	"github.com/squat/kilo/pkg/version"
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/kilo-io/kilo/pkg/encapsulation"
+	"github.com/kilo-io/kilo/pkg/k8s"
+	kiloclient "github.com/kilo-io/kilo/pkg/k8s/clientset/versioned"
+	"github.com/kilo-io/kilo/pkg/mesh"
+	"github.com/kilo-io/kilo/pkg/version"
+	"github.com/kilo-io/kilo/pkg/wireguard"
 )
 
 const (

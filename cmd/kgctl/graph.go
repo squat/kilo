@@ -18,7 +18,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/squat/kilo/pkg/mesh"
+
+	"github.com/kilo-io/kilo/pkg/mesh"
 )
 
 func graph() *cobra.Command {
