@@ -16,7 +16,9 @@ package iptables
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -24,6 +26,21 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 )
+
+const ipv6ModuleDisabledPath = "/sys/module/ipv6/parameters/disable"
+
+func ipv6Disabled() (bool, error) {
+	f, err := os.Open(ipv6ModuleDisabledPath)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	disabled := make([]byte, 1)
+	if _, err = io.ReadFull(f, disabled); err != nil {
+		return false, err
+	}
+	return disabled[0] == '1', nil
+}
 
 // Protocol represents an IP protocol.
 type Protocol byte
@@ -253,11 +270,20 @@ func New(opts ...ControllerOption) (*Controller, error) {
 		c.v4 = v4
 	}
 	if c.v6 == nil {
-		v6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+		disabled, err := ipv6Disabled()
 		if err != nil {
-			return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
+			return nil, fmt.Errorf("failed to check IPv6 status: %v", err)
 		}
-		c.v6 = v6
+		if disabled {
+			level.Info(c.logger).Log("msg", "IPv6 is disabled in the kernel; disabling the IPv6 iptables controller")
+			c.v6 = &fakeClient{}
+		} else {
+			v6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
+			}
+			c.v6 = v6
+		}
 	}
 	return c, nil
 }
