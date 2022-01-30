@@ -130,6 +130,7 @@ func main() {
 	for _, subCmd := range []*cobra.Command{
 		graph(),
 		showConf(),
+		connect(),
 	} {
 		cmd.AddCommand(subCmd)
 	}

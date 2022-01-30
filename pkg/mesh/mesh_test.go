@@ -35,8 +35,8 @@ func mustKey() wgtypes.Key {
 var key = mustKey()
 
 func TestReady(t *testing.T) {
-	internalIP := oneAddressCIDR(net.ParseIP("1.1.1.1"))
-	externalIP := oneAddressCIDR(net.ParseIP("2.2.2.2"))
+	internalIP := OneAddressCIDR(net.ParseIP("1.1.1.1"))
+	externalIP := OneAddressCIDR(net.ParseIP("2.2.2.2"))
 	for _, tc := range []struct {
 		name  string
 		node  *Node

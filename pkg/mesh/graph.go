@@ -43,12 +43,12 @@ func (t *Topology) Dot() (string, error) {
 	if err := g.SetDir(true); err != nil {
 		return "", fmt.Errorf("failed to set direction")
 	}
-	leaders := make([]string, len(t.segments))
+	leaders := make([]string, len(t.Segments))
 	nodeAttrs := map[string]string{
 		string(gographviz.Shape): "ellipse",
 	}
 
-	for i, s := range t.segments {
+	for i, s := range t.Segments {
 		if err := g.AddSubGraph("kilo", subGraphName(s.location), nil); err != nil {
 			return "", fmt.Errorf("failed to add subgraph")
 		}

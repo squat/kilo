@@ -74,11 +74,11 @@ func TestNewAllocator(t *testing.T) {
 }
 
 func TestSortIPs(t *testing.T) {
-	ip1 := oneAddressCIDR(net.ParseIP("10.0.0.1"))
-	ip2 := oneAddressCIDR(net.ParseIP("10.0.0.2"))
-	ip3 := oneAddressCIDR(net.ParseIP("192.168.0.1"))
-	ip4 := oneAddressCIDR(net.ParseIP("2001::7"))
-	ip5 := oneAddressCIDR(net.ParseIP("fd68:da49:09da:b27f::"))
+	ip1 := OneAddressCIDR(net.ParseIP("10.0.0.1"))
+	ip2 := OneAddressCIDR(net.ParseIP("10.0.0.2"))
+	ip3 := OneAddressCIDR(net.ParseIP("192.168.0.1"))
+	ip4 := OneAddressCIDR(net.ParseIP("2001::7"))
+	ip5 := OneAddressCIDR(net.ParseIP("fd68:da49:09da:b27f::"))
 	for _, tc := range []struct {
 		name string
 		ips  []*net.IPNet
