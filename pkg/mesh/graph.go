@@ -1,4 +1,4 @@
-// Copyright 2019 the Kilo authors
+// Copyright 2021 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/awalterschulze/gographviz"
+
 	"github.com/squat/kilo/pkg/wireguard"
 )
 
@@ -166,8 +167,9 @@ func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP, endpoi
 	if wgIP != nil {
 		label = append(label, wgIP.String())
 	}
-	if endpoint != nil {
-		label = append(label, endpoint.String())
+	str := endpoint.String()
+	if str != "" {
+		label = append(label, str)
 	}
 	return graphEscape(strings.Join(label, "\\n"))
 }

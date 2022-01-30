@@ -18,6 +18,8 @@ import (
 	"net"
 	"time"
 
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+
 	"github.com/squat/kilo/pkg/wireguard"
 )
 
@@ -55,7 +57,7 @@ const (
 // Node represents a node in the network.
 type Node struct {
 	Endpoint     *wireguard.Endpoint
-	Key          []byte
+	Key          wgtypes.Key
 	NoInternalIP bool
 	InternalIP   *net.IPNet
 	// LastSeen is a Unix time for the last time
@@ -66,18 +68,23 @@ type Node struct {
 	Leader              bool
 	Location            string
 	Name                string
-	PersistentKeepalive int
+	PersistentKeepalive time.Duration
 	Subnet              *net.IPNet
 	WireGuardIP         *net.IPNet
-	DiscoveredEndpoints map[string]*wireguard.Endpoint
-	AllowedLocationIPs  []*net.IPNet
+	// DiscoveredEndpoints cannot be DNS endpoints, only net.UDPAddr.
+	DiscoveredEndpoints map[string]*net.UDPAddr
+	AllowedLocationIPs  []net.IPNet
 	Granularity         Granularity
 }
 
 // Ready indicates whether or not the node is ready.
 func (n *Node) Ready() bool {
 	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
-	return n != nil && n.Endpoint != nil && !(n.Endpoint.IP == nil && n.Endpoint.DNS == "") && n.Endpoint.Port != 0 && n.Key != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(checkInPeriod)*2/int64(time.Second)
+	return n != nil &&
+		n.Endpoint.Ready() &&
+		n.Key != wgtypes.Key{} &&
+		n.Subnet != nil &&
+		time.Now().Unix()-n.LastSeen < int64(checkInPeriod)*2/int64(time.Second)
 }
 
 // Peer represents a peer in the network.
@@ -92,7 +99,10 @@ type Peer struct {
 // will not declare their endpoint and instead allow it to be
 // discovered.
 func (p *Peer) Ready() bool {
-	return p != nil && p.AllowedIPs != nil && len(p.AllowedIPs) != 0 && p.PublicKey != nil
+	return p != nil &&
+		p.AllowedIPs != nil &&
+		len(p.AllowedIPs) != 0 &&
+		p.PublicKey != wgtypes.Key{} // If Key was not set, it will be wgtypes.Key{}.
 }
 
 // EventType describes what kind of an action an event represents.

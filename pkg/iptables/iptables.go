@@ -53,11 +53,11 @@ const (
 )
 
 // GetProtocol will return a protocol from the length of an IP address.
-func GetProtocol(length int) Protocol {
-	if length == net.IPv6len {
-		return ProtocolIPv6
+func GetProtocol(ip net.IP) Protocol {
+	if len(ip) == net.IPv4len || ip.To4() != nil {
+		return ProtocolIPv4
 	}
-	return ProtocolIPv4
+	return ProtocolIPv6
 }
 
 // Client represents any type that can administer iptables rules.

@@ -1,4 +1,4 @@
-// Copyright 2019 the Kilo authors
+// Copyright 2021 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,336 +21,431 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 )
 
-func TestCompareConf(t *testing.T) {
-	for _, tc := range []struct {
+func TestNewEndpoint(t *testing.T) {
+	for i, tc := range []struct {
 		name string
-		a    []byte
-		b    []byte
-		out  bool
+		ip   net.IP
+		port int
+		out  *Endpoint
 	}{
 		{
-			name: "empty",
-			a:    []byte{},
-			b:    []byte{},
-			out:  true,
+			name: "no ip, no port",
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{},
+			},
 		},
 		{
-			name: "key and value order",
-			a: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk
-		PublicKey = key
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			b: []byte(`[Interface]
-		ListenPort = 51820
-		PrivateKey = private
-
-		[Peer]
-		PublicKey = key
-		AllowedIPs = 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32, 10.2.2.0/24
-		PresharedKey = psk
-		Endpoint = 10.1.0.2:51820
-		`),
-			out: true,
+			name: "only port",
+			ip:   nil,
+			port: 99,
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 99,
+				},
+			},
 		},
 		{
-			name: "whitespace",
-			a: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk
-		PublicKey = key
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			b: []byte(`[Interface]
-		PrivateKey=private
-		ListenPort=51820
-		[Peer]
-		Endpoint=10.1.0.2:51820
-		PresharedKey = psk
-		PublicKey=key
-		AllowedIPs=10.2.2.0/24,192.168.0.1/32,10.2.3.0/24,192.168.0.2/32,10.4.0.2/32
-		`),
-			out: true,
+			name: "only ipv4",
+			ip:   net.ParseIP("10.0.0.0"),
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP: net.ParseIP("10.0.0.0").To4(),
+				},
+			},
 		},
 		{
-			name: "missing key",
-			a: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PublicKey = key
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			b: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		PublicKey = key
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			out: false,
+			name: "only ipv6",
+			ip:   net.ParseIP("ff50::10"),
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP: net.ParseIP("ff50::10").To16(),
+				},
+			},
 		},
 		{
-			name: "different value",
-			a: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PublicKey = key
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			b: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PublicKey = key2
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			out: false,
+			name: "ipv4",
+			ip:   net.ParseIP("10.0.0.0"),
+			port: 1000,
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("10.0.0.0").To4(),
+					Port: 1000,
+				},
+			},
 		},
 		{
-			name: "section order",
-			a: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk
-		PublicKey = key
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			b: []byte(`[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk
-		PublicKey = key
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-
-		[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-		`),
-			out: true,
+			name: "ipv6",
+			ip:   net.ParseIP("ff50::10"),
+			port: 1000,
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("ff50::10").To16(),
+					Port: 1000,
+				},
+			},
 		},
 		{
-			name: "out of order peers",
-			a: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk2
-		PublicKey = key2
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk1
-		PublicKey = key1
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			b: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk1
-		PublicKey = key1
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk2
-		PublicKey = key2
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			out: true,
-		},
-		{
-			name: "one empty",
-			a: []byte(`[Interface]
-		PrivateKey = private
-		ListenPort = 51820
-
-		[Peer]
-		Endpoint = 10.1.0.2:51820
-		PresharedKey = psk
-		PublicKey = key
-		AllowedIPs = 10.2.2.0/24, 192.168.0.1/32, 10.2.3.0/24, 192.168.0.2/32, 10.4.0.2/32
-		`),
-			b:   []byte(``),
-			out: false,
+			name: "ipv6",
+			ip:   net.ParseIP("fc00:f853:ccd:e793::3"),
+			port: 51820,
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("fc00:f853:ccd:e793::3").To16(),
+					Port: 51820,
+				},
+			},
 		},
 	} {
-		equal := Parse(tc.a).Equal(Parse(tc.b))
-		if equal != tc.out {
-			t.Errorf("test case %q: expected %t, got %t", tc.name, tc.out, equal)
+		out := NewEndpoint(tc.ip, tc.port)
+		if diff := pretty.Compare(out, tc.out); diff != "" {
+			t.Errorf("%d %s: got diff:\n%s\n", i, tc.name, diff)
 		}
 	}
 }
 
-func TestCompareEndpoint(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		a        *Endpoint
-		b        *Endpoint
-		dnsFirst bool
-		out      bool
+func TestParseEndpoint(t *testing.T) {
+	for i, tc := range []struct {
+		name string
+		str  string
+		out  *Endpoint
 	}{
 		{
-			name: "both nil",
-			a:    nil,
-			b:    nil,
-			out:  true,
+			name: "no ip, no port",
 		},
 		{
-			name: "a nil",
-			a:    nil,
-			b:    &Endpoint{},
-			out:  false,
+			name: "only port",
+			str:  ":1000",
 		},
 		{
-			name: "b nil",
-			a:    &Endpoint{},
-			b:    nil,
-			out:  false,
+			name: "only ipv4",
+			str:  "10.0.0.0",
 		},
 		{
-			name: "zero",
-			a:    &Endpoint{},
-			b:    &Endpoint{},
-			out:  true,
+			name: "only ipv6",
+			str:  "ff50::10",
 		},
 		{
-			name: "diff port",
-			a:    &Endpoint{Port: 1234},
-			b:    &Endpoint{Port: 5678},
-			out:  false,
+			name: "ipv4",
+			str:  "10.0.0.0:1000",
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("10.0.0.0").To4(),
+					Port: 1000,
+				},
+			},
 		},
 		{
-			name: "same IP",
-			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1")}},
-			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1")}},
-			out:  true,
-		},
-		{
-			name: "diff IP",
-			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1")}},
-			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.2")}},
-			out:  false,
-		},
-		{
-			name: "same IP ignore DNS",
-			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: "a"}},
-			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: "b"}},
-			out:  true,
-		},
-		{
-			name: "no IP check DNS",
-			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
-			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "b"}},
-			out:  false,
-		},
-		{
-			name: "no IP check DNS (same)",
-			a:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
-			b:    &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
-			out:  true,
-		},
-		{
-			name:     "DNS first, ignore IP",
-			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: "a"}},
-			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.2"), DNS: "a"}},
-			dnsFirst: true,
-			out:      true,
-		},
-		{
-			name:     "DNS first",
-			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "a"}},
-			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{DNS: "b"}},
-			dnsFirst: true,
-			out:      false,
-		},
-		{
-			name:     "DNS first, no DNS compare IP",
-			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
-			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.2"), DNS: ""}},
-			dnsFirst: true,
-			out:      false,
-		},
-		{
-			name:     "DNS first, no DNS compare IP (same)",
-			a:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
-			b:        &Endpoint{Port: 1234, DNSOrIP: DNSOrIP{IP: net.ParseIP("192.168.0.1"), DNS: ""}},
-			dnsFirst: true,
-			out:      true,
+			name: "ipv6",
+			str:  "[ff50::10]:1000",
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("ff50::10").To16(),
+					Port: 1000,
+				},
+			},
 		},
 	} {
-		equal := tc.a.Equal(tc.b, tc.dnsFirst)
-		if equal != tc.out {
-			t.Errorf("test case %q: expected %t, got %t", tc.name, tc.out, equal)
+		out := ParseEndpoint(tc.str)
+		if diff := pretty.Compare(out, tc.out); diff != "" {
+			t.Errorf("ParseEndpoint %s(%d): got diff:\n%s\n", tc.name, i, diff)
 		}
 	}
 }
 
-func TestCompareDumpConf(t *testing.T) {
-	for _, tc := range []struct {
+func TestNewEndpointFromUDPAddr(t *testing.T) {
+	for i, tc := range []struct {
 		name string
-		d    []byte
-		c    []byte
+		u    *net.UDPAddr
+		out  *Endpoint
 	}{
 		{
-			name: "empty",
-			d:    []byte{},
-			c:    []byte{},
+			name: "no ip, no port",
+			out: &Endpoint{
+				addr: "",
+			},
 		},
 		{
-			name: "redacted copy from wg output",
-			d: []byte(`private	B7qk8EMlob0nfado0ABM6HulUV607r4yqtBKjhap7S4=	51820	off
-key1	(none)	10.254.1.1:51820	100.64.1.0/24,192.168.0.125/32,10.4.0.1/32	1619012801	67048	34952	10
-key2	(none)	10.254.2.1:51820	100.64.4.0/24,10.69.76.55/32,100.64.3.0/24,10.66.25.131/32,10.4.0.2/32	1619013058	1134456	10077852	10`),
-			c: []byte(`[Interface]
-		ListenPort = 51820
-		PrivateKey = private
-
-		[Peer]
-		PublicKey = key1
-		AllowedIPs = 100.64.1.0/24, 192.168.0.125/32, 10.4.0.1/32
-		Endpoint = 10.254.1.1:51820
-		PersistentKeepalive = 10
-
-		[Peer]
-		PublicKey = key2
-		AllowedIPs = 100.64.4.0/24, 10.69.76.55/32, 100.64.3.0/24, 10.66.25.131/32, 10.4.0.2/32
-		Endpoint = 10.254.2.1:51820
-		PersistentKeepalive = 10`),
+			name: "only port",
+			u: &net.UDPAddr{
+				Port: 1000,
+			},
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+				},
+				addr: "",
+			},
+		},
+		{
+			name: "only ipv4",
+			u: &net.UDPAddr{
+				IP: net.ParseIP("10.0.0.0"),
+			},
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP: net.ParseIP("10.0.0.0").To4(),
+				},
+				addr: "",
+			},
+		},
+		{
+			name: "only ipv6",
+			u: &net.UDPAddr{
+				IP: net.ParseIP("ff60::10"),
+			},
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP: net.ParseIP("ff60::10").To16(),
+				},
+			},
+		},
+		{
+			name: "ipv4",
+			u: &net.UDPAddr{
+				IP:   net.ParseIP("10.0.0.0"),
+				Port: 1000,
+			},
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("10.0.0.0").To4(),
+					Port: 1000,
+				},
+			},
+		},
+		{
+			name: "ipv6",
+			u: &net.UDPAddr{
+				IP:   net.ParseIP("ff50::10"),
+				Port: 1000,
+			},
+			out: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("ff50::10").To16(),
+					Port: 1000,
+				},
+			},
 		},
 	} {
+		out := NewEndpointFromUDPAddr(tc.u)
+		if diff := pretty.Compare(out, tc.out); diff != "" {
+			t.Errorf("ParseEndpoint %s(%d): got diff:\n%s\n", tc.name, i, diff)
+		}
+	}
+}
 
-		dumpConf, _ := ParseDump(tc.d)
-		conf := Parse(tc.c)
-		// Equal will ignore runtime fields and only compare configuration fields.
-		if !dumpConf.Equal(conf) {
-			diff := pretty.Compare(dumpConf, conf)
-			t.Errorf("test case %q: got diff: %v", tc.name, diff)
+func TestReady(t *testing.T) {
+	for i, tc := range []struct {
+		name string
+		in   *Endpoint
+		r    bool
+	}{
+		{
+			name: "nil",
+			r:    false,
+		},
+		{
+			name: "no ip, no port",
+			in: &Endpoint{
+				addr:    "",
+				udpAddr: &net.UDPAddr{},
+			},
+			r: false,
+		},
+		{
+			name: "only port",
+			in: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+				},
+			},
+			r: false,
+		},
+		{
+			name: "only ipv4",
+			in: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP: net.ParseIP("10.0.0.0"),
+				},
+			},
+			r: false,
+		},
+		{
+			name: "only ipv6",
+			in: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP: net.ParseIP("ff60::10"),
+				},
+			},
+			r: false,
+		},
+		{
+			name: "ipv4",
+			in: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("10.0.0.0"),
+					Port: 1000,
+				},
+			},
+			r: true,
+		},
+		{
+			name: "ipv6",
+			in: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					IP:   net.ParseIP("ff50::10"),
+					Port: 1000,
+				},
+			},
+			r: true,
+		},
+	} {
+		if tc.r != tc.in.Ready() {
+			t.Errorf("Endpoint.Ready() %s(%d): expected=%v\tgot=%v\n", tc.name, i, tc.r, tc.in.Ready())
+		}
+	}
+}
+
+func TestEqual(t *testing.T) {
+	for i, tc := range []struct {
+		name string
+		a    *Endpoint
+		b    *Endpoint
+		df   bool
+		r    bool
+	}{
+		{
+			name: "nil dns last",
+			r:    true,
+		},
+		{
+			name: "nil dns first",
+			df:   true,
+			r:    true,
+		},
+		{
+			name: "equal: only port",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+				},
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+				},
+			},
+			r: true,
+		},
+		{
+			name: "not equal: only port",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+				},
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1001,
+				},
+			},
+			r: false,
+		},
+		{
+			name: "equal dns first",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "example.com:1000",
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "example.com:1000",
+			},
+			r: true,
+		},
+		{
+			name: "equal dns last",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "example.com:1000",
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "foo",
+			},
+			r: true,
+		},
+		{
+			name: "unequal dns first",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "example.com:1000",
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "foo",
+			},
+			df: true,
+			r:  false,
+		},
+		{
+			name: "unequal dns last",
+			a: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("10.0.0.0"),
+				},
+				addr: "foo",
+			},
+			b: &Endpoint{
+				udpAddr: &net.UDPAddr{
+					Port: 1000,
+					IP:   net.ParseIP("11.0.0.0"),
+				},
+				addr: "foo",
+			},
+			r: false,
+		},
+		{
+			name: "unequal dns last empty IP",
+			a: &Endpoint{
+				addr: "foo",
+			},
+			b: &Endpoint{
+				addr: "bar",
+			},
+			r: false,
+		},
+		{
+			name: "equal dns last empty IP",
+			a: &Endpoint{
+				addr: "foo",
+			},
+			b: &Endpoint{
+				addr: "foo",
+			},
+			r: true,
+		},
+	} {
+		if out := tc.a.Equal(tc.b, tc.df); out != tc.r {
+			t.Errorf("ParseEndpoint %s(%d): expected: %v\tgot: %v\n", tc.name, i, tc.r, out)
 		}
 	}
 }
