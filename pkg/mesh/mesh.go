@@ -704,7 +704,7 @@ func peersAreEqual(a, b *Peer) bool {
 		(a.PresharedKey == nil) == (b.PresharedKey == nil) &&
 		(a.PresharedKey == nil || a.PresharedKey.String() == b.PresharedKey.String()) &&
 		(a.PersistentKeepaliveInterval == nil) == (b.PersistentKeepaliveInterval == nil) &&
-		(a.PersistentKeepaliveInterval == nil || a.PersistentKeepaliveInterval == b.PersistentKeepaliveInterval)
+		(a.PersistentKeepaliveInterval == nil || *a.PersistentKeepaliveInterval == *b.PersistentKeepaliveInterval)
 }
 
 func ipNetsEqual(a, b *net.IPNet) bool {
@@ -751,18 +751,31 @@ func subnetsEqual(a, b *net.IPNet) bool {
 	return true
 }
 
-func discoveredEndpointsAreEqual(a, b map[string]*net.UDPAddr) bool {
+func udpAddrsEqual(a, b *net.UDPAddr) bool {
 	if a == nil && b == nil {
 		return true
 	}
 	if (a != nil) != (b != nil) {
 		return false
 	}
+	if a.Zone != b.Zone {
+		return false
+	}
+	if a.Port != b.Port {
+		return false
+	}
+	return a.IP.Equal(b.IP)
+}
+
+func discoveredEndpointsAreEqual(a, b map[string]*net.UDPAddr) bool {
+	if a == nil && b == nil {
+		return true
+	}
 	if len(a) != len(b) {
 		return false
 	}
 	for k := range a {
-		if a[k] != b[k] {
+		if !udpAddrsEqual(a[k], b[k]) {
 			return false
 		}
 	}
