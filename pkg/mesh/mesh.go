@@ -98,7 +98,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	private, err := wgtypes.ParseKey(string(privateB))
 	if err != nil {
 		level.Warn(logger).Log("msg", "no private key found on disk; generating one now")
-		if private, err = wgtypes.GenerateKey(); err != nil {
+		if private, err = wgtypes.GeneratePrivateKey(); err != nil {
 			return nil, err
 		}
 	}
