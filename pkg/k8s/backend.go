@@ -298,7 +298,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		internalIP = nil
 	}
 	// Set Wireguard PersistentKeepalive setting for the node.
-	var persistentKeepalive = time.Duration(0)
+	var persistentKeepalive time.Duration
 	if keepAlive, ok := node.ObjectMeta.Annotations[persistentKeepaliveKey]; ok {
 		// We can ignore the error, because p will be set to 0 if an error occures.
 		p, _ := strconv.ParseInt(keepAlive, 10, 64)
@@ -414,7 +414,7 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 	}
 	var pka time.Duration
 	if peer.Spec.PersistentKeepalive > 0 {
-		pka = time.Duration(peer.Spec.PersistentKeepalive)
+		pka = time.Duration(peer.Spec.PersistentKeepalive) * time.Second
 	}
 	return &mesh.Peer{
 		Name: peer.Name,
@@ -534,7 +534,7 @@ func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
 	if peer.PersistentKeepaliveInterval == nil {
 		p.Spec.PersistentKeepalive = 0
 	} else {
-		p.Spec.PersistentKeepalive = int(*peer.PersistentKeepaliveInterval)
+		p.Spec.PersistentKeepalive = int(*peer.PersistentKeepaliveInterval / time.Second)
 	}
 	if peer.PresharedKey == nil {
 		p.Spec.PresharedKey = ""
