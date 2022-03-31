@@ -40,7 +40,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		var gw net.IP
 		for _, segment := range t.segments {
 			if segment.location == t.location {
-				gw = enc.Gw(segment.endpoint.IP(), segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
+				gw = enc.Gw(t.updateEndpoint(segment.endpoint, segment.key, &segment.persistentKeepalive).IP(), segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
 				break
 			}
 		}
@@ -196,7 +196,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 			// equals the external IP. This means that the node
 			// is only accessible through an external IP and we
 			// cannot encapsulate traffic to an IP through the IP.
-			if segment.privateIPs == nil || segment.privateIPs[i].Equal(segment.endpoint.IP()) {
+			if segment.privateIPs == nil || segment.privateIPs[i].Equal(t.updateEndpoint(segment.endpoint, segment.key, &segment.persistentKeepalive).IP()) {
 				continue
 			}
 			// Add routes to the private IPs of nodes in other segments.
