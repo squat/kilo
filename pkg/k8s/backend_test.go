@@ -511,7 +511,7 @@ func TestTranslatePeer(t *testing.T) {
 		{
 			name: "valid keepalive",
 			spec: v1alpha1.PeerSpec{
-				PersistentKeepalive: 1 * int(time.Second),
+				PersistentKeepalive: 1,
 			},
 			out: &mesh.Peer{
 				Peer: wireguard.Peer{
