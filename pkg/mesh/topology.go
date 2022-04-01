@@ -371,7 +371,7 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 	for _, s := range t.segments {
 		peer := wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
-				AllowedIPs:                  s.allowedIPs,
+				AllowedIPs:                  append(s.allowedIPs, s.allowedLocationIPs...),
 				PersistentKeepaliveInterval: pka,
 				PresharedKey:                psk,
 				PublicKey:                   s.key,
