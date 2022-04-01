@@ -83,7 +83,7 @@ func runShowConf(c *cobra.Command, args []string) error {
 	case outputFormatYAML:
 		showConfOpts.serializer = json.NewYAMLSerializer(json.DefaultMetaFactory, peerCreatorTyper{}, peerCreatorTyper{})
 	default:
-		return fmt.Errorf("output format %v unknown; posible values are: %s", showConfOpts.output, availableOutputFormats)
+		return fmt.Errorf("output format %s unknown; posible values are: %s", showConfOpts.output, availableOutputFormats)
 	}
 	for i := range allowedIPs {
 		_, aip, err := net.ParseCIDR(allowedIPs[i])
@@ -116,15 +116,15 @@ func showConfPeer() *cobra.Command {
 func runShowConfNode(_ *cobra.Command, args []string) error {
 	ns, err := opts.backend.Nodes().List()
 	if err != nil {
-		return fmt.Errorf("failed to list nodes: %v", err)
+		return fmt.Errorf("failed to list nodes: %w", err)
 	}
 	ps, err := opts.backend.Peers().List()
 	if err != nil {
-		return fmt.Errorf("failed to list peers: %v", err)
+		return fmt.Errorf("failed to list peers: %w", err)
 	}
 	// Obtain the Granularity by looking at the annotation of the first node.
-	if opts.granularity, err = optainGranularity(opts.granularity, ns); err != nil {
-		return fmt.Errorf("failed to obtain granularity: %w", err)
+	if opts.granularity, err = determineGranularity(opts.granularity, ns); err != nil {
+		return fmt.Errorf("failed to determine granularity: %w", err)
 	}
 	hostname := args[0]
 	subnet := mesh.DefaultKiloSubnet
@@ -154,7 +154,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 
 	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, int(opts.port), wgtypes.Key{}, subnet, nodes[hostname].PersistentKeepalive, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create topology: %v", err)
+		return fmt.Errorf("failed to create topology: %w", err)
 	}
 
 	var found bool
@@ -172,7 +172,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 	if !showConfOpts.asPeer {
 		c, err := t.Conf().Bytes()
 		if err != nil {
-			return fmt.Errorf("failed to generate configuration: %v", err)
+			return fmt.Errorf("failed to generate configuration: %w", err)
 		}
 		_, err = os.Stdout.Write(c)
 		return err
@@ -202,7 +202,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 			Peers: []wireguard.Peer{*p},
 		}).Bytes()
 		if err != nil {
-			return fmt.Errorf("failed to generate configuration: %v", err)
+			return fmt.Errorf("failed to generate configuration: %w", err)
 		}
 		_, err = os.Stdout.Write(c)
 		return err
@@ -213,15 +213,15 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 func runShowConfPeer(_ *cobra.Command, args []string) error {
 	ns, err := opts.backend.Nodes().List()
 	if err != nil {
-		return fmt.Errorf("failed to list nodes: %v", err)
+		return fmt.Errorf("failed to list nodes: %w", err)
 	}
 	ps, err := opts.backend.Peers().List()
 	if err != nil {
-		return fmt.Errorf("failed to list peers: %v", err)
+		return fmt.Errorf("failed to list peers: %w", err)
 	}
 	// Obtain the Granularity by looking at the annotation of the first node.
-	if opts.granularity, err = optainGranularity(opts.granularity, ns); err != nil {
-		return fmt.Errorf("failed to obtain granularity: %w", err)
+	if opts.granularity, err = determineGranularity(opts.granularity, ns); err != nil {
+		return fmt.Errorf("failed to determine granularity: %w", err)
 	}
 	var hostname string
 	subnet := mesh.DefaultKiloSubnet
@@ -257,12 +257,12 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 	}
 	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, wgtypes.Key{}, subnet, pka, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create topology: %v", err)
+		return fmt.Errorf("failed to create topology: %w", err)
 	}
 	if !showConfOpts.asPeer {
 		c, err := t.PeerConf(peer).Bytes()
 		if err != nil {
-			return fmt.Errorf("failed to generate configuration: %v", err)
+			return fmt.Errorf("failed to generate configuration: %w", err)
 		}
 		_, err = os.Stdout.Write(c)
 		return err
@@ -286,7 +286,7 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 			Peers: []wireguard.Peer{*p},
 		}).Bytes()
 		if err != nil {
-			return fmt.Errorf("failed to generate configuration: %v", err)
+			return fmt.Errorf("failed to generate configuration: %w", err)
 		}
 		_, err = os.Stdout.Write(c)
 		return err

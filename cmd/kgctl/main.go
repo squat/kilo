@@ -62,6 +62,7 @@ var (
 	opts struct {
 		backend     mesh.Backend
 		granularity mesh.Granularity
+		kc          kiloclient.Interface
 		port        int
 	}
 	backend       string
@@ -81,29 +82,29 @@ func runRoot(_ *cobra.Command, _ []string) error {
 	case mesh.FullGranularity:
 	case mesh.AutoGranularity:
 	default:
-		return fmt.Errorf("mesh granularity %v unknown; posible values are: %s", granularity, availableGranularities)
+		return fmt.Errorf("mesh granularity %s unknown; posible values are: %s", granularity, availableGranularities)
 	}
 
 	switch backend {
 	case k8s.Backend:
 		config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
-			return fmt.Errorf("failed to create Kubernetes config: %v", err)
+			return fmt.Errorf("failed to create Kubernetes config: %w", err)
 		}
 		c := kubernetes.NewForConfigOrDie(config)
-		kc := kiloclient.NewForConfigOrDie(config)
+		opts.kc = kiloclient.NewForConfigOrDie(config)
 		ec := apiextensions.NewForConfigOrDie(config)
-		opts.backend = k8s.New(c, kc, ec, topologyLabel, log.NewNopLogger())
+		opts.backend = k8s.New(c, opts.kc, ec, topologyLabel, log.NewNopLogger())
 	default:
-		return fmt.Errorf("backend %v unknown; posible values are: %s", backend, availableBackends)
+		return fmt.Errorf("backend %s unknown; posible values are: %s", backend, availableBackends)
 	}
 
 	if err := opts.backend.Nodes().Init(make(chan struct{})); err != nil {
-		return fmt.Errorf("failed to initialize node backend: %v", err)
+		return fmt.Errorf("failed to initialize node backend: %w", err)
 	}
 
 	if err := opts.backend.Peers().Init(make(chan struct{})); err != nil {
-		return fmt.Errorf("failed to initialize peer backend: %v", err)
+		return fmt.Errorf("failed to initialize peer backend: %w", err)
 	}
 	return nil
 }
@@ -141,7 +142,7 @@ func main() {
 	}
 }
 
-func optainGranularity(gr mesh.Granularity, ns []*mesh.Node) (mesh.Granularity, error) {
+func determineGranularity(gr mesh.Granularity, ns []*mesh.Node) (mesh.Granularity, error) {
 	if gr == mesh.AutoGranularity {
 		if len(ns) == 0 {
 			return gr, errors.New("could not get any nodes")
@@ -151,7 +152,7 @@ func optainGranularity(gr mesh.Granularity, ns []*mesh.Node) (mesh.Granularity, 
 		case mesh.LogicalGranularity:
 		case mesh.FullGranularity:
 		default:
-			return ret, fmt.Errorf("mesh granularity %v is not supported", opts.granularity)
+			return ret, fmt.Errorf("mesh granularity %s is not supported", opts.granularity)
 		}
 		return ret, nil
 	}

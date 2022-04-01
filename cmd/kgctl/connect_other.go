@@ -26,9 +26,9 @@ import (
 func connect() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connect",
-		Short: "not supporred on you OS",
+		Short: "not supporred on this OS",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return errors.New("this command is not supported on your OS")
+			return errors.New("this command is not supported on this OS")
 		},
 	}
 	return cmd

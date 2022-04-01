@@ -21,10 +21,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	logg "log"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -37,36 +36,54 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/squat/kilo/pkg/iproute"
-	"github.com/squat/kilo/pkg/k8s"
 	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
-	kiloclient "github.com/squat/kilo/pkg/k8s/clientset/versioned"
 	"github.com/squat/kilo/pkg/mesh"
 	"github.com/squat/kilo/pkg/route"
 	"github.com/squat/kilo/pkg/wireguard"
 )
 
-func takeIPNet(_ net.IP, i *net.IPNet, _ error) *net.IPNet {
+var (
+	logLevel    string
+	connectOpts struct {
+		allowedIP           net.IPNet
+		allowedIPs          []net.IPNet
+		privateKey          string
+		cleanUp             bool
+		mtu                 uint
+		resyncPeriod        time.Duration
+		interfaceName       string
+		persistentKeepalive int
+	}
+)
+
+func takeIPNet(_ net.IP, i *net.IPNet, err error) *net.IPNet {
+	if err != nil {
+		panic(err)
+	}
 	return i
 }
 
 func connect() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connect",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  connectAsPeer,
-		Short: "connect to a Kilo cluster as a peer over WireGuard",
+		Use:          "connect",
+		Args:         cobra.ExactArgs(1),
+		RunE:         runConnect,
+		Short:        "connect to a Kilo cluster as a peer over WireGuard",
+		SilenceUsage: true,
 	}
-	cmd.Flags().IPNetP("allowed-ip", "a", *takeIPNet(net.ParseCIDR("10.10.10.10/32")), "Allowed IP of the peer")
-	cmd.Flags().IPNetP("service-cidr", "c", *takeIPNet(net.ParseCIDR("10.43.0.0/16")), "service CIDR of the cluster")
-	cmd.Flags().String("log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
-	cmd.Flags().String("config-path", "/tmp/wg.ini", "path to WireGuard configuation file")
-	cmd.Flags().Bool("clean-up", true, "clean up routes and interface")
-	cmd.Flags().Uint("mtu", uint(1420), "clean up routes and interface")
-	cmd.Flags().Duration("resync-period", 30*time.Second, "How often should Kilo reconcile?")
+	cmd.Flags().IPNetVarP(&connectOpts.allowedIP, "allowed-ip", "a", *takeIPNet(net.ParseCIDR("10.10.10.10/32")), "Allowed IP of the peer.")
+	cmd.Flags().StringSliceVar(&allowedIPs, "allowed-ips", []string{}, "Additional allowed IPs of the cluster, e.g. the service CIDR.")
+	cmd.Flags().StringVar(&logLevel, "log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
+	cmd.Flags().StringVar(&connectOpts.privateKey, "private-key", "", "Path to an existing WireGuard private key file.")
+	cmd.Flags().BoolVar(&connectOpts.cleanUp, "clean-up", true, "Should Kilo clean up the routes and interface when it shuts down?")
+	cmd.Flags().UintVar(&connectOpts.mtu, "mtu", uint(1420), "The MTU for the WireGuard interface.")
+	cmd.Flags().DurationVar(&connectOpts.resyncPeriod, "resync-period", 30*time.Second, "How often should Kilo reconcile?")
+	cmd.Flags().StringVarP(&connectOpts.interfaceName, "interface", "i", mesh.DefaultKiloInterface, "Name of the Kilo interface to use; if it does not exist, it will be created.")
+	cmd.Flags().IntVar(&connectOpts.persistentKeepalive, "persistent-keepalive", 10, "How often should WireGuard send keepalives? Setting to 0 will disable sending keepalives.")
 
 	availableLogLevels = strings.Join([]string{
 		logLevelAll,
@@ -80,35 +97,11 @@ func connect() *cobra.Command {
 	return cmd
 }
 
-func connectAsPeer(cmd *cobra.Command, args []string) error {
+func runConnect(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	resyncPersiod, err := cmd.Flags().GetDuration("resync-period")
-	if err != nil {
-		return err
-	}
-	mtu, err := cmd.Flags().GetUint("mtu")
-	if err != nil {
-		return err
-	}
-	configPath, err := cmd.Flags().GetString("config-path")
-	if err != nil {
-		return err
-	}
-	serviceCIDR, err := cmd.Flags().GetIPNet("service-cidr")
-	if err != nil {
-		return err
-	}
-	allowedIP, err := cmd.Flags().GetIPNet("allowed-ip")
-	if err != nil {
-		return err
-	}
 	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
-	logLevel, err := cmd.Flags().GetString("log-level")
-	if err != nil {
-		return err
-	}
 	switch logLevel {
 	case logLevelAll:
 		logger = level.NewFilter(logger, level.AllowAll())
@@ -127,61 +120,82 @@ func connectAsPeer(cmd *cobra.Command, args []string) error {
 	}
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
-	peername := "random"
-	if len(args) == 1 {
-		peername = args[0]
+	peerName := args[0]
+
+	for i := range allowedIPs {
+		_, aip, err := net.ParseCIDR(allowedIPs[i])
+		if err != nil {
+			return err
+		}
+		connectOpts.allowedIPs = append(connectOpts.allowedIPs, *aip)
 	}
 
-	var kiloClient *kiloclient.Clientset
-	switch backend {
-	case k8s.Backend:
-		config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	var privateKey wgtypes.Key
+	var err error
+	if connectOpts.privateKey == "" {
+		privateKey, err = wgtypes.GeneratePrivateKey()
 		if err != nil {
-			return fmt.Errorf("failed to create Kubernetes config: %v", err)
+			return fmt.Errorf("failed to generate private key: %w", err)
 		}
-		kiloClient = kiloclient.NewForConfigOrDie(config)
-	default:
-		return fmt.Errorf("backend %v unknown; posible values are: %s", backend, availableBackends)
-	}
-	privateKey, err := wgtypes.GeneratePrivateKey()
-	if err != nil {
-		return fmt.Errorf("failed to generate private key: %w", err)
+	} else {
+		raw, err := os.ReadFile(connectOpts.privateKey)
+		if err != nil {
+			return fmt.Errorf("failed to read private key: %w", err)
+		}
+		privateKey, err = wgtypes.ParseKey(string(raw))
+		if err != nil {
+			return fmt.Errorf("failed to parse private key: %w", err)
+		}
 	}
 	publicKey := privateKey.PublicKey()
 	level.Info(logger).Log("msg", "generated public key", "key", publicKey)
 
-	peer := &v1alpha1.Peer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: peername,
-		},
-		Spec: v1alpha1.PeerSpec{
-			AllowedIPs:          []string{allowedIP.String()},
-			PersistentKeepalive: 10,
-			PublicKey:           publicKey.String(),
-		},
-	}
-	if p, err := kiloClient.KiloV1alpha1().Peers().Get(ctx, peername, metav1.GetOptions{}); err != nil || p == nil {
-		peer, err = kiloClient.KiloV1alpha1().Peers().Create(ctx, peer, metav1.CreateOptions{})
-		if err != nil {
+	if _, err := opts.kc.KiloV1alpha1().Peers().Get(ctx, peerName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
+		peer := &v1alpha1.Peer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: peerName,
+			},
+			Spec: v1alpha1.PeerSpec{
+				AllowedIPs:          []string{connectOpts.allowedIP.String()},
+				PersistentKeepalive: connectOpts.persistentKeepalive,
+				PublicKey:           publicKey.String(),
+			},
+		}
+		if _, err := opts.kc.KiloV1alpha1().Peers().Create(ctx, peer, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create peer: %w", err)
 		}
+		level.Info(logger).Log("msg", "created peer", "peer", peerName)
+		if connectOpts.cleanUp {
+			defer func() {
+				ctxWithTimeout, cancelWithTimeout := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancelWithTimeout()
+				if err := opts.kc.KiloV1alpha1().Peers().Delete(ctxWithTimeout, peerName, metav1.DeleteOptions{}); err != nil {
+					level.Error(logger).Log("err", fmt.Sprintf("failed to delete peer: %v", err))
+				} else {
+					level.Info(logger).Log("msg", "deleted peer", "peer", peerName)
+				}
+			}()
+		}
+
+	} else if err != nil {
+		return fmt.Errorf("failed to get peer: %w", err)
 	}
 
-	kiloIfaceName := "kilo0"
-
-	iface, _, err := wireguard.New(kiloIfaceName, mtu)
+	iface, _, err := wireguard.New(connectOpts.interfaceName, connectOpts.mtu)
 	if err != nil {
 		return fmt.Errorf("failed to create wg interface: %w", err)
 	}
-	level.Info(logger).Log("msg", "successfully created wg interface", "name", kiloIfaceName, "no", iface)
-	if err := iproute.Set(iface, false); err != nil {
-		return err
+	level.Info(logger).Log("msg", "created WireGuard interface", "name", connectOpts.interfaceName, "index", iface)
+
+	table := route.NewTable()
+	if connectOpts.cleanUp {
+		defer cleanUp(iface, table, logger)
 	}
 
-	if err := iproute.SetAddress(iface, &allowedIP); err != nil {
+	if err := iproute.SetAddress(iface, &connectOpts.allowedIP); err != nil {
 		return err
 	}
-	level.Info(logger).Log("mag", "successfully set IP address of wg interface", "IP", allowedIP.String())
+	level.Info(logger).Log("msg", "set IP address of WireGuard interface", "IP", connectOpts.allowedIP.String())
 
 	if err := iproute.Set(iface, true); err != nil {
 		return err
@@ -190,13 +204,13 @@ func connectAsPeer(cmd *cobra.Command, args []string) error {
 	var g run.Group
 	g.Add(run.SignalHandler(ctx, syscall.SIGINT, syscall.SIGTERM))
 
-	table := route.NewTable()
-	stop := make(chan struct{}, 1)
-	errCh := make(<-chan error, 1)
 	{
-		ch := make(chan struct{}, 1)
 		g.Add(
 			func() error {
+				errCh, err := table.Run(ctx.Done())
+				if err != nil {
+					return fmt.Errorf("failed to watch for route table updates: %w", err)
+				}
 				for {
 					select {
 					case err, ok := <-errCh:
@@ -205,200 +219,47 @@ func connectAsPeer(cmd *cobra.Command, args []string) error {
 						} else {
 							return nil
 						}
-					case <-ch:
+					case <-ctx.Done():
 						return nil
 					}
 				}
 			},
 			func(err error) {
-				ch <- struct{}{}
-				close(ch)
-				stop <- struct{}{}
-				close(stop)
-				level.Error(logger).Log("msg", "stopped ip routes table", "err", err.Error())
+				cancel()
+				var serr run.SignalError
+				if ok := errors.As(err, &serr); ok {
+					level.Debug(logger).Log("msg", "received signal", "signal", serr.Signal.String(), "err", err.Error())
+				} else {
+					level.Error(logger).Log("msg", "received error", "err", err.Error())
+				}
 			},
 		)
 	}
 	{
-		ch := make(chan struct{}, 1)
 		g.Add(
 			func() error {
+				level.Info(logger).Log("msg", "starting syncer")
 				for {
-					ns, err := opts.backend.Nodes().List()
-					if err != nil {
-						return fmt.Errorf("failed to list nodes: %v", err)
-					}
-					for _, n := range ns {
-						_, err := n.Endpoint.UDPAddr(true)
-						if err != nil {
-							return err
-						}
-					}
-					ps, err := opts.backend.Peers().List()
-					if err != nil {
-						return fmt.Errorf("failed to list peers: %v", err)
-					}
-					// Obtain the Granularity by looking at the annotation of the first node.
-					if opts.granularity, err = optainGranularity(opts.granularity, ns); err != nil {
-						return fmt.Errorf("failed to obtain granularity: %w", err)
-					}
-					var hostname string
-					subnet := mesh.DefaultKiloSubnet
-					nodes := make(map[string]*mesh.Node)
-					for _, n := range ns {
-						if n.Ready() {
-							nodes[n.Name] = n
-							hostname = n.Name
-						}
-						if n.WireGuardIP != nil {
-							subnet = n.WireGuardIP
-						}
-					}
-					subnet.IP = subnet.IP.Mask(subnet.Mask)
-					if len(nodes) == 0 {
-						return errors.New("did not find any valid Kilo nodes in the cluster")
-					}
-					peers := make(map[string]*mesh.Peer)
-					for _, p := range ps {
-						if p.Ready() {
-							peers[p.Name] = p
-						}
-					}
-					if _, ok := peers[peername]; !ok {
-						return fmt.Errorf("did not find any peer named %q in the cluster", peername)
-					}
-
-					t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, opts.port, wgtypes.Key{}, subnet, *peers[peername].PersistentKeepaliveInterval, logger)
-					if err != nil {
-						return fmt.Errorf("failed to create topology: %v", err)
-					}
-					conf := t.PeerConf(peername)
-					conf.PrivateKey = &privateKey
-					port, err := cmd.Flags().GetInt("port")
-					if err != nil {
-						logg.Fatal(err)
-					}
-					conf.ListenPort = &port
-					buf, err := conf.Bytes()
-					if err != nil {
-						return err
-					}
-					if err := ioutil.WriteFile("/tmp/wg.ini", buf, 0o600); err != nil {
-						return err
-					}
-					wgClient, err := wgctrl.New()
-					if err != nil {
-						return fmt.Errorf("failed to initialize wg Client: %w", err)
-					}
-					defer wgClient.Close()
-					if err := wgClient.ConfigureDevice(kiloIfaceName, conf.WGConfig()); err != nil {
-						return err
-					}
-					wgConf := wgtypes.Config{
-						PrivateKey: &privateKey,
-					}
-					if err := wgClient.ConfigureDevice(kiloIfaceName, wgConf); err != nil {
-						return fmt.Errorf("failed to configure wg interface: %w", err)
-					}
-
-					var routes []*netlink.Route
-					for _, segment := range t.Segments {
-						for i := range segment.CIDRS() {
-							// Add routes to the Pod CIDRs of nodes in other segments.
-							routes = append(routes, &netlink.Route{
-								Dst:       segment.CIDRS()[i],
-								Flags:     int(netlink.FLAG_ONLINK),
-								Gw:        segment.WireGuardIP(),
-								LinkIndex: iface,
-								Protocol:  unix.RTPROT_STATIC,
-							})
-						}
-						for i := range segment.PrivateIPs() {
-							// Add routes to the private IPs of nodes in other segments.
-							routes = append(routes, &netlink.Route{
-								Dst:       mesh.OneAddressCIDR(segment.PrivateIPs()[i]),
-								Flags:     int(netlink.FLAG_ONLINK),
-								Gw:        segment.WireGuardIP(),
-								LinkIndex: iface,
-								Protocol:  unix.RTPROT_STATIC,
-							})
-						}
-						// Add routes for the allowed location IPs of all segments.
-						for i := range segment.AllowedLocationIPs() {
-							routes = append(routes, &netlink.Route{
-								Dst:       &segment.AllowedLocationIPs()[i],
-								Flags:     int(netlink.FLAG_ONLINK),
-								Gw:        segment.WireGuardIP(),
-								LinkIndex: iface,
-								Protocol:  unix.RTPROT_STATIC,
-							})
-						}
-						routes = append(routes, &netlink.Route{
-							Dst:       mesh.OneAddressCIDR(segment.WireGuardIP()),
-							LinkIndex: iface,
-							Protocol:  unix.RTPROT_STATIC,
-						})
-					}
-					// Add routes for the allowed IPs of peers.
-					for _, peer := range t.Peers() {
-						for i := range peer.AllowedIPs {
-							routes = append(routes, &netlink.Route{
-								Dst:       &peer.AllowedIPs[i],
-								LinkIndex: iface,
-								Protocol:  unix.RTPROT_STATIC,
-							})
-						}
-					}
-					routes = append(routes, &netlink.Route{
-						Dst:       &serviceCIDR,
-						Flags:     int(netlink.FLAG_ONLINK),
-						Gw:        t.Segments[0].WireGuardIP(),
-						LinkIndex: iface,
-						Protocol:  unix.RTPROT_STATIC,
-					})
-
-					level.Debug(logger).Log("routes", routes)
-					if err := table.Set(routes, []*netlink.Rule{}); err != nil {
-						return fmt.Errorf("failed to set ip routes table: %w", err)
-					}
-					errCh, err = table.Run(stop)
-					if err != nil {
-						return fmt.Errorf("failed to start ip routes tables: %w", err)
+					if err := sync(table, peerName, privateKey, iface, logger); err != nil {
+						level.Error(logger).Log("msg", "failed to sync", "err", err.Error())
 					}
 					select {
-					case <-time.After(resyncPersiod):
-					case <-ch:
+					case <-time.After(connectOpts.resyncPeriod):
+					case <-ctx.Done():
 						return nil
 					}
 				}
 			}, func(err error) {
-				// Cancel the root context in the very end.
-				defer cancel()
-				ch <- struct{}{}
+				cancel()
 				var serr run.SignalError
 				if ok := errors.As(err, &serr); ok {
-					level.Info(logger).Log("msg", "received signal", "signal", serr.Signal.String(), "err", err.Error())
+					level.Debug(logger).Log("msg", "received signal", "signal", serr.Signal.String(), "err", err.Error())
 				} else {
 					level.Error(logger).Log("msg", "received error", "err", err.Error())
 				}
-				level.Debug(logger).Log("msg", "stoped ip routes table")
-				ctxWithTimeOut, cancelWithTimeOut := context.WithTimeout(ctx, 10*time.Second)
-				defer func() {
-					cancelWithTimeOut()
-					level.Debug(logger).Log("msg", "canceled timed context")
-				}()
-				if err := kiloClient.KiloV1alpha1().Peers().Delete(ctxWithTimeOut, peername, metav1.DeleteOptions{}); err != nil {
-					level.Error(logger).Log("failed to delete peer: %w", err)
-				} else {
-					level.Info(logger).Log("msg", "deleted peer", "peer", peername)
-				}
-				if ok, err := cmd.Flags().GetBool("clean-up"); err != nil {
-					level.Error(logger).Log("err", err.Error(), "msg", "failed to get value from clean-up flag")
-				} else if ok {
-					cleanUp(iface, table, configPath, logger)
-				}
 			})
 	}
+
 	err = g.Run()
 	var serr run.SignalError
 	if ok := errors.As(err, &serr); ok {
@@ -407,18 +268,172 @@ func connectAsPeer(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func cleanUp(iface int, t *route.Table, configPath string, logger log.Logger) {
+func cleanUp(iface int, t *route.Table, logger log.Logger) {
 	if err := iproute.Set(iface, false); err != nil {
-		level.Error(logger).Log("err", err.Error(), "msg", "failed to set down wg interface")
-	}
-	if err := os.Remove(configPath); err != nil {
-		level.Error(logger).Log("error", fmt.Sprintf("failed to delete configuration file: %v", err))
+		level.Error(logger).Log("err", fmt.Sprintf("failed to set WireGuard interface down: %v", err))
 	}
 	if err := iproute.RemoveInterface(iface); err != nil {
-		level.Error(logger).Log("error", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
+		level.Error(logger).Log("err", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
 	}
 	if err := t.CleanUp(); err != nil {
-		level.Error(logger).Log("failed to clean up routes: %w", err)
+		level.Error(logger).Log("failed to clean up routes: %v", err)
 	}
+
 	return
+}
+
+func sync(table *route.Table, peerName string, privateKey wgtypes.Key, iface int, logger log.Logger) error {
+	ns, err := opts.backend.Nodes().List()
+	if err != nil {
+		return fmt.Errorf("failed to list nodes: %w", err)
+	}
+	for _, n := range ns {
+		_, err := n.Endpoint.UDPAddr(true)
+		if err != nil {
+			return err
+		}
+	}
+	ps, err := opts.backend.Peers().List()
+	if err != nil {
+		return fmt.Errorf("failed to list peers: %w", err)
+	}
+	// Obtain the Granularity by looking at the annotation of the first node.
+	if opts.granularity, err = determineGranularity(opts.granularity, ns); err != nil {
+		return fmt.Errorf("failed to determine granularity: %w", err)
+	}
+	var hostname string
+	var subnet *net.IPNet
+	nodes := make(map[string]*mesh.Node)
+	var nodeNames []string
+	for _, n := range ns {
+		if n.Ready() {
+			nodes[n.Name] = n
+			hostname = n.Name
+			nodeNames = append(nodeNames, n.Name)
+		}
+		if n.WireGuardIP != nil && subnet == nil {
+			subnet = n.WireGuardIP
+		}
+	}
+	if len(nodes) == 0 {
+		return errors.New("did not find any valid Kilo nodes in the cluster")
+	}
+	if subnet == nil {
+		return errors.New("did not find a valid Kilo subnet on any node")
+	}
+	subnet.IP = subnet.IP.Mask(subnet.Mask)
+	sort.Strings(nodeNames)
+	nodes[nodeNames[0]].AllowedLocationIPs = append(nodes[nodeNames[0]].AllowedLocationIPs, connectOpts.allowedIPs...)
+	peers := make(map[string]*mesh.Peer)
+	for _, p := range ps {
+		if p.Ready() {
+			peers[p.Name] = p
+		}
+	}
+	if _, ok := peers[peerName]; !ok {
+		return fmt.Errorf("did not find any peer named %q in the cluster", peerName)
+	}
+
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, opts.port, wgtypes.Key{}, subnet, *peers[peerName].PersistentKeepaliveInterval, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create topology: %w", err)
+	}
+	conf := t.PeerConf(peerName)
+	conf.PrivateKey = &privateKey
+	conf.ListenPort = &opts.port
+
+	wgClient, err := wgctrl.New()
+	if err != nil {
+		return err
+	}
+	defer wgClient.Close()
+
+	current, err := wgClient.Device(connectOpts.interfaceName)
+	if err != nil {
+		return err
+	}
+
+	var equal bool
+	var diff string
+	equal, diff = conf.Equal(current)
+	if !equal {
+		// If the key is empty, then it's the first time we are running
+		// so don't bother printing a diff.
+		if current.PrivateKey != [wgtypes.KeyLen]byte{} {
+			level.Info(logger).Log("msg", "WireGuard configurations are different", "diff", diff)
+		}
+		level.Debug(logger).Log("msg", "setting WireGuard config", "config", conf.WGConfig())
+		if err := wgClient.ConfigureDevice(connectOpts.interfaceName, conf.WGConfig()); err != nil {
+			return err
+		}
+	}
+
+	var routes []*netlink.Route
+	for _, segment := range t.Segments {
+		for i := range segment.CIDRS() {
+			// Add routes to the Pod CIDRs of nodes in other segments.
+			routes = append(routes, &netlink.Route{
+				Dst:       segment.CIDRS()[i],
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.WireGuardIP(),
+				LinkIndex: iface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		for i := range segment.PrivateIPs() {
+			// Add routes to the private IPs of nodes in other segments.
+			routes = append(routes, &netlink.Route{
+				Dst:       mesh.OneAddressCIDR(segment.PrivateIPs()[i]),
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.WireGuardIP(),
+				LinkIndex: iface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		// Add routes for the allowed location IPs of all segments.
+		for i := range segment.AllowedLocationIPs() {
+			routes = append(routes, &netlink.Route{
+				Dst:       &segment.AllowedLocationIPs()[i],
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.WireGuardIP(),
+				LinkIndex: iface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		routes = append(routes, &netlink.Route{
+			Dst:       mesh.OneAddressCIDR(segment.WireGuardIP()),
+			LinkIndex: iface,
+			Protocol:  unix.RTPROT_STATIC,
+		})
+	}
+	// Add routes for the allowed IPs of peers.
+	for _, peer := range t.Peers() {
+		// Don't add routes to ourselves.
+		if peer.Name == peerName {
+			continue
+		}
+		for i := range peer.AllowedIPs {
+			routes = append(routes, &netlink.Route{
+				Dst:       &peer.AllowedIPs[i],
+				LinkIndex: iface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+	}
+	for i := range connectOpts.allowedIPs {
+		routes = append(routes, &netlink.Route{
+			Dst:       &connectOpts.allowedIPs[i],
+			Flags:     int(netlink.FLAG_ONLINK),
+			Gw:        t.Segments[0].WireGuardIP(),
+			LinkIndex: iface,
+			Protocol:  unix.RTPROT_STATIC,
+		})
+	}
+
+	level.Debug(logger).Log("routes", routes)
+	if err := table.Set(routes, []*netlink.Rule{}); err != nil {
+		return fmt.Errorf("failed to update route table: %w", err)
+	}
+
+	return nil
 }
