@@ -42,6 +42,14 @@ Install `kgctl` from the Arch User Repository using an AUR helper like `paru` or
 paru -S kgctl-bin
 ```
 
+#### Arkade
+
+The [arkade](https://github.com/alexellis/arkade) CLI can be used to install `kgctl` on any OS and architecture:
+
+```shell
+arkade get kgctl
+```
+
 ## Commands
 
 |Command|Syntax|Description|
