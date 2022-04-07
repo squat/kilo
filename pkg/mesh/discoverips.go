@@ -57,7 +57,7 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 		}
 		for _, ip := range ips {
 			ignore[ip.String()] = struct{}{}
-			ignore[OneAddressCIDR(ip.IP).String()] = struct{}{}
+			ignore[oneAddressCIDR(ip.IP).String()] = struct{}{}
 		}
 	}
 
@@ -196,7 +196,7 @@ func assignedToInterface(ip *net.IPNet) (bool, net.IPMask, error) {
 // given hostname resolves.
 func ipsForHostname(hostname string) []*net.IPNet {
 	if ip := net.ParseIP(hostname); ip != nil {
-		return []*net.IPNet{OneAddressCIDR(ip)}
+		return []*net.IPNet{oneAddressCIDR(ip)}
 	}
 	ips, err := net.LookupIP(hostname)
 	if err != nil {
@@ -205,7 +205,7 @@ func ipsForHostname(hostname string) []*net.IPNet {
 	}
 	nets := make([]*net.IPNet, len(ips))
 	for i := range ips {
-		nets[i] = OneAddressCIDR(ips[i])
+		nets[i] = oneAddressCIDR(ips[i])
 	}
 	return nets
 }

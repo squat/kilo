@@ -504,13 +504,13 @@ func (m *Mesh) applyTopology() {
 	// tunnel has an IP address and IPIP traffic is allowed.
 	if m.enc.Strategy() != encapsulation.Never && m.local {
 		var cidrs []*net.IPNet
-		for _, s := range t.Segments {
+		for _, s := range t.segments {
 			// If the location prefix is not logicalLocation, but nodeLocation,
 			// we don't need to set any extra rules for encapsulation anyways
 			// because traffic will go over WireGuard.
 			if s.location == logicalLocationPrefix+nodes[m.hostname].Location {
 				for i := range s.privateIPs {
-					cidrs = append(cidrs, OneAddressCIDR(s.privateIPs[i]))
+					cidrs = append(cidrs, oneAddressCIDR(s.privateIPs[i]))
 				}
 				break
 			}
@@ -518,7 +518,7 @@ func (m *Mesh) applyTopology() {
 		ipRules = append(ipRules, m.enc.Rules(cidrs)...)
 		// If we are handling local routes, ensure the local
 		// tunnel has an IP address.
-		if err := m.enc.Set(OneAddressCIDR(newAllocator(*nodes[m.hostname].Subnet).next().IP)); err != nil {
+		if err := m.enc.Set(oneAddressCIDR(newAllocator(*nodes[m.hostname].Subnet).next().IP)); err != nil {
 			level.Error(m.logger).Log("error", err)
 			m.errorCounter.WithLabelValues("apply").Inc()
 			return

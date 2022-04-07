@@ -147,7 +147,7 @@ func TestNewTopology(t *testing.T) {
 				subnet:        nodes["a"].Subnet,
 				privateIP:     nodes["a"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
-				Segments: []*Segment{
+				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:            nodes["a"].Endpoint,
@@ -198,7 +198,7 @@ func TestNewTopology(t *testing.T) {
 				subnet:        nodes["b"].Subnet,
 				privateIP:     nodes["b"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
-				Segments: []*Segment{
+				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:            nodes["a"].Endpoint,
@@ -249,7 +249,7 @@ func TestNewTopology(t *testing.T) {
 				subnet:        nodes["c"].Subnet,
 				privateIP:     nodes["c"].InternalIP,
 				wireGuardCIDR: DefaultKiloSubnet,
-				Segments: []*Segment{
+				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:            nodes["a"].Endpoint,
@@ -300,7 +300,7 @@ func TestNewTopology(t *testing.T) {
 				subnet:        nodes["a"].Subnet,
 				privateIP:     nodes["a"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
-				Segments: []*Segment{
+				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:            nodes["a"].Endpoint,
@@ -362,7 +362,7 @@ func TestNewTopology(t *testing.T) {
 				subnet:        nodes["b"].Subnet,
 				privateIP:     nodes["b"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w2, Mask: net.CIDRMask(16, 32)},
-				Segments: []*Segment{
+				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:            nodes["a"].Endpoint,
@@ -424,7 +424,7 @@ func TestNewTopology(t *testing.T) {
 				subnet:        nodes["c"].Subnet,
 				privateIP:     nodes["c"].InternalIP,
 				wireGuardCIDR: &net.IPNet{IP: w3, Mask: net.CIDRMask(16, 32)},
-				Segments: []*Segment{
+				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:            nodes["a"].Endpoint,
@@ -486,7 +486,7 @@ func TestNewTopology(t *testing.T) {
 				subnet:        nodes["d"].Subnet,
 				privateIP:     nil,
 				wireGuardCIDR: &net.IPNet{IP: w4, Mask: net.CIDRMask(16, 32)},
-				Segments: []*Segment{
+				segments: []*segment{
 					{
 						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
 						endpoint:            nodes["a"].Endpoint,
@@ -925,12 +925,12 @@ func TestFilterAllowedIPs(t *testing.T) {
 		},
 	} {
 		for k, v := range tc.allowedLocationIPs {
-			topo.Segments[k].allowedLocationIPs = v
+			topo.segments[k].allowedLocationIPs = v
 		}
-		for k, v := range topo.Segments {
+		for k, v := range topo.segments {
 			f := topo.filterAllowedLocationIPs(v.allowedLocationIPs, v.location)
 			// Overwrite the allowedLocationIPs to mimic the actual usage of the filterAllowedLocationIPs function.
-			topo.Segments[k].allowedLocationIPs = f
+			topo.segments[k].allowedLocationIPs = f
 			if !ipNetSlicesEqual(f, tc.result[k]) {
 				t.Errorf("test case %q:\n\texpected:\n\t%q\n\tgot:\n\t%q\n", tc.name, tc.result[k], f)
 			}

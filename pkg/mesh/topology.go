@@ -39,7 +39,7 @@ type Topology struct {
 	port int
 	// Location is the logical location of the local host.
 	location string
-	Segments []*Segment
+	segments []*segment
 	peers    []*Peer
 
 	// hostname is the hostname of the local host.
@@ -65,8 +65,8 @@ type Topology struct {
 	logger              log.Logger
 }
 
-// Segment represents one logical unit in the topology that is united by one common WireGuard IP.
-type Segment struct {
+// segment represents one logical unit in the topology that is united by one common WireGuard IP.
+type segment struct {
 	allowedIPs          []net.IPNet
 	endpoint            *wireguard.Endpoint
 	key                 wgtypes.Key
@@ -89,21 +89,6 @@ type Segment struct {
 	// They are directly routable from nodes within the segment.
 	// A classic example is a printer that ought to be routable from other locations.
 	allowedLocationIPs []net.IPNet
-}
-
-// CIDRS returns the cidrs of the segment.
-func (s Segment) CIDRS() []*net.IPNet {
-	return s.cidrs
-}
-
-// PrivateIPs returns the private IPs of the segment.
-func (s Segment) PrivateIPs() []net.IP {
-	return s.privateIPs
-}
-
-// WireGuardIP retuns the WireGuard IP of the segment.
-func (s Segment) WireGuardIP() net.IP {
-	return s.wireGuardIP
 }
 
 // NewTopology creates a new Topology struct from a given set of nodes and peers.
@@ -181,7 +166,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 				}
 			}
 			if node.InternalIP != nil {
-				allowedIPs = append(allowedIPs, *OneAddressCIDR(node.InternalIP.IP))
+				allowedIPs = append(allowedIPs, *oneAddressCIDR(node.InternalIP.IP))
 				privateIPs = append(privateIPs, node.InternalIP.IP)
 			}
 			cidrs = append(cidrs, node.Subnet)
@@ -191,7 +176,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		sort.Slice(allowedLocationIPs, func(i, j int) bool {
 			return allowedLocationIPs[i].String() < allowedLocationIPs[j].String()
 		})
-		t.Segments = append(t.Segments, &Segment{
+		t.segments = append(t.segments, &segment{
 			allowedIPs:          allowedIPs,
 			endpoint:            topoMap[location][leader].Endpoint,
 			key:                 topoMap[location][leader].Key,
@@ -207,8 +192,8 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 
 	}
 	// Sort the Topology segments so the result is stable.
-	sort.Slice(t.Segments, func(i, j int) bool {
-		return t.Segments[i].location < t.Segments[j].location
+	sort.Slice(t.segments, func(i, j int) bool {
+		return t.segments[i].location < t.segments[j].location
 	})
 
 	for _, peer := range peers {
@@ -227,13 +212,13 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 	}
 	// Allocate IPs to the segment leaders in a stable, coordination-free manner.
 	a := newAllocator(*subnet)
-	for _, segment := range t.Segments {
+	for _, segment := range t.segments {
 		ipNet := a.next()
 		if ipNet == nil {
 			return nil, errors.New("failed to allocate an IP address; ran out of IP addresses")
 		}
 		segment.wireGuardIP = ipNet.IP
-		segment.allowedIPs = append(segment.allowedIPs, *OneAddressCIDR(ipNet.IP))
+		segment.allowedIPs = append(segment.allowedIPs, *oneAddressCIDR(ipNet.IP))
 		if t.leader && segment.location == t.location {
 			t.wireGuardCIDR = &net.IPNet{IP: ipNet.IP, Mask: subnet.Mask}
 		}
@@ -255,16 +240,6 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 	return &t, nil
 }
 
-// Peers returns the peers of the topology.
-func (t *Topology) Peers() []*Peer {
-	return t.peers
-}
-
-// AllowedLocationIPs returns the allowed location IPs of the segment.
-func (s *Segment) AllowedLocationIPs() []net.IPNet {
-	return s.allowedLocationIPs
-}
-
 func intersect(n1, n2 net.IPNet) bool {
 	return n1.Contains(n2.IP) || n2.Contains(n1.IP)
 }
@@ -272,7 +247,7 @@ func intersect(n1, n2 net.IPNet) bool {
 func (t *Topology) filterAllowedLocationIPs(ips []net.IPNet, location string) (ret []net.IPNet) {
 CheckIPs:
 	for _, ip := range ips {
-		for _, s := range t.Segments {
+		for _, s := range t.segments {
 			// Check if allowed location IPs are also allowed in other locations.
 			if location != s.location {
 				for _, i := range s.allowedLocationIPs {
@@ -332,7 +307,7 @@ func (t *Topology) Conf() *wireguard.Conf {
 			ReplacePeers: true,
 		},
 	}
-	for _, s := range t.Segments {
+	for _, s := range t.segments {
 		if s.location == t.location {
 			continue
 		}
@@ -366,7 +341,7 @@ func (t *Topology) Conf() *wireguard.Conf {
 // AsPeer generates the WireGuard peer configuration for the local location of the given Topology.
 // This configuration can be used to configure this location as a peer of another WireGuard interface.
 func (t *Topology) AsPeer() *wireguard.Peer {
-	for _, s := range t.Segments {
+	for _, s := range t.segments {
 		if s.location != t.location {
 			continue
 		}
@@ -394,7 +369,7 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 		}
 	}
 	c := &wireguard.Conf{}
-	for _, s := range t.Segments {
+	for _, s := range t.segments {
 		peer := wireguard.Peer{
 			PeerConfig: wgtypes.PeerConfig{
 				AllowedIPs:                  append(s.allowedIPs, s.allowedLocationIPs...),
@@ -416,16 +391,16 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 				PersistentKeepaliveInterval: pka,
 				PublicKey:                   t.peers[i].PublicKey,
 			},
-			Endpoint: t.peers[i].Endpoint,
+			Endpoint: t.updateEndpoint(t.peers[i].Endpoint, t.peers[i].PublicKey, t.peers[i].PersistentKeepaliveInterval),
 		}
 		c.Peers = append(c.Peers, peer)
 	}
 	return c
 }
 
-// OneAddressCIDR takes an IP address and returns a CIDR
+// oneAddressCIDR takes an IP address and returns a CIDR
 // that contains only that address.
-func OneAddressCIDR(ip net.IP) *net.IPNet {
+func oneAddressCIDR(ip net.IP) *net.IPNet {
 	return &net.IPNet{IP: ip, Mask: net.CIDRMask(len(ip)*8, len(ip)*8)}
 }
 

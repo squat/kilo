@@ -38,16 +38,16 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		// This will be the an IP of the leader.
 		// In an IPIP encapsulated mesh it is the leader's private IP.
 		var gw net.IP
-		for _, segment := range t.Segments {
+		for _, segment := range t.segments {
 			if segment.location == t.location {
 				gw = enc.Gw(t.updateEndpoint(segment.endpoint, segment.key, &segment.persistentKeepalive).IP(), segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
 				break
 			}
 		}
-		for _, segment := range t.Segments {
+		for _, segment := range t.segments {
 			// First, add a route to the WireGuard IP of the segment.
 			routes = append(routes, encapsulateRoute(&netlink.Route{
-				Dst:       OneAddressCIDR(segment.wireGuardIP),
+				Dst:       oneAddressCIDR(segment.wireGuardIP),
 				Flags:     int(netlink.FLAG_ONLINK),
 				Gw:        gw,
 				LinkIndex: privIface,
@@ -72,7 +72,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 						// to private IPs.
 						if enc.Strategy() == encapsulation.Always || (enc.Strategy() == encapsulation.CrossSubnet && !t.privateIP.Contains(segment.privateIPs[i])) {
 							routes = append(routes, &netlink.Route{
-								Dst:       OneAddressCIDR(segment.privateIPs[i]),
+								Dst:       oneAddressCIDR(segment.privateIPs[i]),
 								Flags:     int(netlink.FLAG_ONLINK),
 								Gw:        segment.privateIPs[i],
 								LinkIndex: tunlIface,
@@ -81,7 +81,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 							})
 							rules = append(rules, defaultRule(&netlink.Rule{
 								Src:   t.subnet,
-								Dst:   OneAddressCIDR(segment.privateIPs[i]),
+								Dst:   oneAddressCIDR(segment.privateIPs[i]),
 								Table: kiloTableIndex,
 							}))
 						}
@@ -102,7 +102,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 			for i := range segment.privateIPs {
 				// Add routes to the private IPs of nodes in other segments.
 				routes = append(routes, encapsulateRoute(&netlink.Route{
-					Dst:       OneAddressCIDR(segment.privateIPs[i]),
+					Dst:       oneAddressCIDR(segment.privateIPs[i]),
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        gw,
 					LinkIndex: privIface,
@@ -135,7 +135,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		}
 		return routes, rules
 	}
-	for _, segment := range t.Segments {
+	for _, segment := range t.segments {
 		// Add routes for the current segment if local is true.
 		if segment.location == t.location {
 			// If the local node does not have a private IP address,
@@ -157,7 +157,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 					// to private IPs.
 					if enc.Strategy() == encapsulation.Always || (enc.Strategy() == encapsulation.CrossSubnet && !t.privateIP.Contains(segment.privateIPs[i])) {
 						routes = append(routes, &netlink.Route{
-							Dst:       OneAddressCIDR(segment.privateIPs[i]),
+							Dst:       oneAddressCIDR(segment.privateIPs[i]),
 							Flags:     int(netlink.FLAG_ONLINK),
 							Gw:        segment.privateIPs[i],
 							LinkIndex: tunlIface,
@@ -166,13 +166,13 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 						})
 						rules = append(rules, defaultRule(&netlink.Rule{
 							Src:   t.subnet,
-							Dst:   OneAddressCIDR(segment.privateIPs[i]),
+							Dst:   oneAddressCIDR(segment.privateIPs[i]),
 							Table: kiloTableIndex,
 						}))
 						// Also encapsulate packets from the Kilo interface
 						// headed to private IPs.
 						rules = append(rules, defaultRule(&netlink.Rule{
-							Dst:     OneAddressCIDR(segment.privateIPs[i]),
+							Dst:     oneAddressCIDR(segment.privateIPs[i]),
 							Table:   kiloTableIndex,
 							IifName: kiloIfaceName,
 						}))
@@ -203,7 +203,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 			// Number of CIDRs and private IPs always match so
 			// we can reuse the loop.
 			routes = append(routes, &netlink.Route{
-				Dst:       OneAddressCIDR(segment.privateIPs[i]),
+				Dst:       oneAddressCIDR(segment.privateIPs[i]),
 				Flags:     int(netlink.FLAG_ONLINK),
 				Gw:        segment.wireGuardIP,
 				LinkIndex: kiloIface,
@@ -235,6 +235,74 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 	return routes, rules
 }
 
+// PeerRoutes generates a slice of routes and rules for a given peer in the Topology.
+func (t *Topology) PeerRoutes(name string, kiloIface int, additionalAllowedIPs []net.IPNet) ([]*netlink.Route, []*netlink.Rule) {
+	var routes []*netlink.Route
+	var rules []*netlink.Rule
+	for _, segment := range t.segments {
+		for i := range segment.cidrs {
+			// Add routes to the Pod CIDRs of nodes in other segments.
+			routes = append(routes, &netlink.Route{
+				Dst:       segment.cidrs[i],
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.wireGuardIP,
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		for i := range segment.privateIPs {
+			// Add routes to the private IPs of nodes in other segments.
+			routes = append(routes, &netlink.Route{
+				Dst:       oneAddressCIDR(segment.privateIPs[i]),
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.wireGuardIP,
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		// Add routes for the allowed location IPs of all segments.
+		for i := range segment.allowedLocationIPs {
+			routes = append(routes, &netlink.Route{
+				Dst:       &segment.allowedLocationIPs[i],
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.wireGuardIP,
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		routes = append(routes, &netlink.Route{
+			Dst:       oneAddressCIDR(segment.wireGuardIP),
+			LinkIndex: kiloIface,
+			Protocol:  unix.RTPROT_STATIC,
+		})
+	}
+	// Add routes for the allowed IPs of peers.
+	for _, peer := range t.peers {
+		// Don't add routes to ourselves.
+		if peer.Name == name {
+			continue
+		}
+		for i := range peer.AllowedIPs {
+			routes = append(routes, &netlink.Route{
+				Dst:       &peer.AllowedIPs[i],
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+	}
+	for i := range additionalAllowedIPs {
+		routes = append(routes, &netlink.Route{
+			Dst:       &additionalAllowedIPs[i],
+			Flags:     int(netlink.FLAG_ONLINK),
+			Gw:        t.segments[0].wireGuardIP,
+			LinkIndex: kiloIface,
+			Protocol:  unix.RTPROT_STATIC,
+		})
+	}
+
+	return routes, rules
+}
+
 func encapsulateRoute(route *netlink.Route, encapsulate encapsulation.Strategy, subnet *net.IPNet, tunlIface int) *netlink.Route {
 	if encapsulate == encapsulation.Always || (encapsulate == encapsulation.CrossSubnet && !subnet.Contains(route.Gw)) {
 		route.LinkIndex = tunlIface
@@ -254,7 +322,7 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) []iptables.Rule {
 		// Leader nodes will forward packets from all nodes within a location because they act as a gateway for them.
 		// Non leader nodes only need to allow packages from and to their own pod CIDR.
 		if iptablesForwardRule && t.leader {
-			for _, s := range t.Segments {
+			for _, s := range t.segments {
 				if s.location == t.location {
 					// Make sure packets to and from pod cidrs are not dropped in the forward chain.
 					for _, c := range s.cidrs {
@@ -268,8 +336,8 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) []iptables.Rule {
 					}
 					// Make sure packets to and from private IPs are not dropped in the forward chain.
 					for _, c := range s.privateIPs {
-						rules = append(rules, iptables.NewRule(iptables.GetProtocol(c), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from private IPs", "-s", OneAddressCIDR(c).String(), "-j", "ACCEPT"))
-						rules = append(rules, iptables.NewRule(iptables.GetProtocol(c), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to private IPs", "-d", OneAddressCIDR(c).String(), "-j", "ACCEPT"))
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(c), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from private IPs", "-s", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
+						rules = append(rules, iptables.NewRule(iptables.GetProtocol(c), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to private IPs", "-d", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
 					}
 				}
 			}
@@ -278,8 +346,8 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) []iptables.Rule {
 			rules = append(rules, iptables.NewRule(iptables.GetProtocol(t.subnet.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the node's pod subnet", "-d", t.subnet.String(), "-j", "ACCEPT"))
 		}
 	}
-	for _, s := range t.Segments {
-		rules = append(rules, iptables.NewRule(iptables.GetProtocol(s.wireGuardIP), "nat", "KILO-NAT", "-d", OneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuared IPs", "-j", "RETURN"))
+	for _, s := range t.segments {
+		rules = append(rules, iptables.NewRule(iptables.GetProtocol(s.wireGuardIP), "nat", "KILO-NAT", "-d", oneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuared IPs", "-j", "RETURN"))
 		for _, aip := range s.allowedIPs {
 			rules = append(rules, iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
 		}

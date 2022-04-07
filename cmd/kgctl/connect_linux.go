@@ -32,8 +32,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
 	"github.com/spf13/cobra"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -368,70 +366,7 @@ func sync(table *route.Table, peerName string, privateKey wgtypes.Key, iface int
 		}
 	}
 
-	var routes []*netlink.Route
-	for _, segment := range t.Segments {
-		for i := range segment.CIDRS() {
-			// Add routes to the Pod CIDRs of nodes in other segments.
-			routes = append(routes, &netlink.Route{
-				Dst:       segment.CIDRS()[i],
-				Flags:     int(netlink.FLAG_ONLINK),
-				Gw:        segment.WireGuardIP(),
-				LinkIndex: iface,
-				Protocol:  unix.RTPROT_STATIC,
-			})
-		}
-		for i := range segment.PrivateIPs() {
-			// Add routes to the private IPs of nodes in other segments.
-			routes = append(routes, &netlink.Route{
-				Dst:       mesh.OneAddressCIDR(segment.PrivateIPs()[i]),
-				Flags:     int(netlink.FLAG_ONLINK),
-				Gw:        segment.WireGuardIP(),
-				LinkIndex: iface,
-				Protocol:  unix.RTPROT_STATIC,
-			})
-		}
-		// Add routes for the allowed location IPs of all segments.
-		for i := range segment.AllowedLocationIPs() {
-			routes = append(routes, &netlink.Route{
-				Dst:       &segment.AllowedLocationIPs()[i],
-				Flags:     int(netlink.FLAG_ONLINK),
-				Gw:        segment.WireGuardIP(),
-				LinkIndex: iface,
-				Protocol:  unix.RTPROT_STATIC,
-			})
-		}
-		routes = append(routes, &netlink.Route{
-			Dst:       mesh.OneAddressCIDR(segment.WireGuardIP()),
-			LinkIndex: iface,
-			Protocol:  unix.RTPROT_STATIC,
-		})
-	}
-	// Add routes for the allowed IPs of peers.
-	for _, peer := range t.Peers() {
-		// Don't add routes to ourselves.
-		if peer.Name == peerName {
-			continue
-		}
-		for i := range peer.AllowedIPs {
-			routes = append(routes, &netlink.Route{
-				Dst:       &peer.AllowedIPs[i],
-				LinkIndex: iface,
-				Protocol:  unix.RTPROT_STATIC,
-			})
-		}
-	}
-	for i := range connectOpts.allowedIPs {
-		routes = append(routes, &netlink.Route{
-			Dst:       &connectOpts.allowedIPs[i],
-			Flags:     int(netlink.FLAG_ONLINK),
-			Gw:        t.Segments[0].WireGuardIP(),
-			LinkIndex: iface,
-			Protocol:  unix.RTPROT_STATIC,
-		})
-	}
-
-	level.Debug(logger).Log("routes", routes)
-	if err := table.Set(routes, []*netlink.Rule{}); err != nil {
+	if err := table.Set(t.PeerRoutes(peerName, iface, connectOpts.allowedIPs)); err != nil {
 		return fmt.Errorf("failed to update route table: %w", err)
 	}
 
