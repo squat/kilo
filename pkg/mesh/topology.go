@@ -65,6 +65,7 @@ type Topology struct {
 	logger              log.Logger
 }
 
+// segment represents one logical unit in the topology that is united by one common WireGuard IP.
 type segment struct {
 	allowedIPs          []net.IPNet
 	endpoint            *wireguard.Endpoint
@@ -376,7 +377,7 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 				PresharedKey:                psk,
 				PublicKey:                   s.key,
 			},
-			Endpoint: s.endpoint,
+			Endpoint: t.updateEndpoint(s.endpoint, s.key, &s.persistentKeepalive),
 		}
 		c.Peers = append(c.Peers, peer)
 	}
@@ -390,7 +391,7 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 				PersistentKeepaliveInterval: pka,
 				PublicKey:                   t.peers[i].PublicKey,
 			},
-			Endpoint: t.peers[i].Endpoint,
+			Endpoint: t.updateEndpoint(t.peers[i].Endpoint, t.peers[i].PublicKey, t.peers[i].PersistentKeepaliveInterval),
 		}
 		c.Peers = append(c.Peers, peer)
 	}

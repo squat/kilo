@@ -235,6 +235,74 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 	return routes, rules
 }
 
+// PeerRoutes generates a slice of routes and rules for a given peer in the Topology.
+func (t *Topology) PeerRoutes(name string, kiloIface int, additionalAllowedIPs []net.IPNet) ([]*netlink.Route, []*netlink.Rule) {
+	var routes []*netlink.Route
+	var rules []*netlink.Rule
+	for _, segment := range t.segments {
+		for i := range segment.cidrs {
+			// Add routes to the Pod CIDRs of nodes in other segments.
+			routes = append(routes, &netlink.Route{
+				Dst:       segment.cidrs[i],
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.wireGuardIP,
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		for i := range segment.privateIPs {
+			// Add routes to the private IPs of nodes in other segments.
+			routes = append(routes, &netlink.Route{
+				Dst:       oneAddressCIDR(segment.privateIPs[i]),
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.wireGuardIP,
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		// Add routes for the allowed location IPs of all segments.
+		for i := range segment.allowedLocationIPs {
+			routes = append(routes, &netlink.Route{
+				Dst:       &segment.allowedLocationIPs[i],
+				Flags:     int(netlink.FLAG_ONLINK),
+				Gw:        segment.wireGuardIP,
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+		routes = append(routes, &netlink.Route{
+			Dst:       oneAddressCIDR(segment.wireGuardIP),
+			LinkIndex: kiloIface,
+			Protocol:  unix.RTPROT_STATIC,
+		})
+	}
+	// Add routes for the allowed IPs of peers.
+	for _, peer := range t.peers {
+		// Don't add routes to ourselves.
+		if peer.Name == name {
+			continue
+		}
+		for i := range peer.AllowedIPs {
+			routes = append(routes, &netlink.Route{
+				Dst:       &peer.AllowedIPs[i],
+				LinkIndex: kiloIface,
+				Protocol:  unix.RTPROT_STATIC,
+			})
+		}
+	}
+	for i := range additionalAllowedIPs {
+		routes = append(routes, &netlink.Route{
+			Dst:       &additionalAllowedIPs[i],
+			Flags:     int(netlink.FLAG_ONLINK),
+			Gw:        t.segments[0].wireGuardIP,
+			LinkIndex: kiloIface,
+			Protocol:  unix.RTPROT_STATIC,
+		})
+	}
+
+	return routes, rules
+}
+
 func encapsulateRoute(route *netlink.Route, encapsulate encapsulation.Strategy, subnet *net.IPNet, tunlIface int) *netlink.Route {
 	if encapsulate == encapsulation.Always || (encapsulate == encapsulation.CrossSubnet && !subnet.Contains(route.Gw)) {
 		route.LinkIndex = tunlIface
