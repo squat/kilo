@@ -131,7 +131,7 @@ spec:
       hostNetwork: true
       containers:
       - name: kilo
-        image: squat/kilo
+        image: squat/kilo:0.4.0
         args:
         - --kubeconfig=/etc/kubernetes/kubeconfig
         - --hostname=$(NODE_NAME)
@@ -178,7 +178,7 @@ spec:
           readOnly: false
       initContainers:
       - name: generate-kubeconfig
-        image: squat/kilo
+        image: squat/kilo:0.4.0
         command:
         - /bin/sh
         args:
@@ -199,7 +199,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
       - name: install-cni
-        image: squat/kilo
+        image: squat/kilo:0.4.0
         command:
         - /bin/sh
         - -c
