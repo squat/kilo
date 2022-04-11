@@ -67,7 +67,7 @@ spec:
       hostNetwork: true
       containers:
       - name: kilo
-        image: squat/kilo:0.4.0
+        image: squat/kilo:0.4.1
         args:
         - --kubeconfig=/etc/kubernetes/kubeconfig
         - --hostname=$(NODE_NAME)

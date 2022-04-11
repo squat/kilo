@@ -46,7 +46,7 @@ spec:
         runAsUser: 1000
       containers:
       - name: server
-        image: squat/kilo:0.4.0
+        image: squat/kilo:0.4.1
         args:
         - webhook
         - --cert-file=/run/secrets/tls/tls.crt
