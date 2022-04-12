@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/awalterschulze/gographviz v0.0.0-20181013152038-b2885df04310
 	github.com/campoy/embedmd v1.0.0
-	github.com/containernetworking/cni v0.6.0
+	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.6.0
 	github.com/coreos/go-iptables v0.4.0
 	github.com/go-kit/kit v0.9.0
