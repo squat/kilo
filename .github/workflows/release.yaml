@@ -3,7 +3,7 @@ on:
     types: [created]
 name: Handle Release
 jobs:
-  linux:
+  kgctl:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -11,7 +11,7 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: 1.17.1
-    - name: Make Directory with kgctl Binaries to Be Released
+    - name: Build kgctl Binaries to Be Released
       run: make release
     - name: Publish Release
       uses: skx/github-action-publish-binaries@master
