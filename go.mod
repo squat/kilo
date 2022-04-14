@@ -5,17 +5,15 @@ go 1.17
 require (
 	github.com/awalterschulze/gographviz v0.0.0-20181013152038-b2885df04310
 	github.com/campoy/embedmd v1.0.0
-	github.com/containernetworking/cni v0.8.1
-	github.com/containernetworking/plugins v0.6.0
-	github.com/coreos/go-iptables v0.4.0
+	github.com/containernetworking/cni v1.0.1
+	github.com/containernetworking/plugins v1.1.1
+	github.com/coreos/go-iptables v0.6.0
 	github.com/go-kit/kit v0.9.0
-	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/oklog/run v1.1.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/cobra v1.1.3
-	github.com/vishvananda/netlink v1.0.0
-	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
+	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b
 	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20211124212657-dd7407c86d22
@@ -40,8 +38,10 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.4.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
+	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/josharian/native v0.0.0-20200817173448-b6b71def0850 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
@@ -58,7 +58,10 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/safchain/ethtool v0.0.0-20210803160452-9aa261dae9b1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
 	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20211123203042-d83791d6bcd9 // indirect
@@ -66,7 +69,7 @@ require (
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
-	golang.org/x/tools v0.1.2 // indirect
+	golang.org/x/tools v0.1.4 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20211123210315-387f7c461a16 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
