@@ -15,9 +15,10 @@
 package ip
 
 import (
+	"bytes"
 	"io/ioutil"
 
-	"github.com/containernetworking/cni/pkg/types/current"
+	current "github.com/containernetworking/cni/pkg/types/100"
 )
 
 func EnableIP4Forward() error {
@@ -35,12 +36,13 @@ func EnableForward(ips []*current.IPConfig) error {
 	v6 := false
 
 	for _, ip := range ips {
-		if ip.Version == "4" && !v4 {
+		isV4 := ip.Address.IP.To4() != nil
+		if isV4 && !v4 {
 			if err := EnableIP4Forward(); err != nil {
 				return err
 			}
 			v4 = true
-		} else if ip.Version == "6" && !v6 {
+		} else if !isV4 && !v6 {
 			if err := EnableIP6Forward(); err != nil {
 				return err
 			}
@@ -51,5 +53,10 @@ func EnableForward(ips []*current.IPConfig) error {
 }
 
 func echo1(f string) error {
+	if content, err := ioutil.ReadFile(f); err == nil {
+		if bytes.Equal(bytes.TrimSpace(content), []byte("1")) {
+			return nil
+		}
+	}
 	return ioutil.WriteFile(f, []byte("1"), 0644)
 }

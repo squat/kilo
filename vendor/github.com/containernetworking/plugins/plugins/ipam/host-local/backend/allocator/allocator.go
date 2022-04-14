@@ -21,7 +21,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/containernetworking/cni/pkg/types/current"
+	current "github.com/containernetworking/cni/pkg/types/100"
+
 	"github.com/containernetworking/plugins/pkg/ip"
 	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend"
 )
@@ -40,8 +41,8 @@ func NewIPAllocator(s *RangeSet, store backend.Store, id int) *IPAllocator {
 	}
 }
 
-// Get alocates an IP
-func (a *IPAllocator) Get(id string, requestedIP net.IP) (*current.IPConfig, error) {
+// Get allocates an IP
+func (a *IPAllocator) Get(id string, ifname string, requestedIP net.IP) (*current.IPConfig, error) {
 	a.store.Lock()
 	defer a.store.Unlock()
 
@@ -62,7 +63,7 @@ func (a *IPAllocator) Get(id string, requestedIP net.IP) (*current.IPConfig, err
 			return nil, fmt.Errorf("requested ip %s is subnet's gateway", requestedIP.String())
 		}
 
-		reserved, err := a.store.Reserve(id, requestedIP, a.rangeID)
+		reserved, err := a.store.Reserve(id, ifname, requestedIP, a.rangeID)
 		if err != nil {
 			return nil, err
 		}
@@ -73,6 +74,17 @@ func (a *IPAllocator) Get(id string, requestedIP net.IP) (*current.IPConfig, err
 		gw = r.Gateway
 
 	} else {
+		// try to get allocated IPs for this given id, if exists, just return error
+		// because duplicate allocation is not allowed in SPEC
+		// https://github.com/containernetworking/cni/blob/master/SPEC.md
+		allocatedIPs := a.store.GetByID(id, ifname)
+		for _, allocatedIP := range allocatedIPs {
+			// check whether the existing IP belong to this range set
+			if _, err := a.rangeset.RangeFor(allocatedIP); err == nil {
+				return nil, fmt.Errorf("%s has been allocated to %s, duplicate allocation is not allowed", allocatedIP.String(), id)
+			}
+		}
+
 		iter, err := a.GetIter()
 		if err != nil {
 			return nil, err
@@ -83,7 +95,7 @@ func (a *IPAllocator) Get(id string, requestedIP net.IP) (*current.IPConfig, err
 				break
 			}
 
-			reserved, err := a.store.Reserve(id, reservedIP.IP, a.rangeID)
+			reserved, err := a.store.Reserve(id, ifname, reservedIP.IP, a.rangeID)
 			if err != nil {
 				return nil, err
 			}
@@ -97,24 +109,19 @@ func (a *IPAllocator) Get(id string, requestedIP net.IP) (*current.IPConfig, err
 	if reservedIP == nil {
 		return nil, fmt.Errorf("no IP addresses available in range set: %s", a.rangeset.String())
 	}
-	version := "4"
-	if reservedIP.IP.To4() == nil {
-		version = "6"
-	}
 
 	return &current.IPConfig{
-		Version: version,
 		Address: *reservedIP,
 		Gateway: gw,
 	}, nil
 }
 
 // Release clears all IPs allocated for the container with given ID
-func (a *IPAllocator) Release(id string) error {
+func (a *IPAllocator) Release(id string, ifname string) error {
 	a.store.Lock()
 	defer a.store.Unlock()
 
-	return a.store.ReleaseByID(id)
+	return a.store.ReleaseByID(id, ifname)
 }
 
 type RangeIter struct {
@@ -126,9 +133,8 @@ type RangeIter struct {
 	// Our current position
 	cur net.IP
 
-	// The IP and range index where we started iterating; if we hit this again, we're done.
-	startIP    net.IP
-	startRange int
+	// The IP where we started iterating; if we hit this again, we're done.
+	startIP net.IP
 }
 
 // GetIter encapsulates the strategy for this allocator.
@@ -158,7 +164,6 @@ func (a *IPAllocator) GetIter() (*RangeIter, error) {
 		for i, r := range *a.rangeset {
 			if r.Contains(lastReservedIP) {
 				iter.rangeIdx = i
-				iter.startRange = i
 
 				// We advance the cursor on every Next(), so the first call
 				// to next() will return lastReservedIP + 1
@@ -168,7 +173,6 @@ func (a *IPAllocator) GetIter() (*RangeIter, error) {
 		}
 	} else {
 		iter.rangeIdx = 0
-		iter.startRange = 0
 		iter.startIP = (*a.rangeset)[0].RangeStart
 	}
 	return &iter, nil
@@ -204,7 +208,7 @@ func (i *RangeIter) Next() (*net.IPNet, net.IP) {
 
 	if i.startIP == nil {
 		i.startIP = i.cur
-	} else if i.rangeIdx == i.startRange && i.cur.Equal(i.startIP) {
+	} else if i.cur.Equal(i.startIP) {
 		// IF we've looped back to where we started, give up
 		return nil, nil
 	}

@@ -47,9 +47,12 @@ func (e *Error) Error() string {
 
 // IsNotExist returns true if the error is due to the chain or rule not existing
 func (e *Error) IsNotExist() bool {
-	return e.ExitStatus() == 1 &&
-		(e.msg == "iptables: Bad rule (does a matching rule exist in that chain?).\n" ||
-			e.msg == "iptables: No chain/target/match by that name.\n")
+	if e.ExitStatus() != 1 {
+		return false
+	}
+	msgNoRuleExist := "Bad rule (does a matching rule exist in that chain?).\n"
+	msgNoChainExist := "No chain/target/match by that name.\n"
+	return strings.Contains(e.msg, msgNoRuleExist) || strings.Contains(e.msg, msgNoChainExist)
 }
 
 // Protocol to differentiate between IPv4 and IPv6
@@ -61,47 +64,95 @@ const (
 )
 
 type IPTables struct {
-	path           string
-	proto          Protocol
-	hasCheck       bool
-	hasWait        bool
-	hasRandomFully bool
-	v1             int
-	v2             int
-	v3             int
-	mode           string // the underlying iptables operating mode, e.g. nf_tables
+	path              string
+	proto             Protocol
+	hasCheck          bool
+	hasWait           bool
+	waitSupportSecond bool
+	hasRandomFully    bool
+	v1                int
+	v2                int
+	v3                int
+	mode              string // the underlying iptables operating mode, e.g. nf_tables
+	timeout           int    // time to wait for the iptables lock, default waits forever
 }
 
-// New creates a new IPTables.
-// For backwards compatibility, this always uses IPv4, i.e. "iptables".
-func New() (*IPTables, error) {
-	return NewWithProtocol(ProtocolIPv4)
+// Stat represents a structured statistic entry.
+type Stat struct {
+	Packets     uint64     `json:"pkts"`
+	Bytes       uint64     `json:"bytes"`
+	Target      string     `json:"target"`
+	Protocol    string     `json:"prot"`
+	Opt         string     `json:"opt"`
+	Input       string     `json:"in"`
+	Output      string     `json:"out"`
+	Source      *net.IPNet `json:"source"`
+	Destination *net.IPNet `json:"destination"`
+	Options     string     `json:"options"`
+}
+
+type option func(*IPTables)
+
+func IPFamily(proto Protocol) option {
+	return func(ipt *IPTables) {
+		ipt.proto = proto
+	}
+}
+
+func Timeout(timeout int) option {
+	return func(ipt *IPTables) {
+		ipt.timeout = timeout
+	}
+}
+
+// New creates a new IPTables configured with the options passed as parameter.
+// For backwards compatibility, by default always uses IPv4 and timeout 0.
+// i.e. you can create an IPv6 IPTables using a timeout of 5 seconds passing
+// the IPFamily and Timeout options as follow:
+//	ip6t := New(IPFamily(ProtocolIPv6), Timeout(5))
+func New(opts ...option) (*IPTables, error) {
+
+	ipt := &IPTables{
+		proto:   ProtocolIPv4,
+		timeout: 0,
+	}
+
+	for _, opt := range opts {
+		opt(ipt)
+	}
+
+	path, err := exec.LookPath(getIptablesCommand(ipt.proto))
+	if err != nil {
+		return nil, err
+	}
+	ipt.path = path
+
+	vstring, err := getIptablesVersionString(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not get iptables version: %v", err)
+	}
+	v1, v2, v3, mode, err := extractIptablesVersion(vstring)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract iptables version from [%s]: %v", vstring, err)
+	}
+	ipt.v1 = v1
+	ipt.v2 = v2
+	ipt.v3 = v3
+	ipt.mode = mode
+
+	checkPresent, waitPresent, waitSupportSecond, randomFullyPresent := getIptablesCommandSupport(v1, v2, v3)
+	ipt.hasCheck = checkPresent
+	ipt.hasWait = waitPresent
+	ipt.waitSupportSecond = waitSupportSecond
+	ipt.hasRandomFully = randomFullyPresent
+
+	return ipt, nil
 }
 
 // New creates a new IPTables for the given proto.
 // The proto will determine which command is used, either "iptables" or "ip6tables".
 func NewWithProtocol(proto Protocol) (*IPTables, error) {
-	path, err := exec.LookPath(getIptablesCommand(proto))
-	if err != nil {
-		return nil, err
-	}
-	vstring, err := getIptablesVersionString(path)
-	v1, v2, v3, mode, err := extractIptablesVersion(vstring)
-
-	checkPresent, waitPresent, randomFullyPresent := getIptablesCommandSupport(v1, v2, v3)
-
-	ipt := IPTables{
-		path:           path,
-		proto:          proto,
-		hasCheck:       checkPresent,
-		hasWait:        waitPresent,
-		hasRandomFully: randomFullyPresent,
-		v1:             v1,
-		v2:             v2,
-		v3:             v3,
-		mode:           mode,
-	}
-	return &ipt, nil
+	return New(IPFamily(proto), Timeout(0))
 }
 
 // Proto returns the protocol used by this IPTables.
@@ -160,6 +211,14 @@ func (ipt *IPTables) Delete(table, chain string, rulespec ...string) error {
 	return ipt.run(cmd...)
 }
 
+func (ipt *IPTables) DeleteIfExists(table, chain string, rulespec ...string) error {
+	exists, err := ipt.Exists(table, chain, rulespec...)
+	if err == nil && exists {
+		err = ipt.Delete(table, chain, rulespec...)
+	}
+	return err
+}
+
 // List rules in specified table/chain
 func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	args := []string{"-t", table, "-S", chain}
@@ -195,6 +254,21 @@ func (ipt *IPTables) ListChains(table string) ([]string, error) {
 		}
 	}
 	return chains, nil
+}
+
+// '-S' is fine with non existing rule index as long as the chain exists
+// therefore pass index 1 to reduce overhead for large chains
+func (ipt *IPTables) ChainExists(table, chain string) (bool, error) {
+	err := ipt.run("-t", table, "-S", chain, "1")
+	eerr, eok := err.(*Error)
+	switch {
+	case err == nil:
+		return true, nil
+	case eok && eerr.ExitStatus() == 1:
+		return false, nil
+	default:
+		return false, err
+	}
 }
 
 // Stats lists rules including the byte and packet counts
@@ -263,6 +337,63 @@ func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 	return rows, nil
 }
 
+// ParseStat parses a single statistic row into a Stat struct. The input should
+// be a string slice that is returned from calling the Stat method.
+func (ipt *IPTables) ParseStat(stat []string) (parsed Stat, err error) {
+	// For forward-compatibility, expect at least 10 fields in the stat
+	if len(stat) < 10 {
+		return parsed, fmt.Errorf("stat contained fewer fields than expected")
+	}
+
+	// Convert the fields that are not plain strings
+	parsed.Packets, err = strconv.ParseUint(stat[0], 0, 64)
+	if err != nil {
+		return parsed, fmt.Errorf(err.Error(), "could not parse packets")
+	}
+	parsed.Bytes, err = strconv.ParseUint(stat[1], 0, 64)
+	if err != nil {
+		return parsed, fmt.Errorf(err.Error(), "could not parse bytes")
+	}
+	_, parsed.Source, err = net.ParseCIDR(stat[7])
+	if err != nil {
+		return parsed, fmt.Errorf(err.Error(), "could not parse source")
+	}
+	_, parsed.Destination, err = net.ParseCIDR(stat[8])
+	if err != nil {
+		return parsed, fmt.Errorf(err.Error(), "could not parse destination")
+	}
+
+	// Put the fields that are strings
+	parsed.Target = stat[2]
+	parsed.Protocol = stat[3]
+	parsed.Opt = stat[4]
+	parsed.Input = stat[5]
+	parsed.Output = stat[6]
+	parsed.Options = stat[9]
+
+	return parsed, nil
+}
+
+// StructuredStats returns statistics as structured data which may be further
+// parsed and marshaled.
+func (ipt *IPTables) StructuredStats(table, chain string) ([]Stat, error) {
+	rawStats, err := ipt.Stats(table, chain)
+	if err != nil {
+		return nil, err
+	}
+
+	structStats := []Stat{}
+	for _, rawStat := range rawStats {
+		stat, err := ipt.ParseStat(rawStat)
+		if err != nil {
+			return nil, err
+		}
+		structStats = append(structStats, stat)
+	}
+
+	return structStats, nil
+}
+
 func (ipt *IPTables) executeList(args []string) ([]string, error) {
 	var stdout bytes.Buffer
 	if err := ipt.runWithOutput(args, &stdout); err != nil {
@@ -274,17 +405,6 @@ func (ipt *IPTables) executeList(args []string) ([]string, error) {
 	// strip trailing newline
 	if len(rules) > 0 && rules[len(rules)-1] == "" {
 		rules = rules[:len(rules)-1]
-	}
-
-	// nftables mode doesn't return an error code when listing a non-existent
-	// chain. Patch that up.
-	if len(rules) == 0 && ipt.mode == "nf_tables" {
-		v := 1
-		return nil, &Error{
-			cmd:        exec.Cmd{Args: args},
-			msg:        "iptables: No chain/target/match by that name.",
-			exitStatus: &v,
-		}
 	}
 
 	for i, rule := range rules {
@@ -300,17 +420,12 @@ func (ipt *IPTables) NewChain(table, chain string) error {
 	return ipt.run("-t", table, "-N", chain)
 }
 
+const existsErr = 1
+
 // ClearChain flushed (deletes all rules) in the specified table/chain.
 // If the chain does not exist, a new one will be created
 func (ipt *IPTables) ClearChain(table, chain string) error {
 	err := ipt.NewChain(table, chain)
-
-	// the exit code for "this table already exists" is different for
-	// different iptables modes
-	existsErr := 1
-	if ipt.mode == "nf_tables" {
-		existsErr = 4
-	}
 
 	eerr, eok := err.(*Error)
 	switch {
@@ -333,6 +448,26 @@ func (ipt *IPTables) RenameChain(table, oldChain, newChain string) error {
 // The chain must be empty
 func (ipt *IPTables) DeleteChain(table, chain string) error {
 	return ipt.run("-t", table, "-X", chain)
+}
+
+func (ipt *IPTables) ClearAndDeleteChain(table, chain string) error {
+	exists, err := ipt.ChainExists(table, chain)
+	if err != nil || !exists {
+		return err
+	}
+	err = ipt.run("-t", table, "-F", chain)
+	if err == nil {
+		err = ipt.run("-t", table, "-X", chain)
+	}
+	return err
+}
+
+func (ipt *IPTables) ClearAll() error {
+	return ipt.run("-F")
+}
+
+func (ipt *IPTables) DeleteAll() error {
+	return ipt.run("-X")
 }
 
 // ChangePolicy changes policy on chain to target
@@ -362,6 +497,9 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	args = append([]string{ipt.path}, args...)
 	if ipt.hasWait {
 		args = append(args, "--wait")
+		if ipt.timeout != 0 && ipt.waitSupportSecond {
+			args = append(args, strconv.Itoa(ipt.timeout))
+		}
 	} else {
 		fmu, err := newXtablesFileLock()
 		if err != nil {
@@ -369,6 +507,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 		}
 		ul, err := fmu.tryLock()
 		if err != nil {
+			syscall.Close(fmu.fd)
 			return err
 		}
 		defer ul.Unlock()
@@ -404,8 +543,8 @@ func getIptablesCommand(proto Protocol) string {
 }
 
 // Checks if iptables has the "-C" and "--wait" flag
-func getIptablesCommandSupport(v1 int, v2 int, v3 int) (bool, bool, bool) {
-	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), iptablesHasRandomFully(v1, v2, v3)
+func getIptablesCommandSupport(v1 int, v2 int, v3 int) (bool, bool, bool, bool) {
+	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), iptablesWaitSupportSecond(v1, v2, v3), iptablesHasRandomFully(v1, v2, v3)
 }
 
 // getIptablesVersion returns the first three components of the iptables version
@@ -475,6 +614,17 @@ func iptablesHasWaitCommand(v1 int, v2 int, v3 int) bool {
 		return true
 	}
 	if v1 == 1 && v2 == 4 && v3 >= 20 {
+		return true
+	}
+	return false
+}
+
+//Checks if an iptablse version is after 1.6.0, when --wait support second
+func iptablesWaitSupportSecond(v1 int, v2 int, v3 int) bool {
+	if v1 > 1 {
+		return true
+	}
+	if v1 == 1 && v2 >= 6 {
 		return true
 	}
 	return false
