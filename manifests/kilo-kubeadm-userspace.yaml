@@ -114,7 +114,7 @@ spec:
             mountPath: /var/run/wireguard
             readOnly: false
       - name: kilo
-        image: squat/kilo
+        image: squat/kilo:0.4.1
         imagePullPolicy: IfNotPresent
         args:
         - --kubeconfig=/etc/kubernetes/kubeconfig
@@ -150,7 +150,7 @@ spec:
           readOnly: false
       initContainers:
       - name: install-cni
-        image: squat/kilo
+        image: squat/kilo:0.4.1
         imagePullPolicy: IfNotPresent
         command:
         - /bin/sh

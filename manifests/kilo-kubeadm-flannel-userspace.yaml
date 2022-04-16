@@ -79,7 +79,7 @@ spec:
             mountPath: /var/run/wireguard
             readOnly: false
       - name: kilo
-        image: squat/kilo
+        image: squat/kilo:0.4.1
         args:
         - --kubeconfig=/etc/kubernetes/kubeconfig
         - --hostname=$(NODE_NAME)
