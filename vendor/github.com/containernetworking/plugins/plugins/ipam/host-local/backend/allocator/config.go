@@ -20,15 +20,23 @@ import (
 	"net"
 
 	"github.com/containernetworking/cni/pkg/types"
-	types020 "github.com/containernetworking/cni/pkg/types/020"
+	"github.com/containernetworking/cni/pkg/version"
+
+	"github.com/containernetworking/plugins/pkg/ip"
 )
 
-// The top-level network config, just so we can get the IPAM block
+// The top-level network config - IPAM plugins are passed the full configuration
+// of the calling plugin, not just the IPAM section.
 type Net struct {
-	Name       string      `json:"name"`
-	CNIVersion string      `json:"cniVersion"`
-	IPAM       *IPAMConfig `json:"ipam"`
-	Args       *struct {
+	Name          string      `json:"name"`
+	CNIVersion    string      `json:"cniVersion"`
+	IPAM          *IPAMConfig `json:"ipam"`
+	RuntimeConfig struct {
+		// The capability arg
+		IPRanges []RangeSet `json:"ipRanges,omitempty"`
+		IPs      []*ip.IP   `json:"ips,omitempty"`
+	} `json:"runtimeConfig,omitempty"`
+	Args *struct {
 		A *IPAMArgs `json:"cni"`
 	} `json:"args"`
 }
@@ -44,16 +52,16 @@ type IPAMConfig struct {
 	DataDir    string         `json:"dataDir"`
 	ResolvConf string         `json:"resolvConf"`
 	Ranges     []RangeSet     `json:"ranges"`
-	IPArgs     []net.IP       `json:"-"` // Requested IPs from CNI_ARGS and args
+	IPArgs     []net.IP       `json:"-"` // Requested IPs from CNI_ARGS, args and capabilities
 }
 
 type IPAMEnvArgs struct {
 	types.CommonArgs
-	IP net.IP `json:"ip,omitempty"`
+	IP ip.IP `json:"ip,omitempty"`
 }
 
 type IPAMArgs struct {
-	IPs []net.IP `json:"ips"`
+	IPs []*ip.IP `json:"ips"`
 }
 
 type RangeSet []Range
@@ -76,7 +84,7 @@ func LoadIPAMConfig(bytes []byte, envArgs string) (*IPAMConfig, string, error) {
 		return nil, "", fmt.Errorf("IPAM config missing 'ipam' key")
 	}
 
-	// Parse custom IP from both env args *and* the top-level args config
+	// parse custom IP from env args
 	if envArgs != "" {
 		e := IPAMEnvArgs{}
 		err := types.LoadArgs(envArgs, &e)
@@ -84,16 +92,26 @@ func LoadIPAMConfig(bytes []byte, envArgs string) (*IPAMConfig, string, error) {
 			return nil, "", err
 		}
 
-		if e.IP != nil {
-			n.IPAM.IPArgs = []net.IP{e.IP}
+		if e.IP.ToIP() != nil {
+			n.IPAM.IPArgs = []net.IP{e.IP.ToIP()}
 		}
 	}
 
+	// parse custom IPs from CNI args in network config
 	if n.Args != nil && n.Args.A != nil && len(n.Args.A.IPs) != 0 {
-		n.IPAM.IPArgs = append(n.IPAM.IPArgs, n.Args.A.IPs...)
+		for _, i := range n.Args.A.IPs {
+			n.IPAM.IPArgs = append(n.IPAM.IPArgs, i.ToIP())
+		}
 	}
 
-	for idx, _ := range n.IPAM.IPArgs {
+	// parse custom IPs from runtime configuration
+	if len(n.RuntimeConfig.IPs) > 0 {
+		for _, i := range n.RuntimeConfig.IPs {
+			n.IPAM.IPArgs = append(n.IPAM.IPArgs, i.ToIP())
+		}
+	}
+
+	for idx := range n.IPAM.IPArgs {
 		if err := canonicalizeIP(&n.IPAM.IPArgs[idx]); err != nil {
 			return nil, "", fmt.Errorf("cannot understand ip: %v", err)
 		}
@@ -106,6 +124,11 @@ func LoadIPAMConfig(bytes []byte, envArgs string) (*IPAMConfig, string, error) {
 	}
 	n.IPAM.Range = nil
 
+	// If a range is supplied as a runtime config, prepend it to the Ranges
+	if len(n.RuntimeConfig.IPRanges) > 0 {
+		n.IPAM.Ranges = append(n.RuntimeConfig.IPRanges, n.IPAM.Ranges...)
+	}
+
 	if len(n.IPAM.Ranges) == 0 {
 		return nil, "", fmt.Errorf("no IP ranges specified")
 	}
@@ -113,7 +136,7 @@ func LoadIPAMConfig(bytes []byte, envArgs string) (*IPAMConfig, string, error) {
 	// Validate all ranges
 	numV4 := 0
 	numV6 := 0
-	for i, _ := range n.IPAM.Ranges {
+	for i := range n.IPAM.Ranges {
 		if err := n.IPAM.Ranges[i].Canonicalize(); err != nil {
 			return nil, "", fmt.Errorf("invalid range set %d: %s", i, err)
 		}
@@ -127,10 +150,8 @@ func LoadIPAMConfig(bytes []byte, envArgs string) (*IPAMConfig, string, error) {
 
 	// CNI spec 0.2.0 and below supported only one v4 and v6 address
 	if numV4 > 1 || numV6 > 1 {
-		for _, v := range types020.SupportedVersions {
-			if n.CNIVersion == v {
-				return nil, "", fmt.Errorf("CNI version %v does not support more than 1 address per family", n.CNIVersion)
-			}
+		if ok, _ := version.GreaterThanOrEqualTo(n.CNIVersion, "0.3.0"); !ok {
+			return nil, "", fmt.Errorf("CNI version %v does not support more than 1 address per family", n.CNIVersion)
 		}
 	}
 
