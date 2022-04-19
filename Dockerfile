@@ -1,7 +1,7 @@
 ARG FROM=alpine
 FROM $FROM AS cni
 ARG GOARCH=amd64
-ARG CNI_PLUGINS_VERSION=v0.9.1
+ARG CNI_PLUGINS_VERSION=v1.1.1
 RUN apk add --no-cache curl && \
     curl -Lo cni.tar.gz https://github.com/containernetworking/plugins/releases/download/$CNI_PLUGINS_VERSION/cni-plugins-linux-$GOARCH-$CNI_PLUGINS_VERSION.tgz && \
     tar -xf cni.tar.gz
