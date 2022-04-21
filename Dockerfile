@@ -13,5 +13,7 @@ LABEL maintainer="squat <lserven@gmail.com>"
 RUN echo -e "https://alpine.global.ssl.fastly.net/alpine/$ALPINE_VERSION/main\nhttps://alpine.global.ssl.fastly.net/alpine/$ALPINE_VERSION/community" > /etc/apk/repositories && \
     apk add --no-cache ipset iptables ip6tables graphviz font-noto
 COPY --from=cni bridge host-local loopback portmap /opt/cni/bin/
+ADD https://raw.githubusercontent.com/kubernetes-sigs/iptables-wrappers/e139a115350974aac8a82ec4b815d2845f86997e/iptables-wrapper-installer.sh /
+RUN chmod 700 /iptables-wrapper-installer.sh && /iptables-wrapper-installer.sh --no-sanity-check
 COPY bin/linux/$GOARCH/kg /opt/bin/
 ENTRYPOINT ["/opt/bin/kg"]
