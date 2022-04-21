@@ -1,6 +1,6 @@
 module github.com/squat/kilo
 
-go 1.17
+go 1.18
 
 require (
 	github.com/awalterschulze/gographviz v0.0.0-20181013152038-b2885df04310
