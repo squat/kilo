@@ -139,7 +139,7 @@ pkg/k8s/listers/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/types.
 	rm -r github.com || true
 	go fmt ./pkg/k8s/listers/...
 
-gen-docs: generate docs/api.md
+gen-docs: generate docs/api.md docs/kg.md
 docs/api.md: pkg/k8s/apis/kilo/v1alpha1/types.go $(DOCS_GEN_BINARY)
 	$(DOCS_GEN_BINARY) $< > $@
 
