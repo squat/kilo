@@ -27,10 +27,10 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/metalmatze/signal/internalserver"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
@@ -251,18 +251,21 @@ func runRoot(_ *cobra.Command, _ []string) error {
 
 	var g run.Group
 	{
+		h := internalserver.NewHandler(
+			internalserver.WithName("Internal Kilo API"),
+			internalserver.WithPrometheusRegistry(registry),
+			internalserver.WithPProf(),
+		)
+		h.AddEndpoint("/health", "Exposes health checks", healthHandler)
+		h.AddEndpoint("/graph", "Exposes Kilo mesh topology graph", (&graphHandler{m, gr, &hostname, s}).ServeHTTP)
 		// Run the HTTP server.
-		mux := http.NewServeMux()
-		mux.HandleFunc("/health", healthHandler)
-		mux.Handle("/graph", &graphHandler{m, gr, &hostname, s})
-		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 		l, err := net.Listen("tcp", listen)
 		if err != nil {
 			return fmt.Errorf("failed to listen on %s: %v", listen, err)
 		}
 
 		g.Add(func() error {
-			if err := http.Serve(l, mux); err != nil && err != http.ErrServerClosed {
+			if err := http.Serve(l, h); err != nil && err != http.ErrServerClosed {
 				return fmt.Errorf("error: server exited unexpectedly: %v", err)
 			}
 			return nil

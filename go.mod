@@ -10,6 +10,7 @@ require (
 	github.com/coreos/go-iptables v0.6.0
 	github.com/go-kit/kit v0.9.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
+	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
 	github.com/oklog/run v1.1.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/cobra v1.1.3

@@ -127,6 +127,10 @@ github.com/mdlayher/netlink/nlenc
 # github.com/mdlayher/socket v0.0.0-20211102153432-57e3fa563ecb
 ## explicit; go 1.17
 github.com/mdlayher/socket
+# github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
+## explicit; go 1.14
+github.com/metalmatze/signal/healthcheck
+github.com/metalmatze/signal/internalserver
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
