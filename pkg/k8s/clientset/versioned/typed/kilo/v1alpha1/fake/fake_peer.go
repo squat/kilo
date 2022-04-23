@@ -97,7 +97,7 @@ func (c *FakePeers) Update(ctx context.Context, peer *v1alpha1.Peer, opts v1.Upd
 // Delete takes name of the peer and deletes it. Returns an error if one occurs.
 func (c *FakePeers) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(peersResource, name), &v1alpha1.Peer{})
+		Invokes(testing.NewRootDeleteActionWithOptions(peersResource, name, opts), &v1alpha1.Peer{})
 	return err
 }
 
