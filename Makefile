@@ -81,7 +81,7 @@ crd: manifests/crds.yaml
 manifests/crds.yaml: pkg/k8s/apis/kilo/v1alpha1/types.go $(CONTROLLER_GEN_BINARY)
 	$(CONTROLLER_GEN_BINARY) crd \
 	paths=./pkg/k8s/apis/kilo/... \
-	output:crd:stdout | tail -n +3 > $@
+	output:crd:stdout > $@
 
 client: pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/peer.go
 pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/types.go $(CLIENT_GEN_BINARY)

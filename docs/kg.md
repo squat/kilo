@@ -26,6 +26,7 @@ Usage:
   kg [command]
 
 Available Commands:
+  completion  generate the autocompletion script for the specified shell
   help        Help about any command
   version     Print the version and exit.
   webhook     webhook starts a HTTPS server to validate updates and creations of Kilo peers.
