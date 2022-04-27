@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -275,15 +276,16 @@ func runRoot(_ *cobra.Command, _ []string) error {
 	}
 
 	{
+		ctx, cancel := context.WithCancel(context.Background())
 		// Start the mesh.
 		g.Add(func() error {
 			logger.Log("msg", fmt.Sprintf("Starting Kilo network mesh '%v'.", version.Version))
-			if err := m.Run(); err != nil {
+			if err := m.Run(ctx); err != nil {
 				return fmt.Errorf("error: Kilo exited unexpectedly: %v", err)
 			}
 			return nil
 		}, func(error) {
-			m.Stop()
+			cancel()
 		})
 	}
 

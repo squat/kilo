@@ -128,7 +128,7 @@ func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Inter
 }
 
 // CleanUp removes configuration applied to the backend.
-func (nb *nodeBackend) CleanUp(name string) error {
+func (nb *nodeBackend) CleanUp(ctx context.Context, name string) error {
 	patch := []byte("[" + strings.Join([]string{
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(endpointAnnotationKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(internalIPAnnotationKey, "/", jsonPatchSlash, 1))),
@@ -138,7 +138,7 @@ func (nb *nodeBackend) CleanUp(name string) error {
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(discoveredEndpointsKey, "/", jsonPatchSlash, 1))),
 		fmt.Sprintf(jsonRemovePatch, path.Join("/metadata", "annotations", strings.Replace(granularityKey, "/", jsonPatchSlash, 1))),
 	}, ",") + "]")
-	if _, err := nb.client.CoreV1().Nodes().Patch(context.TODO(), name, types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
+	if _, err := nb.client.CoreV1().Nodes().Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
 	}
 	return nil
@@ -155,9 +155,9 @@ func (nb *nodeBackend) Get(name string) (*mesh.Node, error) {
 
 // Init initializes the backend; for this backend that means
 // syncing the informer cache.
-func (nb *nodeBackend) Init(stop <-chan struct{}) error {
-	go nb.informer.Run(stop)
-	if ok := cache.WaitForCacheSync(stop, func() bool {
+func (nb *nodeBackend) Init(ctx context.Context) error {
+	go nb.informer.Run(ctx.Done())
+	if ok := cache.WaitForCacheSync(ctx.Done(), func() bool {
 		return nb.informer.HasSynced()
 	}); !ok {
 		return errors.New("failed to sync node cache")
@@ -212,7 +212,7 @@ func (nb *nodeBackend) List() ([]*mesh.Node, error) {
 }
 
 // Set sets the fields of a node.
-func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
+func (nb *nodeBackend) Set(ctx context.Context, name string, node *mesh.Node) error {
 	old, err := nb.lister.Get(name)
 	if err != nil {
 		return fmt.Errorf("failed to find node: %v", err)
@@ -253,7 +253,7 @@ func (nb *nodeBackend) Set(name string, node *mesh.Node) error {
 	if err != nil {
 		return fmt.Errorf("failed to create patch for node %q: %v", n.Name, err)
 	}
-	if _, err = nb.client.CoreV1().Nodes().Patch(context.TODO(), name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
+	if _, err = nb.client.CoreV1().Nodes().Patch(ctx, name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
 	}
 	return nil
@@ -431,7 +431,7 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 }
 
 // CleanUp removes configuration applied to the backend.
-func (pb *peerBackend) CleanUp(name string) error {
+func (pb *peerBackend) CleanUp(_ context.Context, _ string) error {
 	return nil
 }
 
@@ -446,14 +446,14 @@ func (pb *peerBackend) Get(name string) (*mesh.Peer, error) {
 
 // Init initializes the backend; for this backend that means
 // syncing the informer cache.
-func (pb *peerBackend) Init(stop <-chan struct{}) error {
+func (pb *peerBackend) Init(ctx context.Context) error {
 	// Check the presents of the CRD peers.kilo.squat.ai.
-	if _, err := pb.extensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), strings.Join([]string{v1alpha1.PeerPlural, v1alpha1.GroupName}, "."), metav1.GetOptions{}); err != nil {
+	if _, err := pb.extensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, strings.Join([]string{v1alpha1.PeerPlural, v1alpha1.GroupName}, "."), metav1.GetOptions{}); err != nil {
 		return fmt.Errorf("CRD is not present: %v", err)
 	}
 
-	go pb.informer.Run(stop)
-	if ok := cache.WaitForCacheSync(stop, func() bool {
+	go pb.informer.Run(ctx.Done())
+	if ok := cache.WaitForCacheSync(ctx.Done(), func() bool {
 		return pb.informer.HasSynced()
 	}); !ok {
 		return errors.New("failed to sync peer cache")
@@ -512,7 +512,7 @@ func (pb *peerBackend) List() ([]*mesh.Peer, error) {
 }
 
 // Set sets the fields of a peer.
-func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
+func (pb *peerBackend) Set(ctx context.Context, name string, peer *mesh.Peer) error {
 	old, err := pb.lister.Get(name)
 	if err != nil {
 		return fmt.Errorf("failed to find peer: %v", err)
@@ -542,7 +542,7 @@ func (pb *peerBackend) Set(name string, peer *mesh.Peer) error {
 		p.Spec.PresharedKey = peer.PresharedKey.String()
 	}
 	p.Spec.PublicKey = peer.PublicKey.String()
-	if _, err = pb.client.KiloV1alpha1().Peers().Update(context.TODO(), p, metav1.UpdateOptions{}); err != nil {
+	if _, err = pb.client.KiloV1alpha1().Peers().Update(ctx, p, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update peer: %v", err)
 	}
 	return nil
