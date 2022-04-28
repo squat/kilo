@@ -71,7 +71,7 @@ var (
 	topologyLabel string
 )
 
-func runRoot(_ *cobra.Command, _ []string) error {
+func runRoot(c *cobra.Command, _ []string) error {
 	if opts.port < 1 || opts.port > 1<<16-1 {
 		return fmt.Errorf("invalid port: port mus be in range [%d:%d], but got %d", 1, 1<<16-1, opts.port)
 	}
@@ -99,11 +99,11 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("backend %s unknown; posible values are: %s", backend, availableBackends)
 	}
 
-	if err := opts.backend.Nodes().Init(make(chan struct{})); err != nil {
+	if err := opts.backend.Nodes().Init(c.Context()); err != nil {
 		return fmt.Errorf("failed to initialize node backend: %w", err)
 	}
 
-	if err := opts.backend.Peers().Init(make(chan struct{})); err != nil {
+	if err := opts.backend.Peers().Init(c.Context()); err != nil {
 		return fmt.Errorf("failed to initialize peer backend: %w", err)
 	}
 	return nil

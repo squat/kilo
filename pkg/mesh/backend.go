@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -146,11 +147,11 @@ type Backend interface {
 // clean up any changes applied to the backend,
 // and watch for changes to nodes.
 type NodeBackend interface {
-	CleanUp(string) error
+	CleanUp(context.Context, string) error
 	Get(string) (*Node, error)
-	Init(<-chan struct{}) error
+	Init(context.Context) error
 	List() ([]*Node, error)
-	Set(string, *Node) error
+	Set(context.Context, string, *Node) error
 	Watch() <-chan *NodeEvent
 }
 
@@ -160,10 +161,10 @@ type NodeBackend interface {
 // clean up any changes applied to the backend,
 // and watch for changes to peers.
 type PeerBackend interface {
-	CleanUp(string) error
+	CleanUp(context.Context, string) error
 	Get(string) (*Peer, error)
-	Init(<-chan struct{}) error
+	Init(context.Context) error
 	List() ([]*Peer, error)
-	Set(string, *Peer) error
+	Set(context.Context, string, *Peer) error
 	Watch() <-chan *PeerEvent
 }
