@@ -276,8 +276,6 @@ func cleanUp(iface int, t *route.Table, logger log.Logger) {
 	if err := t.CleanUp(); err != nil {
 		level.Error(logger).Log("failed to clean up routes: %v", err)
 	}
-
-	return
 }
 
 func sync(table *route.Table, peerName string, privateKey wgtypes.Key, iface int, logger log.Logger) error {
