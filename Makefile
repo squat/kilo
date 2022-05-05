@@ -38,14 +38,14 @@ DOCS_GEN_BINARY := bin/docs-gen
 DEEPCOPY_GEN_BINARY := bin/deepcopy-gen
 INFORMER_GEN_BINARY := bin/informer-gen
 LISTER_GEN_BINARY := bin/lister-gen
-GOLINT_BINARY := bin/golint
+STATICCHECK_BINARY := bin/staticcheck
 EMBEDMD_BINARY := bin/embedmd
 KIND_BINARY := $(shell pwd)/bin/kind
 KUBECTL_BINARY := $(shell pwd)/bin/kubectl
 BASH_UNIT := $(shell pwd)/bin/bash_unit
 BASH_UNIT_FLAGS :=
 
-BUILD_IMAGE ?= golang:1.18
+BUILD_IMAGE ?= golang:1.18.0
 BASE_IMAGE ?= alpine:3.15
 
 build: $(BINS)
@@ -165,7 +165,7 @@ fmt:
 	@echo $(GO_PKGS)
 	gofmt -w -s $(GO_FILES)
 
-lint: header $(GOLINT_BINARY)
+lint: header $(STATICCHECK_BINARY)
 	@echo 'go vet $(GO_PKGS)'
 	@vet_res=$$(GO111MODULE=on go vet -mod=vendor $(GO_PKGS) 2>&1); if [ -n "$$vet_res" ]; then \
 		echo ""; \
@@ -174,10 +174,10 @@ lint: header $(GOLINT_BINARY)
 		echo "$$vet_res"; \
 		exit 1; \
 	fi
-	@echo '$(GOLINT_BINARY) $(GO_PKGS)'
-	@lint_res=$$($(GOLINT_BINARY) $(GO_PKGS)); if [ -n "$$lint_res" ]; then \
+	@echo '$(STATICCHECK_BINARY) $(GO_PKGS)'
+	@lint_res=$$($(STATICCHECK_BINARY) $(GO_PKGS)); if [ -n "$$lint_res" ]; then \
 		echo ""; \
-		echo "Golint found style issues. Please check the reported issues"; \
+		echo "Staticcheck found style issues. Please check the reported issues"; \
 		echo "and fix them if necessary before submitting the code for review:"; \
 		echo "$$lint_res"; \
 		exit 1; \
@@ -358,8 +358,8 @@ $(LISTER_GEN_BINARY):
 $(DOCS_GEN_BINARY): cmd/docs-gen/main.go
 	go build -mod=vendor -o $@ ./cmd/docs-gen
 
-$(GOLINT_BINARY):
-	go build -mod=vendor -o $@ golang.org/x/lint/golint
+$(STATICCHECK_BINARY):
+	go build -mod=vendor -o $@ honnef.co/go/tools/cmd/staticcheck
 
 $(EMBEDMD_BINARY):
 	go build -mod=vendor -o $@ github.com/campoy/embedmd
