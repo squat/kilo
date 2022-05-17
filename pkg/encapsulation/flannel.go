@@ -56,6 +56,8 @@ func (f *flannel) Gw(_, _ net.IP, subnet *net.IPNet) net.IP {
 
 // Index returns the index of the Flannel interface.
 func (f *flannel) Index() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.iface
 }
 
