@@ -19,8 +19,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/squat/kilo/pkg/iptables"
 	"github.com/vishvananda/netlink"
+
+	"github.com/squat/kilo/pkg/iptables"
 )
 
 const ciliumDeviceName = "cilium_host"
@@ -43,7 +44,7 @@ func NewCilium(strategy Strategy) Encapsulator {
 	}
 }
 
-// CleanUp is a no-op.
+// CleanUp close done channel
 func (f *cilium) CleanUp() error {
 	close(f.done)
 	return nil
@@ -56,6 +57,8 @@ func (f *cilium) Gw(_, _ net.IP, subnet *net.IPNet) net.IP {
 
 // Index returns the index of the Cilium interface.
 func (f *cilium) Index() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.iface
 }
 
