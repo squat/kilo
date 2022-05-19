@@ -183,7 +183,7 @@ func (e *Endpoint) Resolved() bool {
 // UDPAddr() will not try to resolve a DN name, if the Endpoint is not yet resolved.
 func (e *Endpoint) UDPAddr(resolve bool) (*net.UDPAddr, error) {
 	if !e.Ready() {
-		return nil, errors.New("Enpoint is not ready")
+		return nil, errors.New("endpoint is not ready")
 	}
 	if e.udpAddr != nil {
 		// Make a copy of the UDPAddr to protect it from modification outside this package.
@@ -191,7 +191,7 @@ func (e *Endpoint) UDPAddr(resolve bool) (*net.UDPAddr, error) {
 		return &h, nil
 	}
 	if !resolve {
-		return nil, errors.New("Endpoint is not resolved")
+		return nil, errors.New("endpoint is not resolved")
 	}
 	var err error
 	if e.udpAddr, err = net.ResolveUDPAddr("udp", e.addr); err != nil {
@@ -358,19 +358,13 @@ func (c *Conf) Equal(d *wgtypes.Device) (bool, string) {
 
 func sortPeerConfigs(peers []wgtypes.Peer) {
 	sort.Slice(peers, func(i, j int) bool {
-		if peers[i].PublicKey.String() < peers[j].PublicKey.String() {
-			return true
-		}
-		return false
+		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
 	})
 }
 
 func sortPeers(peers []Peer) {
 	sort.Slice(peers, func(i, j int) bool {
-		if peers[i].PublicKey.String() < peers[j].PublicKey.String() {
-			return true
-		}
-		return false
+		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
 	})
 }
 

@@ -62,7 +62,6 @@ type Mesh struct {
 	ipTables            *iptables.Controller
 	kiloIface           int
 	kiloIfaceName       string
-	key                 []byte
 	local               bool
 	port                int
 	priv                wgtypes.Key
@@ -94,6 +93,9 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
 	privateB, err := ioutil.ReadFile(privateKeyPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to read private key file: %v", err)
+	}
 	privateB = bytes.Trim(privateB, "\n")
 	private, err := wgtypes.ParseKey(string(privateB))
 	if err != nil {

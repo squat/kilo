@@ -16,7 +16,6 @@ package mesh
 
 import (
 	"net"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,10 +25,6 @@ import (
 
 	"github.com/squat/kilo/pkg/wireguard"
 )
-
-func allowedIPs(ips ...string) string {
-	return strings.Join(ips, ", ")
-}
 
 func mustParseCIDR(s string) (r net.IPNet) {
 	if _, ip, err := net.ParseCIDR(s); err != nil {
