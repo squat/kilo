@@ -213,6 +213,8 @@ func runRoot(_ *cobra.Command, _ []string) error {
 	switch compatibility {
 	case "flannel":
 		enc = encapsulation.NewFlannel(e)
+	case "cilium":
+		enc = encapsulation.NewCilium(e)
 	default:
 		enc = encapsulation.NewIPIP(e)
 	}

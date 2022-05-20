@@ -19,13 +19,14 @@ import (
 	"net"
 	"sync"
 
-	"github.com/squat/kilo/pkg/iptables"
 	"github.com/vishvananda/netlink"
+
+	"github.com/squat/kilo/pkg/iptables"
 )
 
-const flannelDeviceName = "flannel.1"
+const ciliumDeviceName = "cilium_host"
 
-type flannel struct {
+type cilium struct {
 	iface    int
 	strategy Strategy
 	ch       chan netlink.LinkUpdate
@@ -34,44 +35,44 @@ type flannel struct {
 	mu sync.Mutex
 }
 
-// NewFlannel returns an encapsulator that uses Flannel.
-func NewFlannel(strategy Strategy) Encapsulator {
-	return &flannel{
+// NewCilium returns an encapsulator that uses Cilium.
+func NewCilium(strategy Strategy) Encapsulator {
+	return &cilium{
 		ch:       make(chan netlink.LinkUpdate),
 		done:     make(chan struct{}),
 		strategy: strategy,
 	}
 }
 
-// CleanUp is a no-op.
-func (f *flannel) CleanUp() error {
+// CleanUp close done channel
+func (f *cilium) CleanUp() error {
 	close(f.done)
 	return nil
 }
 
 // Gw returns the correct gateway IP associated with the given node.
-func (f *flannel) Gw(_, _ net.IP, subnet *net.IPNet) net.IP {
+func (f *cilium) Gw(_, _ net.IP, subnet *net.IPNet) net.IP {
 	return subnet.IP
 }
 
-// Index returns the index of the Flannel interface.
-func (f *flannel) Index() int {
+// Index returns the index of the Cilium interface.
+func (f *cilium) Index() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.iface
 }
 
-// Init finds the Flannel interface index.
-func (f *flannel) Init(_ int) error {
+// Init finds the Cilium interface index.
+func (f *cilium) Init(_ int) error {
 	if err := netlink.LinkSubscribe(f.ch, f.done); err != nil {
-		return fmt.Errorf("failed to subscribe to updates to %s: %v", flannelDeviceName, err)
+		return fmt.Errorf("failed to subscribe to updates to %s: %v", ciliumDeviceName, err)
 	}
 	go func() {
 		var lu netlink.LinkUpdate
 		for {
 			select {
 			case lu = <-f.ch:
-				if lu.Attrs().Name == flannelDeviceName {
+				if lu.Attrs().Name == ciliumDeviceName {
 					f.mu.Lock()
 					f.iface = lu.Attrs().Index
 					f.mu.Unlock()
@@ -81,12 +82,12 @@ func (f *flannel) Init(_ int) error {
 			}
 		}
 	}()
-	i, err := netlink.LinkByName(flannelDeviceName)
+	i, err := netlink.LinkByName(ciliumDeviceName)
 	if _, ok := err.(netlink.LinkNotFoundError); ok {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("failed to query for Flannel interface: %v", err)
+		return fmt.Errorf("failed to query for Cilium interface: %v", err)
 	}
 	f.mu.Lock()
 	f.iface = i.Attrs().Index
@@ -95,16 +96,16 @@ func (f *flannel) Init(_ int) error {
 }
 
 // Rules is a no-op.
-func (f *flannel) Rules(_ []*net.IPNet) []iptables.Rule {
+func (f *cilium) Rules(_ []*net.IPNet) []iptables.Rule {
 	return nil
 }
 
 // Set is a no-op.
-func (f *flannel) Set(_ *net.IPNet) error {
+func (f *cilium) Set(_ *net.IPNet) error {
 	return nil
 }
 
 // Strategy returns the configured strategy for encapsulation.
-func (f *flannel) Strategy() Strategy {
+func (f *cilium) Strategy() Strategy {
 	return f.strategy
 }
