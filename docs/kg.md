@@ -38,6 +38,7 @@ Flags:
       --cni-path string                Path to CNI config. (default "/etc/cni/net.d/10-kilo.conflist")
       --compatibility string           Should Kilo run in compatibility mode? Possible values: flannel
       --create-interface               Should kilo create an interface on startup? (default true)
+      --drop-other-ipip-traffic        Should Kilo drop other IP-over-IP traffic (not available in compatibility mode)? (default true)
       --encapsulate string             When should Kilo encapsulate packets within a location? Possible values: never, crosssubnet, always (default "always")
   -h, --help                           help for kg
       --hostname string                Hostname of the node on which this process is running.
