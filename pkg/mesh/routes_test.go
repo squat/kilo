@@ -1086,7 +1086,7 @@ func TestRoutes(t *testing.T) {
 			},
 		},
 	} {
-		routes, rules := tc.topology.Routes(DefaultKiloInterface, kiloIface, privIface, tunlIface, tc.local, encapsulation.NewIPIP(tc.strategy))
+		routes, rules := tc.topology.Routes(DefaultKiloInterface, kiloIface, privIface, tunlIface, tc.local, encapsulation.NewIPIP(tc.strategy, true))
 		if diff := pretty.Compare(routes, tc.routes); diff != "" {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}
