@@ -516,7 +516,9 @@ func (m *Mesh) applyTopology() {
 				break
 			}
 		}
-		ipRules = append(ipRules, m.enc.Rules(cidrs)...)
+
+		ipRules = append(m.enc.Rules(cidrs), ipRules...)
+
 		// If we are handling local routes, ensure the local
 		// tunnel has an IP address.
 		if err := m.enc.Set(oneAddressCIDR(newAllocator(*nodes[m.hostname].Subnet).next().IP)); err != nil {
