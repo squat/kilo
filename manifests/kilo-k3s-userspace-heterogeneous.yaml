@@ -298,7 +298,7 @@ spec:
           mountPath: /var/run/wireguard
           readOnly: false
       - name: boringtun
-        image: leonnicolas/boringtun
+        image: leonnicolas/boringtun:cc19859
         args:
         - --disable-drop-privileges=true
         - --foreground
@@ -391,7 +391,7 @@ spec:
 ---
 kind: DaemonSet
 apiVersion: apps/v1
-metadata: 
+metadata:
   name: nkml
   namespace: kube-system
   labels:
@@ -410,7 +410,7 @@ spec:
       containers:
       - name: nkml
         image: leonnicolas/nkml
-        args: 
+        args:
         - --hostname=$(NODE_NAME)
         - --label-mod=wireguard
         - --kubeconfig=/etc/kubernetes/kubeconfig

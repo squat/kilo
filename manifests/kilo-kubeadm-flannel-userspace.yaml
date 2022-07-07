@@ -67,7 +67,7 @@ spec:
       hostNetwork: true
       containers:
       - name: boringtun
-        image: leonnicolas/boringtun
+        image: leonnicolas/boringtun:cc19859
         args:
           - --disable-drop-privileges=true
           - --foreground

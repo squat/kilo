@@ -54,7 +54,7 @@ build_kind_config() {
 	export API_SERVER_PORT="${2:-6443}"
 	export POD_SUBNET="${3:-10.42.0.0/16}"
 	export SERVICE_SUBNET="${4:-10.43.0.0/16}"
-	export WORKERS="" 
+	export WORKERS=""
 	local i=0
 	while [ "$i" -lt "$WORKER_COUNT" ]; do
 		WORKERS="$(printf "%s\n- role: worker" "$WORKERS")"
@@ -65,7 +65,7 @@ build_kind_config() {
 }
 
 create_interface() {
-	docker run -d --name="$1" --rm --network=host --cap-add=NET_ADMIN --device=/dev/net/tun -v /var/run/wireguard:/var/run/wireguard -e WG_LOG_LEVEL=debug leonnicolas/boringtun --foreground --disable-drop-privileges true "$1"
+	docker run -d --name="$1" --rm --network=host --cap-add=NET_ADMIN --device=/dev/net/tun -v /var/run/wireguard:/var/run/wireguard -e WG_LOG_LEVEL=debug leonnicolas/boringtun:cc19859 --foreground --disable-drop-privileges true "$1"
 }
 
 delete_interface() {
@@ -126,7 +126,7 @@ create_cluster() {
 	# Apply Kilo the the cluster.
 	_kubectl apply -f ../manifests/crds.yaml
 	_kubectl apply -f kilo-kind-userspace.yaml
-	block_until_ready_by_name kube-system kilo-userspace 
+	block_until_ready_by_name kube-system kilo-userspace
 	_kubectl wait nodes --all --for=condition=Ready
 	# Wait for CoreDNS.
 	block_until_ready kube_system k8s-app=kube-dns
