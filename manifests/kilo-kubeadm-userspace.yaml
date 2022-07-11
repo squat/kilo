@@ -104,7 +104,7 @@ spec:
         image: leonnicolas/boringtun:cc19859
         imagePullPolicy: IfNotPresent
         args:
-          - --disable-drop-privileges=true
+          - --disable-drop-privileges
           - --foreground
           - kilo0
         securityContext:

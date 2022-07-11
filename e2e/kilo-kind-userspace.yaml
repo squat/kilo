@@ -136,9 +136,9 @@ spec:
           mountPath: /etc/kubernetes
           readOnly: true
       - name: boringtun
-        image: leonnicolas/boringtun:cc19859
+        image: leonnicolas/boringtun
         args:
-        - --disable-drop-privileges=true
+        - --disable-drop-privileges
         - --foreground
         - kilo0
         securityContext:
