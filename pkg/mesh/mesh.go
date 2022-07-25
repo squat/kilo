@@ -526,7 +526,9 @@ func (m *Mesh) applyTopology() {
 			}
 		}
 
-		ipRules = append(m.enc.Rules(cidrs), ipRules...)
+		encIpRules := m.enc.Rules(cidrs)
+		ipRules.AppendRules = append(encIpRules.AppendRules, ipRules.AppendRules...)
+		ipRules.PrependRules = append(encIpRules.PrependRules, ipRules.PrependRules...)
 
 		// If we are handling local routes, ensure the local
 		// tunnel has an IP address.

@@ -96,8 +96,8 @@ func (f *cilium) Init(_ int) error {
 }
 
 // Rules is a no-op.
-func (f *cilium) Rules(_ []*net.IPNet) []iptables.Rule {
-	return nil
+func (f *cilium) Rules(_ []*net.IPNet) iptables.RuleSet {
+	return iptables.RuleSet{}
 }
 
 // Set is a no-op.

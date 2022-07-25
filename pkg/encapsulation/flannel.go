@@ -95,8 +95,8 @@ func (f *flannel) Init(_ int) error {
 }
 
 // Rules is a no-op.
-func (f *flannel) Rules(_ []*net.IPNet) []iptables.Rule {
-	return nil
+func (f *flannel) Rules(_ []*net.IPNet) iptables.RuleSet {
+	return iptables.RuleSet{}
 }
 
 // Set is a no-op.

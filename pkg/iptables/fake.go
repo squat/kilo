@@ -46,6 +46,20 @@ type fakeClient struct {
 
 var _ Client = &fakeClient{}
 
+func (f *fakeClient) Insert(table, chain string, pos int, spec ...string) error {
+	atomic.AddUint64(&f.calls, 1)
+	exists, err := f.Exists(table, chain, spec...)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	// FIXME obey pos!
+	f.storage = append([]Rule{&rule{table: table, chain: chain, spec: spec}}, f.storage...)
+	return nil
+}
+
 func (f *fakeClient) AppendUnique(table, chain string, spec ...string) error {
 	atomic.AddUint64(&f.calls, 1)
 	exists, err := f.Exists(table, chain, spec...)
