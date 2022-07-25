@@ -15,6 +15,7 @@
 package iptables
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"testing"
 )
 
@@ -84,7 +85,7 @@ func TestSet(t *testing.T) {
 		},
 	} {
 		client := &fakeClient{}
-		controller, err := New(WithClients(client, client))
+		controller, err := New(prometheus.NewRegistry(), WithClients(client, client))
 		if err != nil {
 			t.Fatalf("test case %q: got unexpected error instantiating controller: %v", tc.name, err)
 		}
@@ -141,7 +142,7 @@ func TestCleanUp(t *testing.T) {
 		},
 	} {
 		client := &fakeClient{}
-		controller, err := New(WithClients(client, client))
+		controller, err := New(prometheus.NewRegistry(), WithClients(client, client))
 		if err != nil {
 			t.Fatalf("test case %q: got unexpected error instantiating controller: %v", tc.name, err)
 		}
