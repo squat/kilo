@@ -199,3 +199,42 @@ func TestCleanUp(t *testing.T) {
 		}
 	}
 }
+
+func TestReconcile(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		appendRules  []Rule
+		prependRules []Rule
+		storageOut   []Rule
+	}{
+		{
+			name:         "append and prepend rules",
+			appendRules:  []Rule{appendRules[0], appendRules[1]},
+			prependRules: []Rule{prependRules[0], prependRules[1]},
+			storageOut:   []Rule{prependRules[1], prependRules[0], appendRules[0], appendRules[1]},
+		},
+	} {
+		client := &fakeClient{}
+		controller, err := New(WithClients(client, client))
+		if err != nil {
+			t.Fatalf("test case %q: got unexpected error instantiating controller: %v", tc.name, err)
+		}
+		controller.appendRules = tc.appendRules
+		controller.prependRules = tc.prependRules
+
+		err = controller.reconcile()
+		if err != nil {
+			t.Fatalf("test case %q: unexpected error during reconcile: %v", tc.name, err)
+		}
+
+		if len(tc.storageOut) != len(client.storage) {
+			t.Errorf("test case %q: expected %d rules in storage, got %d", tc.name, len(tc.storageOut), len(client.storage))
+		} else {
+			for i := range tc.storageOut {
+				if tc.storageOut[i].String() != client.storage[i].String() {
+					t.Errorf("test case %q: expected rule %d in storage to be equal: expected %v, got %v", tc.name, i, tc.storageOut[i], client.storage[i])
+				}
+			}
+		}
+	}
+}
