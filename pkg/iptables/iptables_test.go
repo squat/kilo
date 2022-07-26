@@ -16,6 +16,8 @@ package iptables
 
 import (
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var rules = []Rule{
@@ -89,8 +91,9 @@ func TestSet(t *testing.T) {
 			t.Fatalf("test case %q: got unexpected error instantiating controller: %v", tc.name, err)
 		}
 		for i := range tc.sets {
-			if err := controller.Set(tc.sets[i]); err != nil {
-				t.Fatalf("test case %q: got unexpected error seting rule set %d: %v", tc.name, i, err)
+			ruleSet := RuleSet{AppendRules: tc.sets[i]}
+			if err := controller.Set(ruleSet); err != nil {
+				t.Fatalf("test case %q: got unexpected error setting rule set %d: %v", tc.name, i, err)
 			}
 		}
 		for i, f := range tc.actions {
@@ -110,12 +113,12 @@ func TestSet(t *testing.T) {
 				}
 			}
 		}
-		if len(tc.out) != len(controller.rules) {
-			t.Errorf("test case %q: expected %d rules in controller, got %d", tc.name, len(tc.out), len(controller.rules))
+		if len(tc.out) != len(controller.appendRules) {
+			t.Errorf("test case %q: expected %d rules in controller, got %d", tc.name, len(tc.out), len(controller.appendRules))
 		} else {
 			for i := range tc.out {
-				if tc.out[i].String() != controller.rules[i].String() {
-					t.Errorf("test case %q: expected rule %d in controller to be equal: expected %v, got %v", tc.name, i, tc.out[i], controller.rules[i])
+				if tc.out[i].String() != controller.appendRules[i].String() {
+					t.Errorf("test case %q: expected rule %d in controller to be equal: expected %v, got %v", tc.name, i, tc.out[i], controller.appendRules[i])
 				}
 			}
 		}
@@ -145,11 +148,12 @@ func TestCleanUp(t *testing.T) {
 		if err != nil {
 			t.Fatalf("test case %q: got unexpected error instantiating controller: %v", tc.name, err)
 		}
-		if err := controller.Set(tc.rules); err != nil {
+		ruleSet := RuleSet{AppendRules: tc.rules}
+		if err := controller.Set(ruleSet); err != nil {
 			t.Fatalf("test case %q: Set should not fail: %v", tc.name, err)
 		}
 		if len(client.storage) != len(tc.rules) {
-			t.Errorf("test case %q: expected %d rules in storage, got %d rules", tc.name, len(tc.rules), len(client.storage))
+			t.Errorf("test case %q: expected %d rules in storage, got %d rules", tc.name, len(ruleSet.AppendRules), len(client.storage))
 		}
 		if err := controller.CleanUp(); err != nil {
 			t.Errorf("test case %q: got unexpected error: %v", tc.name, err)
