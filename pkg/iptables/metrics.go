@@ -105,7 +105,7 @@ func (m *metricsClientWrapper) ListChains(table string) ([]string, error) {
 	m.operationCounter.With(prometheus.Labels{
 		"operation": "ListChains",
 		"table":     table,
-		"chain":     "",
+		"chain":     "*",
 	}).Inc()
 	return m.client.ListChains(table)
 }
