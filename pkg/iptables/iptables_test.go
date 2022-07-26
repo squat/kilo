@@ -43,7 +43,7 @@ func TestSet(t *testing.T) {
 		{
 			name: "single",
 			sets: []RuleSet{
-				{AppendRules: []Rule{appendRules[0]}},
+				{appendRules: []Rule{appendRules[0]}},
 			},
 			appendOut:  []Rule{appendRules[0]},
 			storageOut: []Rule{appendRules[0]},
@@ -51,7 +51,7 @@ func TestSet(t *testing.T) {
 		{
 			name: "two rules",
 			sets: []RuleSet{
-				{AppendRules: []Rule{appendRules[0], appendRules[1]}},
+				{appendRules: []Rule{appendRules[0], appendRules[1]}},
 			},
 			appendOut:  []Rule{appendRules[0], appendRules[1]},
 			storageOut: []Rule{appendRules[0], appendRules[1]},
@@ -59,8 +59,8 @@ func TestSet(t *testing.T) {
 		{
 			name: "multiple",
 			sets: []RuleSet{
-				{AppendRules: []Rule{appendRules[0], appendRules[1]}},
-				{AppendRules: []Rule{appendRules[1]}},
+				{appendRules: []Rule{appendRules[0], appendRules[1]}},
+				{appendRules: []Rule{appendRules[1]}},
 			},
 			appendOut:  []Rule{appendRules[1]},
 			storageOut: []Rule{appendRules[1]},
@@ -68,7 +68,7 @@ func TestSet(t *testing.T) {
 		{
 			name: "re-add",
 			sets: []RuleSet{
-				{AppendRules: []Rule{appendRules[0], appendRules[1]}},
+				{appendRules: []Rule{appendRules[0], appendRules[1]}},
 			},
 			appendOut:  []Rule{appendRules[0], appendRules[1]},
 			storageOut: []Rule{appendRules[0], appendRules[1]},
@@ -84,7 +84,7 @@ func TestSet(t *testing.T) {
 		{
 			name: "order",
 			sets: []RuleSet{
-				{AppendRules: []Rule{appendRules[0], appendRules[1]}},
+				{appendRules: []Rule{appendRules[0], appendRules[1]}},
 			},
 			appendOut:  []Rule{appendRules[0], appendRules[1]},
 			storageOut: []Rule{appendRules[0], appendRules[1]},
@@ -98,8 +98,8 @@ func TestSet(t *testing.T) {
 			name: "append and prepend",
 			sets: []RuleSet{
 				{
-					PrependRules: []Rule{prependRules[0], prependRules[1]},
-					AppendRules:  []Rule{appendRules[0], appendRules[1]},
+					prependRules: []Rule{prependRules[0], prependRules[1]},
+					appendRules:  []Rule{appendRules[0], appendRules[1]},
 				},
 			},
 			appendOut:  []Rule{appendRules[0], appendRules[1]},
@@ -184,12 +184,12 @@ func TestCleanUp(t *testing.T) {
 		if err != nil {
 			t.Fatalf("test case %q: got unexpected error instantiating controller: %v", tc.name, err)
 		}
-		ruleSet := RuleSet{AppendRules: tc.appendRules, PrependRules: tc.prependRules}
+		ruleSet := RuleSet{appendRules: tc.appendRules, prependRules: tc.prependRules}
 		if err := controller.Set(ruleSet); err != nil {
 			t.Fatalf("test case %q: Set should not fail: %v", tc.name, err)
 		}
 		if len(client.storage) != len(tc.appendRules)+len(tc.prependRules) {
-			t.Errorf("test case %q: expected %d rules in storage, got %d rules", tc.name, len(ruleSet.AppendRules)+len(ruleSet.PrependRules), len(client.storage))
+			t.Errorf("test case %q: expected %d rules in storage, got %d rules", tc.name, len(ruleSet.appendRules)+len(ruleSet.prependRules), len(client.storage))
 		}
 		if err := controller.CleanUp(); err != nil {
 			t.Errorf("test case %q: got unexpected error: %v", tc.name, err)

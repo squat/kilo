@@ -101,7 +101,7 @@ func TestRuleCache(t *testing.T) {
 		client := &fakeClient{}
 		controller.v4 = client
 		controller.v6 = client
-		ruleSet := RuleSet{AppendRules: tc.rules}
+		ruleSet := RuleSet{appendRules: tc.rules}
 		if err := controller.Set(ruleSet); err != nil {
 			t.Fatalf("test case %q: Set should not fail: %v", tc.name, err)
 		}

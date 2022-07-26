@@ -313,10 +313,10 @@ func encapsulateRoute(route *netlink.Route, encapsulate encapsulation.Strategy, 
 // Rules returns the iptables rules required by the local node.
 func (t *Topology) Rules(cni, iptablesForwardRule bool) iptables.RuleSet {
 	rules := iptables.RuleSet{}
-	rules.AppendRules = append(rules.AppendRules, iptables.NewIPv4Chain("nat", "KILO-NAT"))
-	rules.AppendRules = append(rules.AppendRules, iptables.NewIPv6Chain("nat", "KILO-NAT"))
+	rules.AddToAppend(iptables.NewIPv4Chain("nat", "KILO-NAT"))
+	rules.AddToAppend(iptables.NewIPv6Chain("nat", "KILO-NAT"))
 	if cni {
-		rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(t.subnet.IP), "nat", "POSTROUTING", "-s", t.subnet.String(), "-m", "comment", "--comment", "Kilo: jump to KILO-NAT chain", "-j", "KILO-NAT"))
+		rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(t.subnet.IP), "nat", "POSTROUTING", "-s", t.subnet.String(), "-m", "comment", "--comment", "Kilo: jump to KILO-NAT chain", "-j", "KILO-NAT"))
 		// Some linux distros or docker will set forward DROP in the filter table.
 		// To still be able to have pod to pod communication we need to ALLOW packets from and to pod CIDRs within a location.
 		// Leader nodes will forward packets from all nodes within a location because they act as a gateway for them.
@@ -326,55 +326,51 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) iptables.RuleSet {
 				if s.location == t.location {
 					// Make sure packets to and from pod cidrs are not dropped in the forward chain.
 					for _, c := range s.cidrs {
-						rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(c.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the pod subnet", "-s", c.String(), "-j", "ACCEPT"))
-						rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(c.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the pod subnet", "-d", c.String(), "-j", "ACCEPT"))
+						rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(c.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the pod subnet", "-s", c.String(), "-j", "ACCEPT"))
+						rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(c.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the pod subnet", "-d", c.String(), "-j", "ACCEPT"))
 					}
 					// Make sure packets to and from allowed location IPs are not dropped in the forward chain.
 					for _, c := range s.allowedLocationIPs {
-						rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(c.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from allowed location IPs", "-s", c.String(), "-j", "ACCEPT"))
-						rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(c.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to allowed location IPs", "-d", c.String(), "-j", "ACCEPT"))
+						rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(c.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from allowed location IPs", "-s", c.String(), "-j", "ACCEPT"))
+						rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(c.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to allowed location IPs", "-d", c.String(), "-j", "ACCEPT"))
 					}
 					// Make sure packets to and from private IPs are not dropped in the forward chain.
 					for _, c := range s.privateIPs {
-						rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(c), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from private IPs", "-s", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
-						rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(c), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to private IPs", "-d", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
+						rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(c), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from private IPs", "-s", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
+						rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(c), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to private IPs", "-d", oneAddressCIDR(c).String(), "-j", "ACCEPT"))
 					}
 				}
 			}
 		} else if iptablesForwardRule {
-			rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(t.subnet.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the node's pod subnet", "-s", t.subnet.String(), "-j", "ACCEPT"))
-			rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(t.subnet.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the node's pod subnet", "-d", t.subnet.String(), "-j", "ACCEPT"))
+			rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(t.subnet.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets from the node's pod subnet", "-s", t.subnet.String(), "-j", "ACCEPT"))
+			rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(t.subnet.IP), "filter", "FORWARD", "-m", "comment", "--comment", "Kilo: forward packets to the node's pod subnet", "-d", t.subnet.String(), "-j", "ACCEPT"))
 		}
 	}
 	for _, s := range t.segments {
-		rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(s.wireGuardIP), "nat", "KILO-NAT", "-d", oneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuared IPs", "-j", "RETURN"))
+		rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(s.wireGuardIP), "nat", "KILO-NAT", "-d", oneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuared IPs", "-j", "RETURN"))
 		for _, aip := range s.allowedIPs {
-			rules.PrependRules = append(rules.PrependRules, iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
+			rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
 		}
 		// Make sure packets to allowed location IPs go through the KILO-NAT chain, so they can be MASQUERADEd,
 		// Otherwise packets to these destinations will reach the destination, but never find their way back.
 		// We only want to NAT in locations of the corresponding allowed location IPs.
 		if t.location == s.location {
 			for _, alip := range s.allowedLocationIPs {
-				rules.PrependRules = append(rules.PrependRules,
-					iptables.NewRule(iptables.GetProtocol(alip.IP), "nat", "POSTROUTING", "-d", alip.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"),
-				)
+				rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(alip.IP), "nat", "POSTROUTING", "-d", alip.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"))
 			}
 		}
 	}
 	for _, p := range t.peers {
 		for _, aip := range p.AllowedIPs {
-			rules.PrependRules = append(rules.PrependRules,
-				iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "POSTROUTING", "-s", aip.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"),
-				iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for peers", "-j", "RETURN"),
-			)
+			rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "POSTROUTING", "-s", aip.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"))
+			rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for peers", "-j", "RETURN"))
 		}
 	}
 	for _, s := range t.serviceCIDRs {
-		rules.AppendRules = append(rules.AppendRules, iptables.NewRule(iptables.GetProtocol(s.IP), "nat", "KILO-NAT", "-d", s.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for service CIDRs", "-j", "RETURN"))
+		rules.AddToAppend(iptables.NewRule(iptables.GetProtocol(s.IP), "nat", "KILO-NAT", "-d", s.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for service CIDRs", "-j", "RETURN"))
 	}
-	rules.AppendRules = append(rules.AppendRules, iptables.NewIPv4Rule("nat", "KILO-NAT", "-m", "comment", "--comment", "Kilo: NAT remaining packets", "-j", "MASQUERADE"))
-	rules.AppendRules = append(rules.AppendRules, iptables.NewIPv6Rule("nat", "KILO-NAT", "-m", "comment", "--comment", "Kilo: NAT remaining packets", "-j", "MASQUERADE"))
+	rules.AddToAppend(iptables.NewIPv4Rule("nat", "KILO-NAT", "-m", "comment", "--comment", "Kilo: NAT remaining packets", "-j", "MASQUERADE"))
+	rules.AddToAppend(iptables.NewIPv6Rule("nat", "KILO-NAT", "-m", "comment", "--comment", "Kilo: NAT remaining packets", "-j", "MASQUERADE"))
 	return rules
 }
 

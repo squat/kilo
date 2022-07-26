@@ -46,12 +46,32 @@ func ipv6Disabled() (bool, error) {
 // Protocol represents an IP protocol.
 type Protocol byte
 
+type RuleSet struct {
+	appendRules  []Rule // Rules to append to the chain - order matters.
+	prependRules []Rule // Rules to prepend to the chain - order does not matter.
+}
+
 const (
 	// ProtocolIPv4 represents the IPv4 protocol.
 	ProtocolIPv4 Protocol = iota
 	// ProtocolIPv6 represents the IPv6 protocol.
 	ProtocolIPv6
 )
+
+func (rs *RuleSet) AddToAppend(rule Rule) {
+	rs.appendRules = append(rs.appendRules, rule)
+}
+
+func (rs *RuleSet) AddToPrepend(rule Rule) {
+	rs.prependRules = append(rs.prependRules, rule)
+}
+
+func (rs *RuleSet) AppendRuleSet(other RuleSet) RuleSet {
+	return RuleSet{
+		appendRules:  append(rs.appendRules, other.appendRules...),
+		prependRules: append(rs.prependRules, other.prependRules...),
+	}
+}
 
 // GetProtocol will return a protocol from the length of an IP address.
 func GetProtocol(ip net.IP) Protocol {
@@ -423,10 +443,10 @@ func (c *Controller) deleteFromIndex(i int, rules *[]Rule) error {
 func (c *Controller) Set(rules RuleSet) error {
 	c.Lock()
 	defer c.Unlock()
-	if err := c.setAppendRules(rules.AppendRules); err != nil {
+	if err := c.setAppendRules(rules.appendRules); err != nil {
 		return err
 	}
-	return c.setPrependRules(rules.PrependRules)
+	return c.setPrependRules(rules.prependRules)
 }
 
 func (c *Controller) setAppendRules(appendRules []Rule) error {
@@ -519,9 +539,4 @@ func nonBlockingSend(errors chan<- error, err error) {
 	case errors <- err:
 	default:
 	}
-}
-
-type RuleSet struct {
-	AppendRules  []Rule // Rules to append to the chain - order matters.
-	PrependRules []Rule // Rules to prepend to the chain - order does not matter.
 }
