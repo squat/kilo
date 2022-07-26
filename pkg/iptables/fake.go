@@ -55,8 +55,12 @@ func (f *fakeClient) Insert(table, chain string, pos int, spec ...string) error 
 	if exists {
 		return nil
 	}
-	// FIXME obey pos!
-	f.storage = append([]Rule{&rule{table: table, chain: chain, spec: spec}}, f.storage...)
+	index := pos - 1 // iptables are 1-based
+	rule := &rule{table: table, chain: chain, spec: spec}
+	prefix := append([]Rule{}, f.storage[:index]...)
+	suffix := append([]Rule{}, f.storage[index:]...)
+	prefix = append(prefix, rule)
+	f.storage = append(prefix, suffix...)
 	return nil
 }
 
