@@ -347,6 +347,13 @@ func (c *Controller) reconcile() error {
 	c.Lock()
 	defer c.Unlock()
 	var rc ruleCache
+	if err := c.reconcileAppendRules(rc); err != nil {
+		return err
+	}
+	return c.reconcilePrependRules(rc)
+}
+
+func (c *Controller) reconcileAppendRules(rc ruleCache) error {
 	for i, r := range c.appendRules {
 		ok, err := rc.exists(c.client(r.Proto()), r)
 		if err != nil {
@@ -358,6 +365,22 @@ func (c *Controller) reconcile() error {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
 			break
+		}
+	}
+	return nil
+}
+
+func (c *Controller) reconcilePrependRules(rc ruleCache) error {
+	for _, r := range c.prependRules {
+		ok, err := rc.exists(c.client(r.Proto()), r)
+		if err != nil {
+			return fmt.Errorf("failed to check if rule exists: %v", err)
+		}
+		if !ok {
+			level.Info(c.logger).Log("msg", "prepending iptables rule")
+			if err := r.Prepend(c.client(r.Proto())); err != nil {
+				return fmt.Errorf("failed to prepend rule: %v", err)
+			}
 		}
 	}
 	return nil
