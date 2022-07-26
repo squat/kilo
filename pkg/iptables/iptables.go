@@ -16,7 +16,6 @@ package iptables
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"net"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const ipv6ModuleDisabledPath = "/sys/module/ipv6/parameters/disable"
