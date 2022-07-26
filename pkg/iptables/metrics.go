@@ -24,6 +24,10 @@ type metricsClientWrapper struct {
 }
 
 func wrapWithMetrics(client Client, protocol string, registerer prometheus.Registerer) Client {
+	if registerer == nil {
+		return client
+	}
+
 	labelNames := []string{
 		"operation",
 		"table",

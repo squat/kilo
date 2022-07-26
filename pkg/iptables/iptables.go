@@ -275,11 +275,7 @@ func New(opts ...ControllerOption) (*Controller, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create iptables IPv4 client: %v", err)
 		}
-		if c.registerer != nil {
-			c.v4 = wrapWithMetrics(v4, "IPv4", c.registerer)
-		} else {
-			c.v4 = v4
-		}
+		c.v4 = wrapWithMetrics(v4, "IPv4", c.registerer)
 	}
 	if c.v6 == nil {
 		disabled, err := ipv6Disabled()
@@ -294,11 +290,7 @@ func New(opts ...ControllerOption) (*Controller, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
 			}
-			if c.registerer != nil {
-				c.v6 = wrapWithMetrics(v6, "IPv6", c.registerer)
-			} else {
-				c.v6 = v6
-			}
+			c.v6 = wrapWithMetrics(v6, "IPv6", c.registerer)
 		}
 	}
 	return c, nil
