@@ -221,6 +221,7 @@ type Controller struct {
 	errors       chan error
 	logger       log.Logger
 	resyncPeriod time.Duration
+	registerer   prometheus.Registerer
 
 	sync.Mutex
 	rules      []Rule
@@ -252,10 +253,16 @@ func WithClients(v4, v6 Client) ControllerOption {
 	}
 }
 
+func WithRegisterer(registerer prometheus.Registerer) ControllerOption {
+	return func(c *Controller) {
+		c.registerer = registerer
+	}
+}
+
 // New generates a new iptables rules controller.
 // If no options are given, IPv4 and IPv6 clients
 // will be instantiated using the regular iptables backend.
-func New(registerer prometheus.Registerer, opts ...ControllerOption) (*Controller, error) {
+func New(opts ...ControllerOption) (*Controller, error) {
 	c := &Controller{
 		errors: make(chan error),
 		logger: log.NewNopLogger(),
@@ -268,7 +275,11 @@ func New(registerer prometheus.Registerer, opts ...ControllerOption) (*Controlle
 		if err != nil {
 			return nil, fmt.Errorf("failed to create iptables IPv4 client: %v", err)
 		}
-		c.v4 = wrapWithMetrics(v4, "IPv4", registerer)
+		if c.registerer != nil {
+			c.v4 = wrapWithMetrics(v4, "IPv4", c.registerer)
+		} else {
+			c.v4 = v4
+		}
 	}
 	if c.v6 == nil {
 		disabled, err := ipv6Disabled()
@@ -283,7 +294,11 @@ func New(registerer prometheus.Registerer, opts ...ControllerOption) (*Controlle
 			if err != nil {
 				return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
 			}
-			c.v6 = wrapWithMetrics(v6, "IPv6", registerer)
+			if c.registerer != nil {
+				c.v6 = wrapWithMetrics(v6, "IPv6", c.registerer)
+			} else {
+				c.v6 = v6
+			}
 		}
 	}
 	return c, nil

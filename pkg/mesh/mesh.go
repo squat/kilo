@@ -156,7 +156,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		externalIP = publicIP
 	}
 	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the public IP address", publicIP.String()))
-	ipTables, err := iptables.New(registerer, iptables.WithLogger(log.With(logger, "component", "iptables")), iptables.WithResyncPeriod(resyncPeriod))
+	ipTables, err := iptables.New(iptables.WithRegisterer(registerer), iptables.WithLogger(log.With(logger, "component", "iptables")), iptables.WithResyncPeriod(resyncPeriod))
 	if err != nil {
 		return nil, fmt.Errorf("failed to IP tables controller: %v", err)
 	}
