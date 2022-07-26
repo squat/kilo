@@ -126,7 +126,7 @@ func TestSet(t *testing.T) {
 			t.Fatalf("test case %q: got unexpected error %v", tc.name, err)
 		}
 		if len(tc.storageOut) != len(client.storage) {
-			t.Errorf("test case %q: expected %d rules in storage, got %d", tc.name, len(tc.appendOut), len(client.storage))
+			t.Errorf("test case %q: expected %d rules in storage, got %d", tc.name, len(tc.storageOut), len(client.storage))
 		} else {
 			for i := range tc.storageOut {
 				if tc.storageOut[i].String() != client.storage[i].String() {
