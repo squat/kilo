@@ -129,6 +129,15 @@ func NewIPv6Rule(table, chain string, spec ...string) Rule {
 }
 
 func (r *rule) Prepend(client Client) error {
+	// TODO There's already a PR to implement InsertUnique() in go-iptables. Once that hopefully gets merged this should be replaced.
+	// https://github.com/coreos/go-iptables/pull/92
+	exists, err := client.Exists(r.table, r.chain, r.spec...)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
 	if err := client.Insert(r.table, r.chain, 1, r.spec...); err != nil {
 		return fmt.Errorf("failed to add iptables rule: %v", err)
 	}
