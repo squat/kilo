@@ -127,8 +127,8 @@ var (
 
 func init() {
 	cmd.Flags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
-	cmd.Flags().BoolVar(&cleanUp, "clean-up", true, "Clean up network modifications on shutdown.")
-	cmd.Flags().BoolVar(&cleanUpIface, "clean-up-interface", false, "Should Kilo delete its interface when it shuts down? Only relevant when cleanup is true.")
+	cmd.Flags().BoolVar(&cleanUp, "clean-up", true, "Should kilo clean up network modifications on shutdown?")
+	cmd.Flags().BoolVar(&cleanUpIface, "clean-up-interface", false, "Should Kilo delete its interface when it shuts down?")
 	cmd.Flags().BoolVar(&createIface, "create-interface", true, "Should kilo create an interface on startup?")
 	cmd.Flags().BoolVar(&cni, "cni", true, "Should Kilo manage the node's CNI configuration?")
 	cmd.Flags().StringVar(&cniPath, "cni-path", mesh.DefaultCNIPath, "Path to CNI config.")
