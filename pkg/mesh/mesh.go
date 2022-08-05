@@ -88,7 +88,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, logger log.Logger) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -156,11 +156,11 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		externalIP = publicIP
 	}
 	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the public IP address", publicIP.String()))
-	ipTables, err := iptables.New(iptables.WithLogger(log.With(logger, "component", "iptables")), iptables.WithResyncPeriod(resyncPeriod))
+	ipTables, err := iptables.New(iptables.WithRegisterer(registerer), iptables.WithLogger(log.With(logger, "component", "iptables")), iptables.WithResyncPeriod(resyncPeriod))
 	if err != nil {
 		return nil, fmt.Errorf("failed to IP tables controller: %v", err)
 	}
-	return &Mesh{
+	mesh := Mesh{
 		Backend:             backend,
 		cleanUpIface:        cleanUpIface,
 		cni:                 cni,
@@ -205,7 +205,15 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 			Help: "Number of reconciliation attempts.",
 		}),
 		logger: logger,
-	}, nil
+	}
+	registerer.MustRegister(
+		mesh.errorCounter,
+		mesh.leaderGuage,
+		mesh.nodesGuage,
+		mesh.peersGuage,
+		mesh.reconcileCounter,
+	)
+	return &mesh, nil
 }
 
 // Run starts the mesh.
@@ -573,18 +581,6 @@ func (m *Mesh) applyTopology() {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 	}
-}
-
-// RegisterMetrics registers Prometheus metrics on the given Prometheus
-// registerer.
-func (m *Mesh) RegisterMetrics(r prometheus.Registerer) {
-	r.MustRegister(
-		m.errorCounter,
-		m.leaderGuage,
-		m.nodesGuage,
-		m.peersGuage,
-		m.reconcileCounter,
-	)
 }
 
 func (m *Mesh) cleanUp() {
