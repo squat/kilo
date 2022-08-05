@@ -250,8 +250,6 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}
 
-	m.RegisterMetrics(registry)
-
 	var g run.Group
 	{
 		h := internalserver.NewHandler(

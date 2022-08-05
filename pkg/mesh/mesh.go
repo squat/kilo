@@ -160,7 +160,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	if err != nil {
 		return nil, fmt.Errorf("failed to IP tables controller: %v", err)
 	}
-	return &Mesh{
+	mesh := Mesh{
 		Backend:             backend,
 		cleanUpIface:        cleanUpIface,
 		cni:                 cni,
@@ -205,7 +205,15 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 			Help: "Number of reconciliation attempts.",
 		}),
 		logger: logger,
-	}, nil
+	}
+	registerer.MustRegister(
+		mesh.errorCounter,
+		mesh.leaderGuage,
+		mesh.nodesGuage,
+		mesh.peersGuage,
+		mesh.reconcileCounter,
+	)
+	return &mesh, nil
 }
 
 // Run starts the mesh.
@@ -573,18 +581,6 @@ func (m *Mesh) applyTopology() {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 	}
-}
-
-// RegisterMetrics registers Prometheus metrics on the given Prometheus
-// registerer.
-func (m *Mesh) RegisterMetrics(r prometheus.Registerer) {
-	r.MustRegister(
-		m.errorCounter,
-		m.leaderGuage,
-		m.nodesGuage,
-		m.peersGuage,
-		m.reconcileCounter,
-	)
 }
 
 func (m *Mesh) cleanUp() {
