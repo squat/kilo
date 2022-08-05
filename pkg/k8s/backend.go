@@ -334,6 +334,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		switch meshGranularity {
 		case mesh.LogicalGranularity:
 		case mesh.FullGranularity:
+		case mesh.CrossGranularity:
 		default:
 			meshGranularity = ""
 		}
