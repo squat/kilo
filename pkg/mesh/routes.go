@@ -137,7 +137,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 	}
 	for _, segment := range t.segments {
 		// Add routes for the current segment if local is true.
-		if segment.location == t.location {
+		if (segment.location == t.location) || (t.nodeLocation != "" && segment.nodeLocation == t.nodeLocation) {
 			// If the local node does not have a private IP address,
 			// then skip adding routes, because the node is in its own location.
 			if local && t.privateIP != nil {
