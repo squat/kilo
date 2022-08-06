@@ -51,6 +51,15 @@ func (m *metricsClientWrapper) AppendUnique(table string, chain string, rule ...
 	return m.client.AppendUnique(table, chain, rule...)
 }
 
+func (m *metricsClientWrapper) Insert(table string, chain string, pos int, rule ...string) error {
+	m.operationCounter.With(prometheus.Labels{
+		"operation": "Insert",
+		"table":     table,
+		"chain":     chain,
+	}).Inc()
+	return m.client.Insert(table, chain, pos, rule...)
+}
+
 func (m *metricsClientWrapper) Delete(table string, chain string, rule ...string) error {
 	m.operationCounter.With(prometheus.Labels{
 		"operation": "Delete",
