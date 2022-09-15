@@ -46,7 +46,7 @@ type fakeClient struct {
 
 var _ Client = &fakeClient{}
 
-func (f *fakeClient) Insert(table, chain string, pos int, spec ...string) error {
+func (f *fakeClient) InsertUnique(table, chain string, pos int, spec ...string) error {
 	atomic.AddUint64(&f.calls, 1)
 	exists, err := f.Exists(table, chain, spec...)
 	if err != nil {

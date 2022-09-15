@@ -109,6 +109,7 @@ func Timeout(timeout int) option {
 // For backwards compatibility, by default always uses IPv4 and timeout 0.
 // i.e. you can create an IPv6 IPTables using a timeout of 5 seconds passing
 // the IPFamily and Timeout options as follow:
+//
 //	ip6t := New(IPFamily(ProtocolIPv6), Timeout(5))
 func New(opts ...option) (*IPTables, error) {
 
@@ -185,6 +186,20 @@ func (ipt *IPTables) Insert(table, chain string, pos int, rulespec ...string) er
 	return ipt.run(cmd...)
 }
 
+// InsertUnique acts like Insert except that it won't insert a duplicate (no matter the position in the chain)
+func (ipt *IPTables) InsertUnique(table, chain string, pos int, rulespec ...string) error {
+	exists, err := ipt.Exists(table, chain, rulespec...)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return ipt.Insert(table, chain, pos, rulespec...)
+	}
+
+	return nil
+}
+
 // Append appends rulespec to specified table/chain
 func (ipt *IPTables) Append(table, chain string, rulespec ...string) error {
 	cmd := append([]string{"-t", table, "-A", chain}, rulespec...)
@@ -217,6 +232,16 @@ func (ipt *IPTables) DeleteIfExists(table, chain string, rulespec ...string) err
 		err = ipt.Delete(table, chain, rulespec...)
 	}
 	return err
+}
+
+// List rules in specified table/chain
+func (ipt *IPTables) ListById(table, chain string, id int) (string, error) {
+	args := []string{"-t", table, "-S", chain, strconv.Itoa(id)}
+	rule, err := ipt.executeList(args)
+	if err != nil {
+		return "", err
+	}
+	return rule[0], nil
 }
 
 // List rules in specified table/chain
@@ -510,7 +535,9 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 			syscall.Close(fmu.fd)
 			return err
 		}
-		defer ul.Unlock()
+		defer func() {
+			_ = ul.Unlock()
+		}()
 	}
 
 	var stderr bytes.Buffer
@@ -619,7 +646,7 @@ func iptablesHasWaitCommand(v1 int, v2 int, v3 int) bool {
 	return false
 }
 
-//Checks if an iptablse version is after 1.6.0, when --wait support second
+// Checks if an iptablse version is after 1.6.0, when --wait support second
 func iptablesWaitSupportSecond(v1 int, v2 int, v3 int) bool {
 	if v1 > 1 {
 		return true

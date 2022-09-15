@@ -84,7 +84,7 @@ func GetProtocol(ip net.IP) Protocol {
 // Client represents any type that can administer iptables rules.
 type Client interface {
 	AppendUnique(table string, chain string, rule ...string) error
-	Insert(table string, chain string, pos int, rule ...string) error
+	InsertUnique(table, chain string, pos int, rule ...string) error
 	Delete(table string, chain string, rule ...string) error
 	Exists(table string, chain string, rule ...string) (bool, error)
 	List(table string, chain string) ([]string, error)
@@ -129,16 +129,7 @@ func NewIPv6Rule(table, chain string, spec ...string) Rule {
 }
 
 func (r *rule) Prepend(client Client) error {
-	// TODO There's already a PR to implement InsertUnique() in go-iptables. Once that hopefully gets merged this should be replaced.
-	// https://github.com/coreos/go-iptables/pull/92
-	exists, err := client.Exists(r.table, r.chain, r.spec...)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
-	if err := client.Insert(r.table, r.chain, 1, r.spec...); err != nil {
+	if err := client.InsertUnique(r.table, r.chain, 1, r.spec...); err != nil {
 		return fmt.Errorf("failed to add iptables rule: %v", err)
 	}
 	return nil
