@@ -45,7 +45,7 @@ KUBECTL_BINARY := $(shell pwd)/bin/kubectl
 BASH_UNIT := $(shell pwd)/bin/bash_unit
 BASH_UNIT_FLAGS :=
 
-BUILD_IMAGE ?= golang:1.18.0
+BUILD_IMAGE ?= golang:1.19.0
 BASE_IMAGE ?= alpine:3.15
 
 build: $(BINS)

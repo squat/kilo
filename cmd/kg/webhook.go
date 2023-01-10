@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"syscall"
@@ -92,7 +92,7 @@ var (
 
 func validationHandler(w http.ResponseWriter, r *http.Request) {
 	level.Debug(logger).Log("msg", "handling request", "source", r.RemoteAddr)
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		errorCounter.Inc()
 		level.Error(logger).Log("err", "failed to parse body from incoming request", "source", r.RemoteAddr)

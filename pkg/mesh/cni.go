@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types"
@@ -109,7 +109,7 @@ func getCIDRFromCNI(path string) (*net.IPNet, error) {
 
 // setCIDRInCNI sets the CIDR allocated to the node in the CNI configuration file.
 func setCIDRInCNI(path string, cidr *net.IPNet) error {
-	f, err := ioutil.ReadFile(path)
+	f, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read CNI config list file: %v", err)
 	}
@@ -155,7 +155,7 @@ func setCIDRInCNI(path string, cidr *net.IPNet) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal CNI config: %v", err)
 	}
-	if err := ioutil.WriteFile(path, buf, 0644); err != nil {
+	if err := os.WriteFile(path, buf, 0644); err != nil {
 		return fmt.Errorf("failed to write CNI config file to disk: %v", err)
 	}
 	return nil
