@@ -19,7 +19,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Vendor
       run: |
         make vendor
@@ -32,7 +32,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Build
       run: make
 
@@ -43,7 +43,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Build docs
       run: |
         make gen-docs
@@ -56,7 +56,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Build kg and kgctl for all Linux Architectures
       run: make all-build
 
@@ -67,7 +67,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Build kgctl for Darwin amd64
       run: make OS=darwin ARCH=amd64
     - name: Build kgctl for Darwin arm64
@@ -80,7 +80,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Build kgctl for Windows
       run: make OS=windows
 
@@ -91,7 +91,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Run Unit Tests
       run: make unit
 
@@ -102,7 +102,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Run e2e Tests
       run: make e2e
 
@@ -113,7 +113,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Lint Code
       run: make lint
 
@@ -124,7 +124,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Enable Experimental Docker CLI
       run: |
         echo $'{\n  "experimental": true\n}' | sudo tee /etc/docker/daemon.json
@@ -154,7 +154,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
     - name: Enable Experimental Docker CLI
       run: |
         echo $'{\n  "experimental": true\n}' | sudo tee /etc/docker/daemon.json

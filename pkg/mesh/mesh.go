@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"sync"
@@ -92,7 +91,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
-	privateB, err := ioutil.ReadFile(privateKeyPath)
+	privateB, err := os.ReadFile(privateKeyPath)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to read private key file: %v", err)
 	}
@@ -108,7 +107,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	if err != nil {
 		return nil, err
 	}
-	if err := ioutil.WriteFile(privateKeyPath, []byte(private.String()), 0600); err != nil {
+	if err := os.WriteFile(privateKeyPath, []byte(private.String()), 0600); err != nil {
 		return nil, fmt.Errorf("failed to write private key to disk: %v", err)
 	}
 	cniIndex, err := cniDeviceIndex()
