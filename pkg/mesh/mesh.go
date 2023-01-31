@@ -102,13 +102,13 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		if private, err = wgtypes.GeneratePrivateKey(); err != nil {
 			return nil, err
 		}
+		if err := os.WriteFile(privateKeyPath, []byte(private.String()), 0600); err != nil {
+			return nil, fmt.Errorf("failed to write private key to disk: %v", err)
+		}
 	}
 	public := private.PublicKey()
 	if err != nil {
 		return nil, err
-	}
-	if err := os.WriteFile(privateKeyPath, []byte(private.String()), 0600); err != nil {
-		return nil, fmt.Errorf("failed to write private key to disk: %v", err)
 	}
 	cniIndex, err := cniDeviceIndex()
 	if err != nil {
