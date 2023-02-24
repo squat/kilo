@@ -53,6 +53,7 @@ Flags:
       --port int                       The port over which WireGuard peers should communicate. (default 51820)
       --prioritise-private-addresses   Prefer to assign a private IP address to the node's endpoint.
       --resync-period duration         How often should the Kilo controllers reconcile? (default 30s)
+      --service-cidr strings           The service CIDR for the Kubernetes cluster. Can be provided optionally to avoid masquerading packets sent to service IPs. Can be specified multiple times.
       --subnet string                  CIDR from which to allocate addresses for WireGuard interfaces. (default "10.4.0.0/16")
       --topology-label string          Kubernetes node label used to group nodes into logical locations. (default "topology.kubernetes.io/region")
       --version                        Print version and exit
