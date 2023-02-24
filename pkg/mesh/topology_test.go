@@ -535,7 +535,7 @@ func TestNewTopology(t *testing.T) {
 	} {
 		tc.result.key = key
 		tc.result.port = port
-		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, DefaultKiloSubnet, 0, nil)
+		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, DefaultKiloSubnet, nil, 0, nil)
 		if err != nil {
 			t.Errorf("test case %q: failed to generate Topology: %v", tc.name, err)
 		}
@@ -546,7 +546,7 @@ func TestNewTopology(t *testing.T) {
 }
 
 func mustTopo(t *testing.T, nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port int, key wgtypes.Key, subnet *net.IPNet, persistentKeepalive time.Duration) *Topology {
-	topo, err := NewTopology(nodes, peers, granularity, hostname, port, key, subnet, persistentKeepalive, nil)
+	topo, err := NewTopology(nodes, peers, granularity, hostname, port, key, subnet, nil, persistentKeepalive, nil)
 	if err != nil {
 		t.Errorf("failed to generate Topology: %v", err)
 	}

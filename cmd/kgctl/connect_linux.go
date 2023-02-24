@@ -330,7 +330,7 @@ func sync(table *route.Table, peerName string, privateKey wgtypes.Key, iface int
 		return fmt.Errorf("did not find any peer named %q in the cluster", peerName)
 	}
 
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, opts.port, wgtypes.Key{}, subnet, *peers[peerName].PersistentKeepaliveInterval, logger)
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, opts.port, wgtypes.Key{}, subnet, nil, *peers[peerName].PersistentKeepaliveInterval, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %w", err)
 	}
