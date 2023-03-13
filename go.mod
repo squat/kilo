@@ -12,7 +12,7 @@ require (
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
 	github.com/oklog/run v1.1.0
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/spf13/cobra v1.2.1
 	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
 	golang.org/x/sys v0.5.0
