@@ -300,7 +300,7 @@ spec:
       - name: boringtun
         image: leonnicolas/boringtun:cc19859
         args:
-        - --disable-drop-privileges=true
+        - --disable-drop-privileges
         - --foreground
         - kilo0
         securityContext:
