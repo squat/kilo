@@ -60,6 +60,10 @@ type Topology struct {
 	// the IP is the 0th address in the subnet, i.e. the CIDR
 	// is equal to the Kilo subnet.
 	wireGuardCIDR *net.IPNet
+	// serviceCIDRs are the known service CIDRs of the Kubernetes cluster.
+	// They are not strictly needed, however if they are known,
+	// then the topology can avoid masquerading packets destined to service IPs.
+	serviceCIDRs []*net.IPNet
 	// discoveredEndpoints is the updated map of valid discovered Endpoints
 	discoveredEndpoints map[string]*net.UDPAddr
 	logger              log.Logger
@@ -92,7 +96,7 @@ type segment struct {
 }
 
 // NewTopology creates a new Topology struct from a given set of nodes and peers.
-func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port int, key wgtypes.Key, subnet *net.IPNet, persistentKeepalive time.Duration, logger log.Logger) (*Topology, error) {
+func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port int, key wgtypes.Key, subnet *net.IPNet, serviceCIDRs []*net.IPNet, persistentKeepalive time.Duration, logger log.Logger) (*Topology, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -132,6 +136,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		privateIP:           nodes[hostname].InternalIP,
 		subnet:              nodes[hostname].Subnet,
 		wireGuardCIDR:       subnet,
+		serviceCIDRs:        serviceCIDRs,
 		discoveredEndpoints: make(map[string]*net.UDPAddr),
 		logger:              logger,
 	}

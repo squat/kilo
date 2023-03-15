@@ -111,6 +111,7 @@ var (
 	mtu                   uint
 	topologyLabel         string
 	port                  int
+	serviceCIDRsRaw       []string
 	subnet                string
 	resyncPeriod          time.Duration
 	iptablesForwardRule   bool
@@ -141,6 +142,7 @@ func init() {
 	cmd.Flags().UintVar(&mtu, "mtu", wireguard.DefaultMTU, "The MTU of the WireGuard interface created by Kilo.")
 	cmd.Flags().StringVar(&topologyLabel, "topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group nodes into logical locations.")
 	cmd.Flags().IntVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
+	cmd.Flags().StringSliceVar(&serviceCIDRsRaw, "service-cidr", nil, "The service CIDR for the Kubernetes cluster. Can be provided optionally to avoid masquerading packets sent to service IPs. Can be specified multiple times.")
 	cmd.Flags().StringVar(&subnet, "subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
 	cmd.Flags().DurationVar(&resyncPeriod, "resync-period", 30*time.Second, "How often should the Kilo controllers reconcile?")
 	cmd.Flags().BoolVar(&iptablesForwardRule, "iptables-forward-rules", false, "Add default accept rules to the FORWARD chain in iptables. Warning: this may break firewalls with a deny all policy and is potentially insecure!")
@@ -245,7 +247,17 @@ func runRoot(_ *cobra.Command, _ []string) error {
 	if port < 1 || port > 1<<16-1 {
 		return fmt.Errorf("invalid port: port mus be in range [%d:%d], but got %d", 1, 1<<16-1, port)
 	}
-	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, log.With(logger, "component", "kilo"), registry)
+
+	var serviceCIDRs []*net.IPNet
+	for _, serviceCIDR := range serviceCIDRsRaw {
+		_, s, err := net.ParseCIDR(serviceCIDR)
+		if err != nil {
+			return fmt.Errorf("failed to parse %q as CIDR: %v", serviceCIDR, err)
+		}
+		serviceCIDRs = append(serviceCIDRs, s)
+	}
+
+	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, serviceCIDRs, log.With(logger, "component", "kilo"), registry)
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}
@@ -258,7 +270,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 			internalserver.WithPProf(),
 		)
 		h.AddEndpoint("/health", "Exposes health checks", healthHandler)
-		h.AddEndpoint("/graph", "Exposes Kilo mesh topology graph", (&graphHandler{m, gr, &hostname, s}).ServeHTTP)
+		h.AddEndpoint("/graph", "Exposes Kilo mesh topology graph", (&graphHandler{m, gr, &hostname, s, serviceCIDRs}).ServeHTTP)
 		// Run the HTTP server.
 		l, err := net.Listen("tcp", listen)
 		if err != nil {
