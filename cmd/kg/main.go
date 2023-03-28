@@ -95,6 +95,7 @@ var cmd = &cobra.Command{
 
 var (
 	backend               string
+	cleanUp               bool
 	cleanUpIface          bool
 	createIface           bool
 	cni                   bool
@@ -126,6 +127,7 @@ var (
 
 func init() {
 	cmd.Flags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
+	cmd.Flags().BoolVar(&cleanUp, "clean-up", true, "Should kilo clean up network modifications on shutdown?")
 	cmd.Flags().BoolVar(&cleanUpIface, "clean-up-interface", false, "Should Kilo delete its interface when it shuts down?")
 	cmd.Flags().BoolVar(&createIface, "create-interface", true, "Should kilo create an interface on startup?")
 	cmd.Flags().BoolVar(&cni, "cni", true, "Should Kilo manage the node's CNI configuration?")
@@ -257,7 +259,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		serviceCIDRs = append(serviceCIDRs, s)
 	}
 
-	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, serviceCIDRs, log.With(logger, "component", "kilo"), registry)
+	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUp, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, serviceCIDRs, log.With(logger, "component", "kilo"), registry)
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}

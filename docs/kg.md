@@ -33,6 +33,7 @@ Available Commands:
 
 Flags:
       --backend string                 The backend for the mesh. Possible values: kubernetes (default "kubernetes")
+      --clean-up                       Should kilo clean up network modifications on shutdown? (default true)
       --clean-up-interface             Should Kilo delete its interface when it shuts down?
       --cni                            Should Kilo manage the node's CNI configuration? (default true)
       --cni-path string                Path to CNI config. (default "/etc/cni/net.d/10-kilo.conflist")

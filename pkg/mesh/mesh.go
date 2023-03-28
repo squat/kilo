@@ -50,6 +50,7 @@ const (
 // Mesh is able to create Kilo network meshes.
 type Mesh struct {
 	Backend
+	cleanup             bool
 	cleanUpIface        bool
 	cni                 bool
 	cniPath             string
@@ -88,7 +89,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -117,9 +118,14 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	}
 	var kiloIface int
 	if createIface {
-		kiloIface, _, err = wireguard.New(iface, mtu)
+		link, err := netlink.LinkByName(iface)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create WireGuard interface: %v", err)
+			kiloIface, _, err = wireguard.New(iface, mtu)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create WireGuard interface: %v", err)
+			}
+		} else {
+			kiloIface = link.Attrs().Index
 		}
 	} else {
 		link, err := netlink.LinkByName(iface)
@@ -162,6 +168,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	}
 	mesh := Mesh{
 		Backend:             backend,
+		cleanup:             cleanup,
 		cleanUpIface:        cleanUpIface,
 		cni:                 cni,
 		cniPath:             cniPath,
@@ -257,7 +264,9 @@ func (m *Mesh) Run(ctx context.Context) error {
 			}
 		}
 	}()
-	defer m.cleanUp()
+	if m.cleanup {
+		defer m.cleanUp()
+	}
 	resync := time.NewTimer(m.resyncPeriod)
 	checkIn := time.NewTimer(checkInPeriod)
 	nw := m.Nodes().Watch()
