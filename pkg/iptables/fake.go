@@ -46,6 +46,24 @@ type fakeClient struct {
 
 var _ Client = &fakeClient{}
 
+func (f *fakeClient) InsertUnique(table, chain string, pos int, spec ...string) error {
+	atomic.AddUint64(&f.calls, 1)
+	exists, err := f.Exists(table, chain, spec...)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	index := pos - 1 // iptables are 1-based
+	rule := &rule{table: table, chain: chain, spec: spec}
+	prefix := append([]Rule{}, f.storage[:index]...)
+	suffix := append([]Rule{}, f.storage[index:]...)
+	prefix = append(prefix, rule)
+	f.storage = append(prefix, suffix...)
+	return nil
+}
+
 func (f *fakeClient) AppendUnique(table, chain string, spec ...string) error {
 	atomic.AddUint64(&f.calls, 1)
 	exists, err := f.Exists(table, chain, spec...)

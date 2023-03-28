@@ -29,21 +29,21 @@ func TestRuleCache(t *testing.T) {
 		{
 			name:  "empty",
 			rules: nil,
-			check: []Rule{rules[0]},
+			check: []Rule{appendRules[0]},
 			out:   []bool{false},
 			calls: 1,
 		},
 		{
 			name:  "single negative",
-			rules: []Rule{rules[1]},
-			check: []Rule{rules[0]},
+			rules: []Rule{appendRules[1]},
+			check: []Rule{appendRules[0]},
 			out:   []bool{false},
 			calls: 1,
 		},
 		{
 			name:  "single positive",
-			rules: []Rule{rules[1]},
-			check: []Rule{rules[1]},
+			rules: []Rule{appendRules[1]},
+			check: []Rule{appendRules[1]},
 			out:   []bool{true},
 			calls: 1,
 		},
@@ -56,29 +56,29 @@ func TestRuleCache(t *testing.T) {
 		},
 		{
 			name:  "rule on chain means chain exists",
-			rules: []Rule{rules[0]},
-			check: []Rule{rules[0], &chain{"filter", "FORWARD", ProtocolIPv4}},
+			rules: []Rule{appendRules[0]},
+			check: []Rule{appendRules[0], &chain{"filter", "FORWARD", ProtocolIPv4}},
 			out:   []bool{true, true},
 			calls: 1,
 		},
 		{
 			name:  "rule on chain does not mean table is fully populated",
-			rules: []Rule{rules[0], &chain{"filter", "INPUT", ProtocolIPv4}},
-			check: []Rule{rules[0], &chain{"filter", "OUTPUT", ProtocolIPv4}, &chain{"filter", "INPUT", ProtocolIPv4}},
+			rules: []Rule{appendRules[0], &chain{"filter", "INPUT", ProtocolIPv4}},
+			check: []Rule{appendRules[0], &chain{"filter", "OUTPUT", ProtocolIPv4}, &chain{"filter", "INPUT", ProtocolIPv4}},
 			out:   []bool{true, false, true},
 			calls: 2,
 		},
 		{
 			name:  "multiple rules on chain",
-			rules: []Rule{rules[0], rules[1]},
-			check: []Rule{rules[0], rules[1], &chain{"filter", "FORWARD", ProtocolIPv4}},
+			rules: []Rule{appendRules[0], appendRules[1]},
+			check: []Rule{appendRules[0], appendRules[1], &chain{"filter", "FORWARD", ProtocolIPv4}},
 			out:   []bool{true, true, true},
 			calls: 1,
 		},
 		{
 			name:  "checking rule on chain does not mean chain exists",
 			rules: nil,
-			check: []Rule{rules[0], &chain{"filter", "FORWARD", ProtocolIPv4}},
+			check: []Rule{appendRules[0], &chain{"filter", "FORWARD", ProtocolIPv4}},
 			out:   []bool{false, false},
 			calls: 2,
 		},
@@ -101,7 +101,8 @@ func TestRuleCache(t *testing.T) {
 		client := &fakeClient{}
 		controller.v4 = client
 		controller.v6 = client
-		if err := controller.Set(tc.rules); err != nil {
+		ruleSet := RuleSet{appendRules: tc.rules}
+		if err := controller.Set(ruleSet); err != nil {
 			t.Fatalf("test case %q: Set should not fail: %v", tc.name, err)
 		}
 		// Reset the client's calls so we can examine how many times

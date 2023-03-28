@@ -44,8 +44,8 @@ func (n Noop) Init(_ int) error {
 }
 
 // Rules will also do nothing.
-func (n Noop) Rules(_ []*net.IPNet) []iptables.Rule {
-	return nil
+func (n Noop) Rules(_ []*net.IPNet) iptables.RuleSet {
+	return iptables.RuleSet{}
 }
 
 // Set will also do nothing.

@@ -49,7 +49,7 @@ type Encapsulator interface {
 	Gw(net.IP, net.IP, *net.IPNet) net.IP
 	Index() int
 	Init(int) error
-	Rules([]*net.IPNet) []iptables.Rule
+	Rules([]*net.IPNet) iptables.RuleSet
 	Set(*net.IPNet) error
 	Strategy() Strategy
 }

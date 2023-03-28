@@ -7,7 +7,7 @@ require (
 	github.com/campoy/embedmd v1.0.0
 	github.com/containernetworking/cni v1.0.1
 	github.com/containernetworking/plugins v1.1.1
-	github.com/coreos/go-iptables v0.6.0
+	github.com/coreos/go-iptables v0.6.1-0.20220901214115-d2b8608923d1
 	github.com/go-kit/kit v0.9.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
