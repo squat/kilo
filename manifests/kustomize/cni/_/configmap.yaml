@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kilo
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kilo
+data:
+  cni-conf.json: |
+    {
+       "cniVersion":"0.4.0",
+       "name":"kilo",
+       "plugins":[
+          {
+             "name":"kubernetes",
+             "type":"bridge",
+             "bridge":"kube-bridge",
+             "isDefaultGateway":true,
+             "forceAddress":true,
+             "mtu": 1420,
+             "ipam":{
+                "type":"host-local"
+             }
+          },
+          {
+             "type":"portmap",
+             "snat":true,
+             "capabilities":{
+                "portMappings":true
+             }
+          }
+       ]
+    }

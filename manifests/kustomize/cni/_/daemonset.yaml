@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kilo
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: kilo
+        volumeMounts:
+        - name: cni-conf-dir
+          mountPath: /etc/cni/net.d
+      initContainers:
+      - name: install-cni
+        image: squat/kilo:0.4.1
+        command:
+        - /bin/sh
+        - -c
+        - set -e -x;
+          cp /opt/cni/bin/* /host/opt/cni/bin/;
+          TMP_CONF="$CNI_CONF_NAME".tmp;
+          echo "$CNI_NETWORK_CONFIG" > $TMP_CONF;
+          rm -f /host/etc/cni/net.d/*;
+          mv $TMP_CONF /host/etc/cni/net.d/$CNI_CONF_NAME
+        env:
+        - name: CNI_CONF_NAME
+          value: 10-kilo.conflist
+        - name: CNI_NETWORK_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: kilo
+              key: cni-conf.json
+        volumeMounts:
+        - name: cni-bin-dir
+          mountPath: /host/opt/cni/bin
+        - name: cni-conf-dir
+          mountPath: /host/etc/cni/net.d
+      volumes:
+      - name: cni-bin-dir
+        hostPath:
+          path: /opt/cni/bin
+      - name: cni-conf-dir
+        hostPath:
+          path: /etc/cni/net.d
