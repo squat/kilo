@@ -18,7 +18,7 @@ The Kilo agent running on each node will use heuristics to automatically detect 
  * _no automatic public IP on ethernet device_: on some cloud providers it is common for nodes to be allocated a public IP address but for the Ethernet devices to only be automatically configured with the private network address; in this case the allocated public IP address should be specified;
  * _multiple public IP addresses_: if a node has multiple public IPs but one is preferred, then the preferred IP address should be specified;
  * _IPv6_: if a node has both public IPv4 and IPv6 addresses and the Kilo network should operate over IPv6, then the IPv6 address should be specified;
- * _dynamic IP address_: if a node has a dynamically allocated public IP address, for example an IP leased from a network provider, then a dynamic DNS name can be given can be given and Kilo will periodically lookup the IP to keep the endpoint up-to-date;
+ * _dynamic IP address_: if a node has a dynamically allocated public IP address, for example an IP leased from a network provider, then a dynamic DNS name can be given and Kilo will periodically lookup the IP to keep the endpoint up-to-date;
  * _override port_: if a node should listen on a specific port that is different from the mesh's default WireGuard port, then this annotation can be used to override the port; this can be useful, for example, to ensure that two nodes operating behind the same port-forwarded NAT gateway can each be allocated a different port.
 
 ### force-internal-ip
@@ -51,7 +51,7 @@ In certain deployments, cluster nodes may be located behind NAT or a firewall, e
 In these scenarios, the nodes behind NAT can send packets to the nodes outside of the NATed network, however the outside nodes can only send packets into the NATed network as long as the NAT mapping remains valid.
 In order for a node behind NAT to receive packets from nodes outside of the NATed network, it must maintain the NAT mapping by regularly sending packets to those nodes, ie by sending _keepalives_.
 The frequency of emission of these keepalive packets can be controlled by setting the persistent-keepalive annotation on the node behind NAT.
-The annotated node will use the specified value will as the persistent-keepalive interval for all of its peers.
+The annotated node will use the specified value as the persistent-keepalive interval for all of its peers.
 For more background, [see the WireGuard documentation on NAT and firewall traversal](https://www.wireguard.com/quickstart/#nat-and-firewall-traversal-persistence).
 
 ### allowed-location-ips
