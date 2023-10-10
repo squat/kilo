@@ -63,6 +63,7 @@ const (
 	discoveredEndpointsKey       = "kilo.squat.ai/discovered-endpoints"
 	allowedLocationIPsKey        = "kilo.squat.ai/allowed-location-ips"
 	granularityKey               = "kilo.squat.ai/granularity"
+	controlPlaneLabelKey         = "node-role.kubernetes.io/control-plane"
 	// RegionLabelKey is the key for the well-known Kubernetes topology region label.
 	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
@@ -269,6 +270,10 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	if node == nil {
 		return nil
 	}
+
+	unschedulable := node.Spec.Unschedulable
+	_, isControlPlane := node.ObjectMeta.Labels[controlPlaneLabelKey]
+
 	_, subnet, err := net.ParseCIDR(node.Spec.PodCIDR)
 	// The subnet should only ever fail to parse if the pod CIDR has not been set,
 	// so in this case set the subnet to nil and let the node be updated.
@@ -366,6 +371,8 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		DiscoveredEndpoints: discoveredEndpoints,
 		AllowedLocationIPs:  allowedLocationIPs,
 		Granularity:         meshGranularity,
+		Unschedulable:       unschedulable,
+		IsControlPlane:      isControlPlane,
 	}
 }
 
