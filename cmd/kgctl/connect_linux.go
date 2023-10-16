@@ -49,6 +49,7 @@ var (
 	connectOpts struct {
 		allowedIP           net.IPNet
 		allowedIPs          []net.IPNet
+		additionalPeerIPs   []net.IPNet
 		privateKey          string
 		cleanUp             bool
 		mtu                 uint
@@ -74,6 +75,7 @@ func connect() *cobra.Command {
 		SilenceUsage: true,
 	}
 	cmd.Flags().IPNetVarP(&connectOpts.allowedIP, "allowed-ip", "a", *takeIPNet(net.ParseCIDR("10.10.10.10/32")), "Allowed IP of the peer.")
+	cmd.Flags().StringSliceVar(&additionalPeerIPs, "additional-peer-ips", []string{}, "Additional peer IPs to be included in the Peer CR.")
 	cmd.Flags().StringSliceVar(&allowedIPs, "allowed-ips", []string{}, "Additional allowed IPs of the cluster, e.g. the service CIDR.")
 	cmd.Flags().StringVar(&logLevel, "log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 	cmd.Flags().StringVar(&connectOpts.privateKey, "private-key", "", "Path to an existing WireGuard private key file.")
@@ -128,6 +130,14 @@ func runConnect(cmd *cobra.Command, args []string) error {
 		connectOpts.allowedIPs = append(connectOpts.allowedIPs, *aip)
 	}
 
+	for i := range additionalPeerIPs {
+		_, aip, err := net.ParseCIDR(additionalPeerIPs[i])
+		if err != nil {
+			return err
+		}
+		connectOpts.additionalPeerIPs = append(connectOpts.additionalPeerIPs, *aip)
+	}
+
 	var privateKey wgtypes.Key
 	var err error
 	if connectOpts.privateKey == "" {
@@ -149,12 +159,17 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	level.Info(logger).Log("msg", "generated public key", "key", publicKey)
 
 	if _, err := opts.kc.KiloV1alpha1().Peers().Get(ctx, peerName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
+		ips := []string{connectOpts.allowedIP.String()}
+		for _, p := range connectOpts.additionalPeerIPs {
+			ips = append(ips, p.String())
+		}
+
 		peer := &v1alpha1.Peer{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: peerName,
 			},
 			Spec: v1alpha1.PeerSpec{
-				AllowedIPs:          []string{connectOpts.allowedIP.String()},
+				AllowedIPs:          ips,
 				PersistentKeepalive: connectOpts.persistentKeepalive,
 				PublicKey:           publicKey.String(),
 			},
@@ -301,16 +316,26 @@ func sync(table *route.Table, peerName string, privateKey wgtypes.Key, iface int
 	var subnet *net.IPNet
 	nodes := make(map[string]*mesh.Node)
 	var nodeNames []string
+
+	hasLeader := false
 	for _, n := range ns {
-		if n.Ready() {
+		if n.Leader {
+			hasLeader = true
+		}
+	}
+
+	for i, n := range ns {
+		if (i == 0 && !hasLeader) || n.Leader {
 			nodes[n.Name] = n
 			hostname = n.Name
 			nodeNames = append(nodeNames, n.Name)
 		}
+
 		if n.WireGuardIP != nil && subnet == nil {
 			subnet = n.WireGuardIP
 		}
 	}
+
 	if len(nodes) == 0 {
 		return errors.New("did not find any valid Kilo nodes in the cluster")
 	}

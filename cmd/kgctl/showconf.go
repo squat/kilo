@@ -46,8 +46,8 @@ var (
 		outputFormatWireGuard,
 		outputFormatYAML,
 	}, ", ")
-	allowedIPs   []string
-	showConfOpts struct {
+	allowedIPs, additionalPeerIPs []string
+	showConfOpts                  struct {
 		allowedIPs []net.IPNet
 		serializer *json.Serializer
 		output     string
