@@ -316,26 +316,16 @@ func sync(table *route.Table, peerName string, privateKey wgtypes.Key, iface int
 	var subnet *net.IPNet
 	nodes := make(map[string]*mesh.Node)
 	var nodeNames []string
-
-	hasLeader := false
 	for _, n := range ns {
-		if n.Leader {
-			hasLeader = true
-		}
-	}
-
-	for i, n := range ns {
-		if (i == 0 && !hasLeader) || n.Leader {
+		if n.Ready() {
 			nodes[n.Name] = n
 			hostname = n.Name
 			nodeNames = append(nodeNames, n.Name)
 		}
-
 		if n.WireGuardIP != nil && subnet == nil {
 			subnet = n.WireGuardIP
 		}
 	}
-
 	if len(nodes) == 0 {
 		return errors.New("did not find any valid Kilo nodes in the cluster")
 	}

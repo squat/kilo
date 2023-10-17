@@ -157,7 +157,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		var privateIPs []net.IP
 		for _, node := range topoMap[location] {
 			// Allowed IPs should include:
-			// - the node's allocated subnet
+			// - the node's allocated subnet (pod ip range)
 			// - the node's WireGuard IP
 			// - the node's internal IP
 			// - IPs that were specified by the allowed-location-ips annotation

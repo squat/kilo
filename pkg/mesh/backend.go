@@ -85,7 +85,7 @@ func (n *Node) Ready() bool {
 	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
 	return n != nil &&
 		!n.Unschedulable &&
-		!n.IsControlPlane &&
+		n.IsControlPlane &&
 		n.Endpoint.Ready() &&
 		n.Key != wgtypes.Key{} &&
 		n.Subnet != nil &&
@@ -110,7 +110,7 @@ func (p *Peer) Ready() bool {
 		p.PublicKey != wgtypes.Key{} // If Key was not set, it will be wgtypes.Key{}.
 }
 
-// EventType describes what kind of an action an event represents.
+// EventType describes what kind of action an event represents.
 type EventType string
 
 const (

@@ -51,8 +51,13 @@ func (f *cilium) CleanUp() error {
 }
 
 // Gw returns the correct gateway IP associated with the given node.
-func (f *cilium) Gw(_, _ net.IP, subnet *net.IPNet) net.IP {
-	return subnet.IP
+func (f *cilium) Gw(_, internal net.IP, subnet *net.IPNet) net.IP {
+	switch f.strategy {
+	case Never:
+		return internal
+	default:
+		return subnet.IP
+	}
 }
 
 // Index returns the index of the Cilium interface.

@@ -13,7 +13,7 @@ endif
 RELEASE_BINS := $(addprefix bin/release/kgctl-, $(addprefix linux-, $(ALL_ARCH)) darwin-amd64 darwin-arm64 windows-amd64)
 PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
-REGISTRY ?= index.docker.io
+REGISTRY ?= platform.cr.de-fra.ionos.com
 IMAGE ?= squat/$(PROJECT)
 FULLY_QUALIFIED_IMAGE := $(REGISTRY)/$(IMAGE)
 
@@ -28,6 +28,7 @@ endif
 DIRTY := $(shell test -z "$$(git diff --shortstat 2>/dev/null)" || echo -dirty)
 VERSION := $(VERSION)$(DIRTY)
 LD_FLAGS := -ldflags '-X $(PKG)/pkg/version.Version=$(VERSION)'
+GC_FLAGS := -gcflags='all=-N -l'
 SRC := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_FILES ?= $$(find . -name '*.go' -not -path './vendor/*')
 GO_PKGS ?= $$(go list ./... | grep -v "$(PKG)/vendor")
@@ -156,8 +157,7 @@ $(BINS): $(SRC) go.mod
 	        GOOS=$(word 2,$(subst /, ,$@)) \
 	        GOCACHE=/$(PROJECT)/.cache \
 		CGO_ENABLED=0 \
-		go build -mod=vendor -o $@ \
-		    $(LD_FLAGS) \
+		go build $(GC_FLAGS) $(LD_FLAGS) -mod=vendor -o $@ \
 		    ./cmd/$(@F)/... \
 	    "
 
@@ -341,7 +341,7 @@ vendor:
 	go mod vendor
 
 $(CONTROLLER_GEN_BINARY):
-	go build -mod=vendor -o $@ sigs.k8s.io/controller-tools/cmd/controller-gen
+	go build -gcflags="all=-N -l" -mod=vendor -o $@ sigs.k8s.io/controller-tools/cmd/controller-gen
 
 $(CLIENT_GEN_BINARY):
 	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/client-gen

@@ -191,3 +191,14 @@ kgctl graph | circo -Tsvg > cluster.svg
 ```
 
 <img src="./docs/graphs/location.svg" />
+
+## Development
+```shell
+make container-latest
+make push-latest
+```
+
+Remote debug
+```shell
+dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec ./kgctl -- connect wg-201.gdata.de --allowed-ip 172.31.254.251/32 --log-level=all --mesh-granularity=location --private-key /etc/wireguard/privatekey --additional-peer-ips 172.31.254.254/32,10.25.2.0/23,10.50.0.0/16,10.125.0.0/16 --allowed-ips 10.115.0.0/23 --kubeconfig /root/.kube/ionoscloud-staging-cl1.yaml --clean-up=true --mtu=1420 --resync-period=3s
+```
