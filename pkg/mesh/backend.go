@@ -85,7 +85,6 @@ func (n *Node) Ready() bool {
 	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
 	return n != nil &&
 		!n.Unschedulable &&
-		n.IsControlPlane &&
 		n.Endpoint.Ready() &&
 		n.Key != wgtypes.Key{} &&
 		n.Subnet != nil &&
