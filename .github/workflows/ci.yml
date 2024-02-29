@@ -125,15 +125,6 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: 1.19
-    - name: Enable Experimental Docker CLI
-      run: |
-        echo $'{\n  "experimental": true\n}' | sudo tee /etc/docker/daemon.json
-        mkdir -p ~/.docker
-        echo $'{\n  "experimental": "enabled"\n}' | sudo tee ~/.docker/config.json
-        sudo service docker restart
-        docker version -f '{{.Client.Experimental}}'
-        docker version -f '{{.Server.Experimental}}'
-        docker buildx version
     - name: Container
       run: make container
 
