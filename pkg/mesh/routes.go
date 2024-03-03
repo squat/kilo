@@ -35,7 +35,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 	var rules []*netlink.Rule
 	if !t.leader {
 		// Find the GW for this segment.
-		// This will be the an IP of the leader.
+		// This will be the IP of the leader.
 		// In an IPIP encapsulated mesh it is the leader's private IP.
 		var gw net.IP
 		for _, segment := range t.segments {
@@ -347,7 +347,7 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) iptables.RuleSet {
 		}
 	}
 	for _, s := range t.segments {
-		rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(s.wireGuardIP), "nat", "KILO-NAT", "-d", oneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuared IPs", "-j", "RETURN"))
+		rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(s.wireGuardIP), "nat", "KILO-NAT", "-d", oneAddressCIDR(s.wireGuardIP).String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for WireGuard IPs", "-j", "RETURN"))
 		for _, aip := range s.allowedIPs {
 			rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
 		}
