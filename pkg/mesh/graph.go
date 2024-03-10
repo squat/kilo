@@ -49,17 +49,24 @@ func (t *Topology) Dot() (string, error) {
 	}
 
 	for i, s := range t.segments {
-		if err := g.AddSubGraph("kilo", subGraphName(s.location), nil); err != nil {
+		location := s.location
+		plainConnection := false
+		if s.nodeLocation != "" {
+			location = s.nodeLocation
+			plainConnection = true
+		}
+
+		if err := g.AddSubGraph("kilo", subGraphName(location), nil); err != nil {
 			return "", fmt.Errorf("failed to add subgraph")
 		}
-		if err := g.AddAttr(subGraphName(s.location), string(gographviz.Label), graphEscape(s.location)); err != nil {
+		if err := g.AddAttr(subGraphName(location), string(gographviz.Label), graphEscape(location)); err != nil {
 			return "", fmt.Errorf("failed to add label to subgraph")
 		}
-		if err := g.AddAttr(subGraphName(s.location), string(gographviz.Style), `"dashed,rounded"`); err != nil {
+		if err := g.AddAttr(subGraphName(location), string(gographviz.Style), `"dashed,rounded"`); err != nil {
 			return "", fmt.Errorf("failed to add style to subgraph")
 		}
 		for j := range s.cidrs {
-			if err := g.AddNode(subGraphName(s.location), graphEscape(s.hostnames[j]), nodeAttrs); err != nil {
+			if err := g.AddNode(subGraphName(location), graphEscape(s.hostnames[j]), nodeAttrs); err != nil {
 				return "", fmt.Errorf("failed to add node to subgraph")
 			}
 			var wg net.IP
@@ -75,11 +82,11 @@ func (t *Topology) Dot() (string, error) {
 			if s.privateIPs != nil {
 				priv = s.privateIPs[j]
 			}
-			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], priv, wg, endpoint)); err != nil {
+			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(location, s.hostnames[j], s.cidrs[j], priv, wg, endpoint)); err != nil {
 				return "", fmt.Errorf("failed to add label to node")
 			}
 		}
-		meshSubGraph(g, g.Relations.SortedChildren(subGraphName(s.location)), s.leader, nil)
+		meshSubGraph(g, g.Relations.SortedChildren(subGraphName(location)), s.leader, plainConnection, nil)
 		leaders[i] = graphEscape(s.hostnames[s.leader])
 	}
 	meshGraph(g, leaders, nil)
@@ -116,15 +123,26 @@ func meshGraph(g *gographviz.Graph, nodes []string, attrs gographviz.Attrs) {
 			if i == j {
 				continue
 			}
+			dsts := g.Edges.SrcToDsts[nodes[i]]
+			if dsts != nil && len(dsts[nodes[j]]) != 0 {
+				// nodes already connected via plain connection
+				continue
+			}
+
 			g.Edges.Add(&gographviz.Edge{Src: nodes[i], Dst: nodes[j], Dir: true, Attrs: attrs})
 		}
 	}
 }
 
-func meshSubGraph(g *gographviz.Graph, nodes []string, leader int, attrs gographviz.Attrs) {
+func meshSubGraph(g *gographviz.Graph, nodes []string, leader int, plainConnection bool, attrs gographviz.Attrs) {
 	if attrs == nil {
 		attrs = make(gographviz.Attrs)
 		attrs[gographviz.Dir] = "both"
+		if plainConnection {
+			attrs[gographviz.Style] = "dotted"
+			attrs[gographviz.ArrowHead] = "none"
+			attrs[gographviz.ArrowTail] = "none"
+		}
 	}
 	for i := range nodes {
 		if i == leader {
