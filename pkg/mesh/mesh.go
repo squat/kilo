@@ -32,6 +32,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/squat/kilo/pkg/encapsulation"
 	"github.com/squat/kilo/pkg/iproute"
@@ -78,6 +79,7 @@ type Mesh struct {
 	// and need to be guarded.
 	nodes map[string]*Node
 	peers map[string]*Peer
+	pods  map[types.UID]*Pod
 	mu    sync.Mutex
 
 	errorCounter     *prometheus.CounterVec
@@ -182,6 +184,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		kiloIfaceName:       iface,
 		nodes:               make(map[string]*Node),
 		peers:               make(map[string]*Peer),
+		pods:                make(map[types.UID]*Pod),
 		port:                port,
 		priv:                private,
 		privIface:           privIface,
@@ -241,6 +244,9 @@ func (m *Mesh) Run(ctx context.Context) error {
 	if err := m.Peers().Init(ctx); err != nil {
 		return fmt.Errorf("failed to initialize peer backend: %v", err)
 	}
+	if err := m.Pods().Init(ctx); err != nil {
+		return fmt.Errorf("failed to initialize pod backend: %v", err)
+	}
 	ipTablesErrors, err := m.ipTables.Run(ctx.Done())
 	if err != nil {
 		return fmt.Errorf("failed to watch for IP tables updates: %v", err)
@@ -271,14 +277,18 @@ func (m *Mesh) Run(ctx context.Context) error {
 	checkIn := time.NewTimer(checkInPeriod)
 	nw := m.Nodes().Watch()
 	pw := m.Peers().Watch()
+	po := m.Pods().Watch()
 	var ne *NodeEvent
 	var pe *PeerEvent
+	var poe *PodEvent
 	for {
 		select {
 		case ne = <-nw:
 			m.syncNodes(ctx, ne)
 		case pe = <-pw:
 			m.syncPeers(pe)
+		case poe = <-po:
+			m.syncPods(poe)
 		case <-checkIn.C:
 			m.checkIn(ctx)
 			checkIn.Reset(checkInPeriod)
@@ -361,6 +371,34 @@ func (m *Mesh) syncPeers(e *PeerEvent) {
 	m.mu.Unlock()
 	if diff {
 		level.Info(logger).Log("peer", e.Peer)
+		m.applyTopology()
+	}
+}
+
+func (m *Mesh) syncPods(e *PodEvent) {
+	logger := log.With(m.logger, "event", e.Type)
+	level.Debug(logger).Log("msg", "syncing pods", "event", e.Type)
+	var diff bool
+	m.mu.Lock()
+	// Pod are indexed by uid.
+	key := e.Pod.Uid
+
+	switch e.Type {
+	case UpdateEvent:
+        if !podsAreEqual(m.pods[key], e.Pod) {
+			// Pod have IP => add allowed
+			if e.Pod.IP != nil {
+				m.pods[key] = e.Pod
+				diff = true
+			}
+		}
+	case DeleteEvent:
+	    // Remove allowed
+		delete(m.pods, key)
+		diff = true
+	}
+	m.mu.Unlock()
+	if diff {
 		m.applyTopology()
 	}
 }
@@ -718,6 +756,16 @@ func peersAreEqual(a, b *Peer) bool {
 		(a.PresharedKey == nil || a.PresharedKey.String() == b.PresharedKey.String()) &&
 		(a.PersistentKeepaliveInterval == nil) == (b.PersistentKeepaliveInterval == nil) &&
 		(a.PersistentKeepaliveInterval == nil || *a.PersistentKeepaliveInterval == *b.PersistentKeepaliveInterval)
+}
+
+func podsAreEqual(a, b *Pod) bool {
+	if !(a != nil) == (b != nil) {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	return a.Name == b.Name
 }
 
 func ipNetsEqual(a, b *net.IPNet) bool {

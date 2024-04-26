@@ -23,6 +23,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/squat/kilo/pkg/wireguard"
 )
@@ -96,7 +97,7 @@ type segment struct {
 }
 
 // NewTopology creates a new Topology struct from a given set of nodes and peers.
-func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Granularity, hostname string, port int, key wgtypes.Key, subnet *net.IPNet, serviceCIDRs []*net.IPNet, persistentKeepalive time.Duration, logger log.Logger) (*Topology, error) {
+func NewTopology(nodes map[string]*Node, peers map[string]*Peer, pods map[types.UID]*Pod, granularity Granularity, hostname string, port int, key wgtypes.Key, subnet *net.IPNet, serviceCIDRs []*net.IPNet, persistentKeepalive time.Duration, logger log.Logger) (*Topology, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -176,6 +177,13 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			}
 			cidrs = append(cidrs, node.Subnet)
 			hostnames = append(hostnames, node.Name)
+
+			for k := range pods {
+				if pods[k].NodeName == node.Name {
+					level.Debug(t.logger).Log("msg", "Add ip pod on allowedip wireguard", "nodename", node.Name, "allowedip", *pods[k].IP)
+					allowedIPs = append(allowedIPs, *pods[k].IP)
+				}
+			}
 		}
 		// The sorting has no function, but makes testing easier.
 		sort.Slice(allowedLocationIPs, func(i, j int) bool {

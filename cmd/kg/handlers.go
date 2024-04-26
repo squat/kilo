@@ -65,7 +65,7 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			peers[p.Name] = p
 		}
 	}
-	topo, err := mesh.NewTopology(nodes, peers, h.granularity, *h.hostname, 0, wgtypes.Key{}, h.subnet, h.serviceCIDRs, nodes[*h.hostname].PersistentKeepalive, nil)
+	topo, err := mesh.NewTopology(nodes, peers, nil, h.granularity, *h.hostname, 0, wgtypes.Key{}, h.subnet, h.serviceCIDRs, nodes[*h.hostname].PersistentKeepalive, nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create topology: %v", err), http.StatusInternalServerError)
 		return

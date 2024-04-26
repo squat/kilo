@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/squat/kilo/pkg/wireguard"
 )
@@ -106,6 +107,18 @@ func (p *Peer) Ready() bool {
 		p.PublicKey != wgtypes.Key{} // If Key was not set, it will be wgtypes.Key{}.
 }
 
+type Pod struct {
+	Uid       types.UID
+	Name      string
+	Namespace string
+	NodeName  string
+	IP        *net.IPNet
+}
+
+func (p *Pod) Ready() bool {
+	return p != nil
+}
+
 // EventType describes what kind of an action an event represents.
 type EventType string
 
@@ -132,6 +145,12 @@ type PeerEvent struct {
 	Old  *Peer
 }
 
+type PodEvent struct {
+	Type EventType
+	Pod  *Pod
+	Old  *Pod
+}
+
 // Backend can create clients for all of the
 // primitive types that Kilo deals with, namely:
 // * nodes; and
@@ -139,6 +158,7 @@ type PeerEvent struct {
 type Backend interface {
 	Nodes() NodeBackend
 	Peers() PeerBackend
+	Pods() PodBackend
 }
 
 // NodeBackend can get nodes by name, init itself,
@@ -167,4 +187,10 @@ type PeerBackend interface {
 	List() ([]*Peer, error)
 	Set(context.Context, string, *Peer) error
 	Watch() <-chan *PeerEvent
+}
+
+type PodBackend interface {
+	Init(context.Context) error
+	List() ([]*Pod, error)
+	Watch() <-chan *PodEvent
 }

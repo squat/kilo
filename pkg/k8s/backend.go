@@ -565,3 +565,57 @@ func normalizeIP(ip string) *net.IPNet {
 	ipNet.IP = i.To16()
 	return ipNet
 }
+
+// Init implements mesh.PodBackend.
+func (p *podBackend) Init(ctx context.Context) error {
+	go p.informer.Run(ctx.Done())
+	if ok := cache.WaitForCacheSync(ctx.Done(), func() bool {
+		return p.informer.HasSynced()
+	}); !ok {
+		return errors.New("failed to sync pod cache")
+	}
+	p.informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			UpdateFunc: func(old, obj interface{}) {
+				n, ok := obj.(*v1.Pod)
+				if !ok {
+					// Failed to decode Pod; ignoring...
+					return
+				}
+				o, ok := old.(*v1.Pod)
+				if !ok {
+					// Failed to decode Pod; ignoring...
+					return
+				}
+				p.events <- &mesh.PodEvent{Type: mesh.UpdateEvent, Pod: translatePod(n), Old: translatePod(o)}
+			},
+			DeleteFunc: func(obj interface{}) {
+				n, ok := obj.(*v1.Pod)
+				if !ok {
+					// Failed to decode Pod; ignoring...
+					return
+				}
+				p.events <- &mesh.PodEvent{Type: mesh.DeleteEvent, Pod: translatePod(n)}
+			},
+		},
+	)
+	return nil
+}
+
+// List implements mesh.PodBackend.
+func (pb *podBackend) List() ([]*mesh.Pod, error) {
+	ps, err := pb.lister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	pods := make([]*mesh.Pod, len(ps))
+	for i := range ps {
+		pods[i] = translatePod(ps[i])
+	}
+	return pods, nil
+}
+
+// Watch implements mesh.PodBackend.
+func (p *podBackend) Watch() <-chan *mesh.PodEvent {
+	return p.events
+}
