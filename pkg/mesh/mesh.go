@@ -765,7 +765,7 @@ func podsAreEqual(a, b *Pod) bool {
 	if a == b {
 		return true
 	}
-	return a.Name == b.Name
+	return a.Uid == b.Uid
 }
 
 func ipNetsEqual(a, b *net.IPNet) bool {
