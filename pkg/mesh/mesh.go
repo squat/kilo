@@ -759,7 +759,7 @@ func peersAreEqual(a, b *Peer) bool {
 }
 
 func podsAreEqual(a, b *Pod) bool {
-	if !(a != nil) == (b != nil) {
+	if (a != nil) != (b != nil) {
 		return false
 	}
 	if a == b {
