@@ -385,7 +385,7 @@ func (m *Mesh) syncPods(e *PodEvent) {
 
 	switch e.Type {
 	case UpdateEvent:
-        if !podsAreEqual(m.pods[key], e.Pod) {
+		if !podsAreEqual(m.pods[key], e.Pod) {
 			// Pod have IP => add allowed
 			if e.Pod.IP != nil {
 				m.pods[key] = e.Pod
@@ -393,7 +393,7 @@ func (m *Mesh) syncPods(e *PodEvent) {
 			}
 		}
 	case DeleteEvent:
-	    // Remove allowed
+		// Remove allowed
 		delete(m.pods, key)
 		diff = true
 	}
