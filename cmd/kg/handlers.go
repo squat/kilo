@@ -25,6 +25,7 @@ import (
 	"os/exec"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/squat/kilo/pkg/mesh"
 )
@@ -48,6 +49,11 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("failed to list peers: %v", err), http.StatusInternalServerError)
 		return
 	}
+	pos, err := h.mesh.Pods().List()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to list pods: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	nodes := make(map[string]*mesh.Node)
 	for _, n := range ns {
@@ -65,7 +71,14 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			peers[p.Name] = p
 		}
 	}
-	topo, err := mesh.NewTopology(nodes, peers, nil, h.granularity, *h.hostname, 0, wgtypes.Key{}, h.subnet, h.serviceCIDRs, nodes[*h.hostname].PersistentKeepalive, nil)
+	pods := make(map[types.UID]*mesh.Pod)
+	for _, p := range pos {
+		if p.Ready() {
+			pods[p.Uid] = p
+		}
+	}
+
+	topo, err := mesh.NewTopology(nodes, peers, pods, h.granularity, *h.hostname, 0, wgtypes.Key{}, h.subnet, h.serviceCIDRs, nodes[*h.hostname].PersistentKeepalive, nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create topology: %v", err), http.StatusInternalServerError)
 		return
