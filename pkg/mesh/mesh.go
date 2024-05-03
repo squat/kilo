@@ -782,9 +782,6 @@ func podsAreEqual(a, b *Pod) bool {
 	if (a != nil) != (b != nil) {
 		return false
 	}
-	if a == b {
-		return true
-	}
 	return a.Uid == b.Uid &&
 		a.IP == b.IP
 }
