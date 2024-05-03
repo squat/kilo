@@ -247,6 +247,15 @@ func (m *Mesh) Run(ctx context.Context) error {
 	if err := m.Pods().Init(ctx); err != nil {
 		return fmt.Errorf("failed to initialize pod backend: %v", err)
 	}
+
+	// Get all pods during mesh initialization
+	ps, err := m.Pods().List()
+	for _, p := range ps {
+		if p.IP != nil {
+			m.pods[p.Uid] = p
+		}
+	}
+
 	ipTablesErrors, err := m.ipTables.Run(ctx.Done())
 	if err != nil {
 		return fmt.Errorf("failed to watch for IP tables updates: %v", err)
@@ -511,6 +520,16 @@ func (m *Mesh) applyTopology() {
 		peers[k] = m.peers[k]
 		readyPeers++
 	}
+	pods := make(map[types.UID]*Pod)
+	//var readyPods float64
+	for k := range m.pods {
+		if !m.pods[k].Ready() {
+			continue
+		}
+		// Make it point the pod without copy.
+		pods[k] = m.pods[k]
+		//readyPods++
+	}
 	m.nodesGuage.Set(readyNodes)
 	m.peersGuage.Set(readyPeers)
 	// We cannot do anything with the topology until the local node is available.
@@ -543,7 +562,8 @@ func (m *Mesh) applyTopology() {
 
 	natEndpoints := discoverNATEndpoints(nodes, peers, wgDevice, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
-	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port(), m.priv, m.subnet, m.serviceCIDRs, nodes[m.hostname].PersistentKeepalive, m.logger)
+
+	t, err := NewTopology(nodes, peers, pods, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port(), m.priv, m.subnet, m.serviceCIDRs, nodes[m.hostname].PersistentKeepalive, m.logger)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()

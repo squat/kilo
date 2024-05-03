@@ -74,6 +74,7 @@ var logger = log.NewNopLogger()
 type backend struct {
 	nodes *nodeBackend
 	peers *peerBackend
+	pods  *podBackend
 }
 
 // Nodes implements the mesh.Backend interface.
@@ -84,6 +85,11 @@ func (b *backend) Nodes() mesh.NodeBackend {
 // Peers implements the mesh.Backend interface.
 func (b *backend) Peers() mesh.PeerBackend {
 	return b.peers
+}
+
+// Pods implements the mesh.Backend interface.
+func (b *backend) Pods() mesh.PodBackend {
+	return b.pods
 }
 
 type nodeBackend struct {
@@ -102,10 +108,18 @@ type peerBackend struct {
 	lister           v1alpha1listers.PeerLister
 }
 
+type podBackend struct {
+	client   kubernetes.Interface
+	events   chan *mesh.PodEvent
+	informer cache.SharedIndexInformer
+	lister   v1listers.PodLister
+}
+
 // New creates a new instance of a mesh.Backend.
 func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface, topologyLabel string, l log.Logger) mesh.Backend {
 	ni := v1informers.NewNodeInformer(c, 5*time.Minute, nil)
 	pi := v1alpha1informers.NewPeerInformer(kc, 5*time.Minute, nil)
+	po := v1informers.NewPodInformer(c, "", 5*time.Minute, nil)
 
 	logger = l
 
@@ -123,6 +137,12 @@ func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Inter
 			events:           make(chan *mesh.PeerEvent),
 			informer:         pi,
 			lister:           v1alpha1listers.NewPeerLister(pi.GetIndexer()),
+		},
+		&podBackend{
+			client:   c,
+			events:   make(chan *mesh.PodEvent),
+			informer: po,
+			lister:   v1listers.NewPodLister(po.GetIndexer()),
 		},
 	}
 }
@@ -430,6 +450,17 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 	}
 }
 
+// translatePod translates a Peer CRD to a mesh.Peer.
+func translatePod(pod *v1.Pod) *mesh.Pod {
+	return &mesh.Pod{
+		Uid:       pod.UID,
+		Name:      pod.Name,
+		Namespace: pod.Namespace,
+		NodeName:  pod.Spec.NodeName,
+		IP:        normalizeIP(pod.Status.PodIP + "/32"),
+	}
+}
+
 // CleanUp removes configuration applied to the backend.
 func (pb *peerBackend) CleanUp(_ context.Context, _ string) error {
 	return nil
@@ -602,7 +633,7 @@ func (p *podBackend) Init(ctx context.Context) error {
 	return nil
 }
 
-// List implements mesh.PodBackend.
+// List gets all the Pods in the cluster.
 func (pb *podBackend) List() ([]*mesh.Pod, error) {
 	ps, err := pb.lister.List(labels.Everything())
 	if err != nil {
