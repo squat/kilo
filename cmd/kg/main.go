@@ -60,6 +60,7 @@ var (
 	}, ", ")
 	availableCompatibilities = strings.Join([]string{
 		"flannel",
+		"calico-bgp",
 	}, ", ")
 	availableEncapsulations = strings.Join([]string{
 		string(encapsulation.Never),
@@ -214,11 +215,15 @@ func runRoot(_ *cobra.Command, _ []string) error {
 	}
 
 	var enc encapsulation.Encapsulator
+	var watchPods = false
 	switch compatibility {
 	case "flannel":
 		enc = encapsulation.NewFlannel(e)
 	case "cilium":
 		enc = encapsulation.NewCilium(e)
+	case "calico-bgp":
+		watchPods = true
+		fallthrough
 	default:
 		enc = encapsulation.NewIPIP(e)
 	}
@@ -241,7 +246,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		c := kubernetes.NewForConfigOrDie(config)
 		kc := kiloclient.NewForConfigOrDie(config)
 		ec := apiextensions.NewForConfigOrDie(config)
-		b = k8s.New(c, kc, ec, topologyLabel, log.With(logger, "component", "k8s backend"))
+		b = k8s.New(c, kc, ec, topologyLabel, log.With(logger, "component", "k8s backend"), watchPods)
 	default:
 		return fmt.Errorf("backend %v unknown; possible values are: %s", backend, availableBackends)
 	}
@@ -259,7 +264,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		serviceCIDRs = append(serviceCIDRs, s)
 	}
 
-	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUp, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, serviceCIDRs, log.With(logger, "component", "kilo"), registry)
+	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUp, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, serviceCIDRs, log.With(logger, "component", "kilo"), registry, watchPods)
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}

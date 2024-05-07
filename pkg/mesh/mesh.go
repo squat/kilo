@@ -32,6 +32,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/squat/kilo/pkg/encapsulation"
 	"github.com/squat/kilo/pkg/iproute"
@@ -72,12 +73,14 @@ type Mesh struct {
 	serviceCIDRs        []*net.IPNet
 	subnet              *net.IPNet
 	table               *route.Table
+	watchPods           bool
 	wireGuardIP         *net.IPNet
 
 	// nodes and peers are mutable fields in the struct
 	// and need to be guarded.
 	nodes map[string]*Node
 	peers map[string]*Peer
+	pods  map[types.UID]*Pod
 	mu    sync.Mutex
 
 	errorCounter     *prometheus.CounterVec
@@ -89,7 +92,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer, watchPods bool) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -182,11 +185,13 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		kiloIfaceName:       iface,
 		nodes:               make(map[string]*Node),
 		peers:               make(map[string]*Peer),
+		pods:                make(map[types.UID]*Pod),
 		port:                port,
 		priv:                private,
 		privIface:           privIface,
 		pub:                 public,
 		resyncPeriod:        resyncPeriod,
+		watchPods:           watchPods,
 		iptablesForwardRule: iptablesForwardRule,
 		local:               local,
 		serviceCIDRs:        serviceCIDRs,
@@ -241,6 +246,20 @@ func (m *Mesh) Run(ctx context.Context) error {
 	if err := m.Peers().Init(ctx); err != nil {
 		return fmt.Errorf("failed to initialize peer backend: %v", err)
 	}
+	if m.watchPods {
+		if err := m.Pods().Init(ctx); err != nil {
+			return fmt.Errorf("failed to initialize pod backend: %v", err)
+		}
+
+		// Get all pods during mesh initialization
+		ps, _ := m.Pods().List()
+		for _, p := range ps {
+			if p.IP != nil {
+				m.pods[p.Uid] = p
+			}
+		}
+	}
+
 	ipTablesErrors, err := m.ipTables.Run(ctx.Done())
 	if err != nil {
 		return fmt.Errorf("failed to watch for IP tables updates: %v", err)
@@ -271,14 +290,18 @@ func (m *Mesh) Run(ctx context.Context) error {
 	checkIn := time.NewTimer(checkInPeriod)
 	nw := m.Nodes().Watch()
 	pw := m.Peers().Watch()
+	po := m.Pods().Watch()
 	var ne *NodeEvent
 	var pe *PeerEvent
+	var poe *PodEvent
 	for {
 		select {
 		case ne = <-nw:
 			m.syncNodes(ctx, ne)
 		case pe = <-pw:
 			m.syncPeers(pe)
+		case poe = <-po:
+			m.syncPods(poe)
 		case <-checkIn.C:
 			m.checkIn(ctx)
 			checkIn.Reset(checkInPeriod)
@@ -361,6 +384,34 @@ func (m *Mesh) syncPeers(e *PeerEvent) {
 	m.mu.Unlock()
 	if diff {
 		level.Info(logger).Log("peer", e.Peer)
+		m.applyTopology()
+	}
+}
+
+func (m *Mesh) syncPods(e *PodEvent) {
+	logger := log.With(m.logger, "event", e.Type)
+	level.Debug(logger).Log("msg", "syncing pods", "event", e.Type)
+	var diff bool
+	m.mu.Lock()
+	// Pod are indexed by uid.
+	key := e.Pod.Uid
+
+	switch e.Type {
+	case UpdateEvent:
+		if !podsAreEqual(m.pods[key], e.Pod) {
+			// Pod have IP => add allowed
+			if e.Pod.IP != nil {
+				m.pods[key] = e.Pod
+				diff = true
+			}
+		}
+	case DeleteEvent:
+		// Remove allowed
+		delete(m.pods, key)
+		diff = true
+	}
+	m.mu.Unlock()
+	if diff {
 		m.applyTopology()
 	}
 }
@@ -473,6 +524,16 @@ func (m *Mesh) applyTopology() {
 		peers[k] = m.peers[k]
 		readyPeers++
 	}
+	pods := make(map[types.UID]*Pod)
+	//var readyPods float64
+	for k := range m.pods {
+		if !m.pods[k].Ready() {
+			continue
+		}
+		// Make it point the pod without copy.
+		pods[k] = m.pods[k]
+		//readyPods++
+	}
 	m.nodesGuage.Set(readyNodes)
 	m.peersGuage.Set(readyPeers)
 	// We cannot do anything with the topology until the local node is available.
@@ -505,7 +566,8 @@ func (m *Mesh) applyTopology() {
 
 	natEndpoints := discoverNATEndpoints(nodes, peers, wgDevice, m.logger)
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
-	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port(), m.priv, m.subnet, m.serviceCIDRs, nodes[m.hostname].PersistentKeepalive, m.logger)
+
+	t, err := NewTopology(nodes, peers, pods, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port(), m.priv, m.subnet, m.serviceCIDRs, nodes[m.hostname].PersistentKeepalive, m.logger)
 	if err != nil {
 		level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
@@ -718,6 +780,14 @@ func peersAreEqual(a, b *Peer) bool {
 		(a.PresharedKey == nil || a.PresharedKey.String() == b.PresharedKey.String()) &&
 		(a.PersistentKeepaliveInterval == nil) == (b.PersistentKeepaliveInterval == nil) &&
 		(a.PersistentKeepaliveInterval == nil || *a.PersistentKeepaliveInterval == *b.PersistentKeepaliveInterval)
+}
+
+func podsAreEqual(a, b *Pod) bool {
+	if (a != nil) != (b != nil) {
+		return false
+	}
+	return a.Uid == b.Uid &&
+		a.IP == b.IP
 }
 
 func ipNetsEqual(a, b *net.IPNet) bool {
