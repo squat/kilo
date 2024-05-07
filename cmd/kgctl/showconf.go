@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	"github.com/squat/kilo/pkg/mesh"
@@ -152,7 +153,9 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, int(opts.port), wgtypes.Key{}, subnet, nil, nodes[hostname].PersistentKeepalive, nil)
+	pods := make(map[types.UID]*mesh.Pod)
+
+	t, err := mesh.NewTopology(nodes, peers, pods, opts.granularity, hostname, int(opts.port), wgtypes.Key{}, subnet, nil, nodes[hostname].PersistentKeepalive, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %w", err)
 	}
@@ -251,11 +254,13 @@ func runShowConfPeer(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("did not find any peer named %q in the cluster", peer)
 	}
 
+	pods := make(map[types.UID]*mesh.Pod)
+
 	pka := time.Duration(0)
 	if p := peers[peer].PersistentKeepaliveInterval; p != nil {
 		pka = *p
 	}
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, mesh.DefaultKiloPort, wgtypes.Key{}, subnet, nil, pka, nil)
+	t, err := mesh.NewTopology(nodes, peers, pods, opts.granularity, hostname, mesh.DefaultKiloPort, wgtypes.Key{}, subnet, nil, pka, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %w", err)
 	}

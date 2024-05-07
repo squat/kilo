@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/squat/kilo/pkg/mesh"
 )
@@ -67,7 +68,8 @@ func runGraph(_ *cobra.Command, _ []string) error {
 			peers[p.Name] = p
 		}
 	}
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, 0, wgtypes.Key{}, subnet, nil, nodes[hostname].PersistentKeepalive, nil)
+	pods := make(map[types.UID]*mesh.Pod)
+	t, err := mesh.NewTopology(nodes, peers, pods, opts.granularity, hostname, 0, wgtypes.Key{}, subnet, nil, nodes[hostname].PersistentKeepalive, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create topology: %w", err)
 	}
