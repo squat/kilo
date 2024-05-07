@@ -73,6 +73,7 @@ type Mesh struct {
 	serviceCIDRs        []*net.IPNet
 	subnet              *net.IPNet
 	table               *route.Table
+	watchPods           bool
 	wireGuardIP         *net.IPNet
 
 	// nodes and peers are mutable fields in the struct
@@ -91,7 +92,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer, watchPods bool) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -190,6 +191,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		privIface:           privIface,
 		pub:                 public,
 		resyncPeriod:        resyncPeriod,
+		watchPods:           watchPods,
 		iptablesForwardRule: iptablesForwardRule,
 		local:               local,
 		serviceCIDRs:        serviceCIDRs,
@@ -244,15 +246,17 @@ func (m *Mesh) Run(ctx context.Context) error {
 	if err := m.Peers().Init(ctx); err != nil {
 		return fmt.Errorf("failed to initialize peer backend: %v", err)
 	}
-	if err := m.Pods().Init(ctx); err != nil {
-		return fmt.Errorf("failed to initialize pod backend: %v", err)
-	}
+	if m.watchPods {
+		if err := m.Pods().Init(ctx); err != nil {
+			return fmt.Errorf("failed to initialize pod backend: %v", err)
+		}
 
-	// Get all pods during mesh initialization
-	ps, err := m.Pods().List()
-	for _, p := range ps {
-		if p.IP != nil {
-			m.pods[p.Uid] = p
+		// Get all pods during mesh initialization
+		ps, _ := m.Pods().List()
+		for _, p := range ps {
+			if p.IP != nil {
+				m.pods[p.Uid] = p
+			}
 		}
 	}
 

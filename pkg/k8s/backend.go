@@ -116,10 +116,22 @@ type podBackend struct {
 }
 
 // New creates a new instance of a mesh.Backend.
-func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface, topologyLabel string, l log.Logger) mesh.Backend {
+func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface, topologyLabel string, l log.Logger, watchPods bool) mesh.Backend {
 	ni := v1informers.NewNodeInformer(c, 5*time.Minute, nil)
 	pi := v1alpha1informers.NewPeerInformer(kc, 5*time.Minute, nil)
-	po := v1informers.NewPodInformer(c, "", 5*time.Minute, nil)
+
+	var pb *podBackend
+	if watchPods {
+		po := v1informers.NewPodInformer(c, "", 5*time.Minute, nil)
+		pb = &podBackend{
+			client:   c,
+			events:   make(chan *mesh.PodEvent),
+			informer: po,
+			lister:   v1listers.NewPodLister(po.GetIndexer()),
+		}
+	} else {
+		pb = &podBackend{}
+	}
 
 	logger = l
 
@@ -138,12 +150,7 @@ func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Inter
 			informer:         pi,
 			lister:           v1alpha1listers.NewPeerLister(pi.GetIndexer()),
 		},
-		&podBackend{
-			client:   c,
-			events:   make(chan *mesh.PodEvent),
-			informer: po,
-			lister:   v1listers.NewPodLister(po.GetIndexer()),
-		},
+		pb,
 	}
 }
 
