@@ -37,7 +37,7 @@ Flags:
       --clean-up-interface             Should Kilo delete its interface when it shuts down?
       --cni                            Should Kilo manage the node's CNI configuration? (default true)
       --cni-path string                Path to CNI config. (default "/etc/cni/net.d/10-kilo.conflist")
-      --compatibility string           Should Kilo run in compatibility mode? Possible values: flannel
+      --compatibility string           Should Kilo run in compatibility mode? Possible values: flannel, cilium
       --create-interface               Should kilo create an interface on startup? (default true)
       --encapsulate string             When should Kilo encapsulate packets within a location? Possible values: never, crosssubnet, always (default "always")
   -h, --help                           help for kg
@@ -57,6 +57,6 @@ Flags:
       --service-cidr strings           The service CIDR for the Kubernetes cluster. Can be provided optionally to avoid masquerading packets sent to service IPs. Can be specified multiple times.
       --subnet string                  CIDR from which to allocate addresses for WireGuard interfaces. (default "10.4.0.0/16")
       --topology-label string          Kubernetes node label used to group nodes into logical locations. (default "topology.kubernetes.io/region")
-      --version                        Print version and exit
+      --version                        Print version and exit.
 
 ```
