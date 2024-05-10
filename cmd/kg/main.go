@@ -54,12 +54,19 @@ const (
 	logLevelNone  = "none"
 )
 
+// Compatibility modes.
+const (
+	compatFlannel = "flannel"
+	compatCilium  = "cilium"
+)
+
 var (
 	availableBackends = strings.Join([]string{
 		k8s.Backend,
 	}, ", ")
 	availableCompatibilities = strings.Join([]string{
-		"flannel",
+		compatFlannel,
+		compatCilium,
 	}, ", ")
 	availableEncapsulations = strings.Join([]string{
 		string(encapsulation.Never),
@@ -150,7 +157,7 @@ func init() {
 	cmd.Flags().BoolVar(&iptablesForwardRule, "iptables-forward-rules", false, "Add default accept rules to the FORWARD chain in iptables. Warning: this may break firewalls with a deny all policy and is potentially insecure!")
 	cmd.Flags().BoolVar(&prioritisePrivateAddr, "prioritise-private-addresses", false, "Prefer to assign a private IP address to the node's endpoint.")
 
-	cmd.PersistentFlags().BoolVar(&printVersion, "version", false, "Print version and exit")
+	cmd.PersistentFlags().BoolVar(&printVersion, "version", false, "Print version and exit.")
 	cmd.PersistentFlags().StringVar(&logLevel, "log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 }
 
@@ -215,9 +222,9 @@ func runRoot(_ *cobra.Command, _ []string) error {
 
 	var enc encapsulation.Encapsulator
 	switch compatibility {
-	case "flannel":
+	case compatFlannel:
 		enc = encapsulation.NewFlannel(e)
-	case "cilium":
+	case compatCilium:
 		enc = encapsulation.NewCilium(e)
 	default:
 		enc = encapsulation.NewIPIP(e)
