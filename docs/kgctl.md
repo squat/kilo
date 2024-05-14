@@ -68,12 +68,12 @@ When the command exits, all of the configuration, including newly registered Pee
 Example:
 
 ```shell
-PEER_NAME=laptop
 SERVICECIDR=10.43.0.0/16
-kgctl connect $PEER_NAME --allowed-ips $SERVICECIDR
+kgctl connect --allowed-ips $SERVICECIDR
 ```
 
 The local host is now connected to the cluster and all IPs from the cluster and any registered Peers are fully routable.
+By default, `kgctl` will use the local host's hostname as the Peer name in the mesh; this can be overridden by providing an additional argument for the preferred name.
 When combined with the `--clean-up false` flag, the configuration produced by the command is persistent and will remain in effect even after the process is stopped.
 
 With the service CIDR of the cluster routable from the local host, Kubernetes DNS names can now be resolved by the cluster DNS provider.
