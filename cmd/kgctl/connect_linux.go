@@ -68,7 +68,7 @@ func takeIPNet(_ net.IP, i *net.IPNet, err error) *net.IPNet {
 func connect() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "connect",
-		Args:         cobra.ExactArgs(1),
+		Args:         cobra.MaximumNArgs(1),
 		RunE:         runConnect,
 		Short:        "connect to a Kilo cluster as a peer over WireGuard",
 		SilenceUsage: true,
@@ -118,7 +118,16 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	}
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
-	peerName := args[0]
+	var peerName string
+	var err error
+	if len(args) > 0 {
+		peerName = args[0]
+	} else {
+		level.Debug(logger).Log("msg", "no peer name provided; using hostname")
+		if peerName, err = os.Hostname(); err != nil {
+			return fmt.Errorf("could not determine hostname: %w", err)
+		}
+	}
 
 	for i := range allowedIPs {
 		_, aip, err := net.ParseCIDR(allowedIPs[i])
@@ -129,7 +138,6 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	}
 
 	var privateKey wgtypes.Key
-	var err error
 	if connectOpts.privateKey == "" {
 		privateKey, err = wgtypes.GeneratePrivateKey()
 		if err != nil {
