@@ -252,7 +252,7 @@ website/build/index.html: website/docs/README.md docs/api.md
 	yarn --cwd website build
 
 container: .container-$(ARCH)-$(VERSION) container-name
-.container-$(ARCH)-$(VERSION): bin/linux/$(ARCH)/kg Dockerfile
+.container-$(ARCH)-$(VERSION): bin/linux/$(ARCH)/kg bin/linux/$(ARCH)/kgctl Dockerfile
 	@i=0; for a in $(ALL_ARCH); do [ "$$a" = $(ARCH) ] && break; i=$$((i+1)); done; \
 	ia=""; iv=""; \
 	j=0; for a in $(DOCKER_ARCH); do \
