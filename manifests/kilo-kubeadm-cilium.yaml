@@ -100,9 +100,9 @@ spec:
 
         # without kube-proxy host kubeconfig binding
         - name: kubeconfig
-          mount_path: /etc/kubernetes/kubeconfig
-          sub_path: admin.conf
-          read_only: true
+          mountPath: /etc/kubernetes/kubeconfig
+          subPath: admin.conf
+          readOnly: true
 
         - name: lib-modules
           mountPath: /lib/modules
@@ -130,7 +130,7 @@ spec:
 
       # without kube-proxy host kubeconfig binding
       - name: kubeconfig
-        host_path:
+        hostPath:
           path: /etc/kubernetes
 
       - name: lib-modules
