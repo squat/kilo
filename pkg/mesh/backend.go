@@ -64,6 +64,8 @@ type Node struct {
 	// LastSeen is a Unix time for the last time
 	// the node confirmed it was live.
 	LastSeen int64
+	// Whether Ready will check LastSeen value
+	CheckLastSeen bool
 	// Leader is a suggestion to Kilo that
 	// the node wants to lead its segment.
 	Leader              bool
@@ -81,11 +83,17 @@ type Node struct {
 // Ready indicates whether or not the node is ready.
 func (n *Node) Ready() bool {
 	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
+	var checkedIn bool
+	if (n != nil) && (n.Key != wgtypes.Key{}) && (n.Subnet != nil) && (n.CheckLastSeen) {
+		checkedIn = time.Now().Unix()-n.LastSeen < int64(checkInPeriod)*2/int64(time.Second)
+	} else {
+		checkedIn = true
+	}
 	return n != nil &&
 		n.Endpoint.Ready() &&
 		n.Key != wgtypes.Key{} &&
 		n.Subnet != nil &&
-		time.Now().Unix()-n.LastSeen < int64(checkInPeriod)*2/int64(time.Second)
+		checkedIn
 }
 
 // Peer represents a peer in the network.

@@ -66,6 +66,7 @@ var (
 		port        int
 	}
 	backend       string
+	checkIn       bool
 	granularity   string
 	kubeconfig    string
 	topologyLabel string
@@ -94,7 +95,7 @@ func runRoot(c *cobra.Command, _ []string) error {
 		c := kubernetes.NewForConfigOrDie(config)
 		opts.kc = kiloclient.NewForConfigOrDie(config)
 		ec := apiextensions.NewForConfigOrDie(config)
-		opts.backend = k8s.New(c, opts.kc, ec, topologyLabel, log.NewNopLogger())
+		opts.backend = k8s.New(c, opts.kc, ec, topologyLabel, checkIn, log.NewNopLogger())
 	default:
 		return fmt.Errorf("backend %s unknown; posible values are: %s", backend, availableBackends)
 	}
@@ -119,6 +120,7 @@ func main() {
 		SilenceErrors:     true,
 	}
 	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
+	cmd.PersistentFlags().BoolVar(&checkIn, "check-in", true, "Should kilo consider check-in (LastSeen) in backend")
 	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.AutoGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
 	defaultKubeconfig := os.Getenv("KUBECONFIG")
 	if _, err := os.Stat(defaultKubeconfig); os.IsNotExist(err) {

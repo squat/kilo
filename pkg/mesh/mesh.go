@@ -50,6 +50,7 @@ const (
 // Mesh is able to create Kilo network meshes.
 type Mesh struct {
 	Backend
+	checkin             bool
 	cleanup             bool
 	cleanUpIface        bool
 	cni                 bool
@@ -89,7 +90,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, checkin bool, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -168,6 +169,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	}
 	mesh := Mesh{
 		Backend:             backend,
+		checkin:             checkin,
 		cleanup:             cleanup,
 		cleanUpIface:        cleanUpIface,
 		cni:                 cni,
@@ -269,6 +271,9 @@ func (m *Mesh) Run(ctx context.Context) error {
 	}
 	resync := time.NewTimer(m.resyncPeriod)
 	checkIn := time.NewTimer(checkInPeriod)
+	if !m.checkin {
+		checkIn.Stop()
+	}
 	nw := m.Nodes().Watch()
 	pw := m.Peers().Watch()
 	var ne *NodeEvent
