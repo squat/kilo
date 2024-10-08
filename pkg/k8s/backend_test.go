@@ -63,7 +63,9 @@ func TestTranslateNode(t *testing.T) {
 		{
 			name:        "empty",
 			annotations: nil,
-			out:         &mesh.Node{},
+			out: &mesh.Node{
+				CheckLastSeen: true,
+			},
 		},
 		{
 			name: "invalid ips",
@@ -71,7 +73,9 @@ func TestTranslateNode(t *testing.T) {
 				endpointAnnotationKey:   "10.0.0.1",
 				internalIPAnnotationKey: "foo",
 			},
-			out: &mesh.Node{},
+			out: &mesh.Node{
+				CheckLastSeen: true,
+			},
 		},
 		{
 			name: "valid ips",
@@ -80,8 +84,9 @@ func TestTranslateNode(t *testing.T) {
 				internalIPAnnotationKey: "10.0.0.2/32",
 			},
 			out: &mesh.Node{
-				Endpoint:   wireguard.NewEndpoint(net.ParseIP("10.0.0.1").To4(), mesh.DefaultKiloPort),
-				InternalIP: &net.IPNet{IP: net.ParseIP("10.0.0.2").To4(), Mask: net.CIDRMask(32, 32)},
+				Endpoint:      wireguard.NewEndpoint(net.ParseIP("10.0.0.1").To4(), mesh.DefaultKiloPort),
+				InternalIP:    &net.IPNet{IP: net.ParseIP("10.0.0.2").To4(), Mask: net.CIDRMask(32, 32)},
+				CheckLastSeen: true,
 			},
 		},
 		{
@@ -91,21 +96,25 @@ func TestTranslateNode(t *testing.T) {
 				internalIPAnnotationKey: "ff60::10/64",
 			},
 			out: &mesh.Node{
-				Endpoint:   wireguard.NewEndpoint(net.ParseIP("ff10::10").To16(), mesh.DefaultKiloPort),
-				InternalIP: &net.IPNet{IP: net.ParseIP("ff60::10").To16(), Mask: net.CIDRMask(64, 128)},
+				Endpoint:      wireguard.NewEndpoint(net.ParseIP("ff10::10").To16(), mesh.DefaultKiloPort),
+				InternalIP:    &net.IPNet{IP: net.ParseIP("ff60::10").To16(), Mask: net.CIDRMask(64, 128)},
+				CheckLastSeen: true,
 			},
 		},
 		{
 			name:        "invalid subnet",
 			annotations: map[string]string{},
-			out:         &mesh.Node{},
-			subnet:      "foo",
+			out: &mesh.Node{
+				CheckLastSeen: true,
+			},
+			subnet: "foo",
 		},
 		{
 			name:        "normalize subnet",
 			annotations: map[string]string{},
 			out: &mesh.Node{
-				Subnet: &net.IPNet{IP: net.ParseIP("10.2.0.0").To4(), Mask: net.CIDRMask(24, 32)},
+				Subnet:        &net.IPNet{IP: net.ParseIP("10.2.0.0").To4(), Mask: net.CIDRMask(24, 32)},
+				CheckLastSeen: true,
 			},
 			subnet: "10.2.0.1/24",
 		},
@@ -113,7 +122,8 @@ func TestTranslateNode(t *testing.T) {
 			name:        "valid subnet",
 			annotations: map[string]string{},
 			out: &mesh.Node{
-				Subnet: &net.IPNet{IP: net.ParseIP("10.2.1.0").To4(), Mask: net.CIDRMask(24, 32)},
+				Subnet:        &net.IPNet{IP: net.ParseIP("10.2.1.0").To4(), Mask: net.CIDRMask(24, 32)},
+				CheckLastSeen: true,
 			},
 			subnet: "10.2.1.0/24",
 		},
@@ -123,7 +133,8 @@ func TestTranslateNode(t *testing.T) {
 				RegionLabelKey: "a",
 			},
 			out: &mesh.Node{
-				Location: "a",
+				Location:      "a",
+				CheckLastSeen: true,
 			},
 		},
 		{
@@ -135,7 +146,8 @@ func TestTranslateNode(t *testing.T) {
 				RegionLabelKey: "a",
 			},
 			out: &mesh.Node{
-				Location: "b",
+				Location:      "b",
+				CheckLastSeen: true,
 			},
 		},
 		{
@@ -145,7 +157,8 @@ func TestTranslateNode(t *testing.T) {
 				forceEndpointAnnotationKey: "-10.0.0.2:51821",
 			},
 			out: &mesh.Node{
-				Endpoint: wireguard.NewEndpoint(net.ParseIP("10.0.0.1").To4(), mesh.DefaultKiloPort),
+				Endpoint:      wireguard.NewEndpoint(net.ParseIP("10.0.0.1").To4(), mesh.DefaultKiloPort),
+				CheckLastSeen: true,
 			},
 		},
 		{
@@ -155,7 +168,8 @@ func TestTranslateNode(t *testing.T) {
 				forceEndpointAnnotationKey: "10.0.0.2:51821",
 			},
 			out: &mesh.Node{
-				Endpoint: wireguard.NewEndpoint(net.ParseIP("10.0.0.2").To4(), 51821),
+				Endpoint:      wireguard.NewEndpoint(net.ParseIP("10.0.0.2").To4(), 51821),
+				CheckLastSeen: true,
 			},
 		},
 		{
@@ -165,6 +179,7 @@ func TestTranslateNode(t *testing.T) {
 			},
 			out: &mesh.Node{
 				PersistentKeepalive: 25 * time.Second,
+				CheckLastSeen:       true,
 			},
 		},
 		{
@@ -174,8 +189,9 @@ func TestTranslateNode(t *testing.T) {
 				forceInternalIPAnnotationKey: "-10.1.0.2/24",
 			},
 			out: &mesh.Node{
-				InternalIP:   &net.IPNet{IP: net.ParseIP("10.1.0.1").To4(), Mask: net.CIDRMask(24, 32)},
-				NoInternalIP: false,
+				InternalIP:    &net.IPNet{IP: net.ParseIP("10.1.0.1").To4(), Mask: net.CIDRMask(24, 32)},
+				NoInternalIP:  false,
+				CheckLastSeen: true,
 			},
 		},
 		{
@@ -185,8 +201,9 @@ func TestTranslateNode(t *testing.T) {
 				forceInternalIPAnnotationKey: "10.1.0.2/24",
 			},
 			out: &mesh.Node{
-				InternalIP:   &net.IPNet{IP: net.ParseIP("10.1.0.2").To4(), Mask: net.CIDRMask(24, 32)},
-				NoInternalIP: false,
+				InternalIP:    &net.IPNet{IP: net.ParseIP("10.1.0.2").To4(), Mask: net.CIDRMask(24, 32)},
+				NoInternalIP:  false,
+				CheckLastSeen: true,
 			},
 		},
 		{
@@ -194,7 +211,9 @@ func TestTranslateNode(t *testing.T) {
 			annotations: map[string]string{
 				lastSeenAnnotationKey: "foo",
 			},
-			out: &mesh.Node{},
+			out: &mesh.Node{
+				CheckLastSeen: true,
+			},
 		},
 		{
 			name: "complete",
@@ -219,6 +238,7 @@ func TestTranslateNode(t *testing.T) {
 				InternalIP:          &net.IPNet{IP: net.ParseIP("10.1.0.2").To4(), Mask: net.CIDRMask(32, 32)},
 				Key:                 fooKey,
 				LastSeen:            1000000000,
+				CheckLastSeen:       true,
 				Leader:              true,
 				Location:            "b",
 				PersistentKeepalive: 25 * time.Second,
@@ -250,6 +270,7 @@ func TestTranslateNode(t *testing.T) {
 				InternalIP:          &net.IPNet{IP: net.ParseIP("10.1.0.2"), Mask: net.CIDRMask(32, 32)},
 				Key:                 fooKey,
 				LastSeen:            1000000000,
+				CheckLastSeen:       true,
 				Leader:              true,
 				Location:            "b",
 				PersistentKeepalive: 25 * time.Second,
@@ -277,6 +298,7 @@ func TestTranslateNode(t *testing.T) {
 				InternalIP:          nil,
 				Key:                 fooKey,
 				LastSeen:            1000000000,
+				CheckLastSeen:       true,
 				Leader:              false,
 				Location:            "b",
 				PersistentKeepalive: 25 * time.Second,
@@ -306,6 +328,7 @@ func TestTranslateNode(t *testing.T) {
 				InternalIP:          nil,
 				Key:                 fooKey,
 				LastSeen:            1000000000,
+				CheckLastSeen:       true,
 				Leader:              false,
 				Location:            "b",
 				PersistentKeepalive: 25 * time.Second,
@@ -319,7 +342,7 @@ func TestTranslateNode(t *testing.T) {
 		n.ObjectMeta.Annotations = tc.annotations
 		n.ObjectMeta.Labels = tc.labels
 		n.Spec.PodCIDR = tc.subnet
-		node := translateNode(n, RegionLabelKey)
+		node := translateNode(n, RegionLabelKey, true)
 		if diff := pretty.Compare(node, tc.out); diff != "" {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}

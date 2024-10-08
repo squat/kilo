@@ -92,6 +92,7 @@ type nodeBackend struct {
 	informer      cache.SharedIndexInformer
 	lister        v1listers.NodeLister
 	topologyLabel string
+	checkIn       bool
 }
 
 type peerBackend struct {
@@ -103,7 +104,7 @@ type peerBackend struct {
 }
 
 // New creates a new instance of a mesh.Backend.
-func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface, topologyLabel string, l log.Logger) mesh.Backend {
+func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Interface, topologyLabel string, checkIn bool, l log.Logger) mesh.Backend {
 	ni := v1informers.NewNodeInformer(c, 5*time.Minute, nil)
 	pi := v1alpha1informers.NewPeerInformer(kc, 5*time.Minute, nil)
 
@@ -116,6 +117,7 @@ func New(c kubernetes.Interface, kc kiloclient.Interface, ec apiextensions.Inter
 			informer:      ni,
 			lister:        v1listers.NewNodeLister(ni.GetIndexer()),
 			topologyLabel: topologyLabel,
+			checkIn:       checkIn,
 		},
 		&peerBackend{
 			client:           kc,
@@ -150,7 +152,7 @@ func (nb *nodeBackend) Get(name string) (*mesh.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return translateNode(n, nb.topologyLabel), nil
+	return translateNode(n, nb.topologyLabel, nb.checkIn), nil
 }
 
 // Init initializes the backend; for this backend that means
@@ -170,7 +172,7 @@ func (nb *nodeBackend) Init(ctx context.Context) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				nb.events <- &mesh.NodeEvent{Type: mesh.AddEvent, Node: translateNode(n, nb.topologyLabel)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.AddEvent, Node: translateNode(n, nb.topologyLabel, nb.checkIn)}
 			},
 			UpdateFunc: func(old, obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -183,7 +185,7 @@ func (nb *nodeBackend) Init(ctx context.Context) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				nb.events <- &mesh.NodeEvent{Type: mesh.UpdateEvent, Node: translateNode(n, nb.topologyLabel), Old: translateNode(o, nb.topologyLabel)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.UpdateEvent, Node: translateNode(n, nb.topologyLabel, nb.checkIn), Old: translateNode(o, nb.topologyLabel, nb.checkIn)}
 			},
 			DeleteFunc: func(obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -191,7 +193,7 @@ func (nb *nodeBackend) Init(ctx context.Context) error {
 					// Failed to decode Node; ignoring...
 					return
 				}
-				nb.events <- &mesh.NodeEvent{Type: mesh.DeleteEvent, Node: translateNode(n, nb.topologyLabel)}
+				nb.events <- &mesh.NodeEvent{Type: mesh.DeleteEvent, Node: translateNode(n, nb.topologyLabel, nb.checkIn)}
 			},
 		},
 	)
@@ -206,7 +208,7 @@ func (nb *nodeBackend) List() ([]*mesh.Node, error) {
 	}
 	nodes := make([]*mesh.Node, len(ns))
 	for i := range ns {
-		nodes[i] = translateNode(ns[i], nb.topologyLabel)
+		nodes[i] = translateNode(ns[i], nb.topologyLabel, nb.checkIn)
 	}
 	return nodes, nil
 }
@@ -265,7 +267,7 @@ func (nb *nodeBackend) Watch() <-chan *mesh.NodeEvent {
 }
 
 // translateNode translates a Kubernetes Node to a mesh.Node.
-func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
+func translateNode(node *v1.Node, topologyLabel string, checkIn bool) *mesh.Node {
 	if node == nil {
 		return nil
 	}
@@ -354,6 +356,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		InternalIP:          internalIP,
 		Key:                 key,
 		LastSeen:            lastSeen,
+		CheckLastSeen:       checkIn,
 		Leader:              leader,
 		Location:            location,
 		Name:                node.Name,
