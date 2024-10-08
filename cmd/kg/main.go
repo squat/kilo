@@ -135,7 +135,7 @@ var (
 
 func init() {
 	cmd.Flags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
-	cmd.Flags().BoolVar(&checkIn, "check-in", true, "Should kilo regularly check-in in backend")
+	cmd.Flags().BoolVar(&checkIn, "check-in", true, "Should Kilo regularly check in with the backend")
 	cmd.Flags().BoolVar(&cleanUp, "clean-up", true, "Should kilo clean up network modifications on shutdown?")
 	cmd.Flags().BoolVar(&cleanUpIface, "clean-up-interface", false, "Should Kilo delete its interface when it shuts down?")
 	cmd.Flags().BoolVar(&createIface, "create-interface", true, "Should kilo create an interface on startup?")

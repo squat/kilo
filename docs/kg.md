@@ -33,7 +33,7 @@ Available Commands:
 
 Flags:
       --backend string                 The backend for the mesh. Possible values: kubernetes (default "kubernetes")
-      --check-in                       Should kilo regularly check-in in backend (default true)
+      --check-in                       Should Kilo regularly check in with the backend (default true)
       --clean-up                       Should kilo clean up network modifications on shutdown? (default true)
       --clean-up-interface             Should Kilo delete its interface when it shuts down?
       --cni                            Should Kilo manage the node's CNI configuration? (default true)
