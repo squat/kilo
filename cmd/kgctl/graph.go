@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+
 	"github.com/squat/kilo/pkg/mesh"
 )
 
@@ -32,12 +34,17 @@ func graph() *cobra.Command {
 func runGraph(_ *cobra.Command, _ []string) error {
 	ns, err := opts.backend.Nodes().List()
 	if err != nil {
-		return fmt.Errorf("failed to list nodes: %v", err)
+		return fmt.Errorf("failed to list nodes: %w", err)
 	}
 	ps, err := opts.backend.Peers().List()
 	if err != nil {
-		return fmt.Errorf("failed to list peers: %v", err)
+		return fmt.Errorf("failed to list peers: %w", err)
 	}
+	// Obtain the Granularity by looking at the annotation of the first node.
+	if opts.granularity, err = determineGranularity(opts.granularity, ns); err != nil {
+		return fmt.Errorf("failed to determine granularity: %w", err)
+	}
+
 	var hostname string
 	subnet := mesh.DefaultKiloSubnet
 	nodes := make(map[string]*mesh.Node)
@@ -60,13 +67,13 @@ func runGraph(_ *cobra.Command, _ []string) error {
 			peers[p.Name] = p
 		}
 	}
-	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, 0, []byte{}, subnet, nodes[hostname].PersistentKeepalive)
+	t, err := mesh.NewTopology(nodes, peers, opts.granularity, hostname, 0, wgtypes.Key{}, subnet, nil, nodes[hostname].PersistentKeepalive, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create topology: %v", err)
+		return fmt.Errorf("failed to create topology: %w", err)
 	}
 	g, err := t.Dot()
 	if err != nil {
-		return fmt.Errorf("failed to generate graph: %v", err)
+		return fmt.Errorf("failed to generate graph: %w", err)
 	}
 	fmt.Println(g)
 	return nil

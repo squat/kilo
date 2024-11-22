@@ -1,4 +1,4 @@
-// Copyright 2020 the Kilo authors
+// Copyright 2024 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	"context"
 	"time"
 
 	v1alpha1 "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
@@ -35,14 +36,14 @@ type PeersGetter interface {
 
 // PeerInterface has methods to work with Peer resources.
 type PeerInterface interface {
-	Create(*v1alpha1.Peer) (*v1alpha1.Peer, error)
-	Update(*v1alpha1.Peer) (*v1alpha1.Peer, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1alpha1.Peer, error)
-	List(opts v1.ListOptions) (*v1alpha1.PeerList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Peer, err error)
+	Create(ctx context.Context, peer *v1alpha1.Peer, opts v1.CreateOptions) (*v1alpha1.Peer, error)
+	Update(ctx context.Context, peer *v1alpha1.Peer, opts v1.UpdateOptions) (*v1alpha1.Peer, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Peer, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.PeerList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Peer, err error)
 	PeerExpansion
 }
 
@@ -59,19 +60,19 @@ func newPeers(c *KiloV1alpha1Client) *peers {
 }
 
 // Get takes name of the peer, and returns the corresponding peer object, and an error if there is any.
-func (c *peers) Get(name string, options v1.GetOptions) (result *v1alpha1.Peer, err error) {
+func (c *peers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Peer, err error) {
 	result = &v1alpha1.Peer{}
 	err = c.client.Get().
 		Resource("peers").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of Peers that match those selectors.
-func (c *peers) List(opts v1.ListOptions) (result *v1alpha1.PeerList, err error) {
+func (c *peers) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PeerList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -81,13 +82,13 @@ func (c *peers) List(opts v1.ListOptions) (result *v1alpha1.PeerList, err error)
 		Resource("peers").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested peers.
-func (c *peers) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *peers) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -97,66 +98,69 @@ func (c *peers) Watch(opts v1.ListOptions) (watch.Interface, error) {
 		Resource("peers").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a peer and creates it.  Returns the server's representation of the peer, and an error, if there is any.
-func (c *peers) Create(peer *v1alpha1.Peer) (result *v1alpha1.Peer, err error) {
+func (c *peers) Create(ctx context.Context, peer *v1alpha1.Peer, opts v1.CreateOptions) (result *v1alpha1.Peer, err error) {
 	result = &v1alpha1.Peer{}
 	err = c.client.Post().
 		Resource("peers").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(peer).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a peer and updates it. Returns the server's representation of the peer, and an error, if there is any.
-func (c *peers) Update(peer *v1alpha1.Peer) (result *v1alpha1.Peer, err error) {
+func (c *peers) Update(ctx context.Context, peer *v1alpha1.Peer, opts v1.UpdateOptions) (result *v1alpha1.Peer, err error) {
 	result = &v1alpha1.Peer{}
 	err = c.client.Put().
 		Resource("peers").
 		Name(peer.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(peer).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the peer and deletes it. Returns an error if one occurs.
-func (c *peers) Delete(name string, options *v1.DeleteOptions) error {
+func (c *peers) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("peers").
 		Name(name).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *peers) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *peers) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
-	if listOptions.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	if listOpts.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Resource("peers").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched peer.
-func (c *peers) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Peer, err error) {
+func (c *peers) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Peer, err error) {
 	result = &v1alpha1.Peer{}
 	err = c.client.Patch(pt).
 		Resource("peers").
-		SubResource(subresources...).
 		Name(name).
+		SubResource(subresources...).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

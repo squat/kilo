@@ -1,4 +1,4 @@
-// Copyright 2020 the Kilo authors
+// Copyright 2024 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package fake
 
 import (
+	"context"
+
 	v1alpha1 "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -31,12 +33,12 @@ type FakePeers struct {
 	Fake *FakeKiloV1alpha1
 }
 
-var peersResource = schema.GroupVersionResource{Group: "kilo", Version: "v1alpha1", Resource: "peers"}
+var peersResource = schema.GroupVersionResource{Group: "kilo.squat.ai", Version: "v1alpha1", Resource: "peers"}
 
-var peersKind = schema.GroupVersionKind{Group: "kilo", Version: "v1alpha1", Kind: "Peer"}
+var peersKind = schema.GroupVersionKind{Group: "kilo.squat.ai", Version: "v1alpha1", Kind: "Peer"}
 
 // Get takes name of the peer, and returns the corresponding peer object, and an error if there is any.
-func (c *FakePeers) Get(name string, options v1.GetOptions) (result *v1alpha1.Peer, err error) {
+func (c *FakePeers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Peer, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(peersResource, name), &v1alpha1.Peer{})
 	if obj == nil {
@@ -46,7 +48,7 @@ func (c *FakePeers) Get(name string, options v1.GetOptions) (result *v1alpha1.Pe
 }
 
 // List takes label and field selectors, and returns the list of Peers that match those selectors.
-func (c *FakePeers) List(opts v1.ListOptions) (result *v1alpha1.PeerList, err error) {
+func (c *FakePeers) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PeerList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(peersResource, peersKind, opts), &v1alpha1.PeerList{})
 	if obj == nil {
@@ -67,13 +69,13 @@ func (c *FakePeers) List(opts v1.ListOptions) (result *v1alpha1.PeerList, err er
 }
 
 // Watch returns a watch.Interface that watches the requested peers.
-func (c *FakePeers) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakePeers) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(peersResource, opts))
 }
 
 // Create takes the representation of a peer and creates it.  Returns the server's representation of the peer, and an error, if there is any.
-func (c *FakePeers) Create(peer *v1alpha1.Peer) (result *v1alpha1.Peer, err error) {
+func (c *FakePeers) Create(ctx context.Context, peer *v1alpha1.Peer, opts v1.CreateOptions) (result *v1alpha1.Peer, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(peersResource, peer), &v1alpha1.Peer{})
 	if obj == nil {
@@ -83,7 +85,7 @@ func (c *FakePeers) Create(peer *v1alpha1.Peer) (result *v1alpha1.Peer, err erro
 }
 
 // Update takes the representation of a peer and updates it. Returns the server's representation of the peer, and an error, if there is any.
-func (c *FakePeers) Update(peer *v1alpha1.Peer) (result *v1alpha1.Peer, err error) {
+func (c *FakePeers) Update(ctx context.Context, peer *v1alpha1.Peer, opts v1.UpdateOptions) (result *v1alpha1.Peer, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(peersResource, peer), &v1alpha1.Peer{})
 	if obj == nil {
@@ -93,22 +95,22 @@ func (c *FakePeers) Update(peer *v1alpha1.Peer) (result *v1alpha1.Peer, err erro
 }
 
 // Delete takes name of the peer and deletes it. Returns an error if one occurs.
-func (c *FakePeers) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakePeers) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(peersResource, name), &v1alpha1.Peer{})
+		Invokes(testing.NewRootDeleteActionWithOptions(peersResource, name, opts), &v1alpha1.Peer{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakePeers) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(peersResource, listOptions)
+func (c *FakePeers) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(peersResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.PeerList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched peer.
-func (c *FakePeers) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Peer, err error) {
+func (c *FakePeers) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Peer, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(peersResource, name, pt, data, subresources...), &v1alpha1.Peer{})
 	if obj == nil {

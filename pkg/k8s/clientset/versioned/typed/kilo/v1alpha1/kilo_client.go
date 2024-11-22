@@ -1,4 +1,4 @@
-// Copyright 2020 the Kilo authors
+// Copyright 2024 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@
 package v1alpha1
 
 import (
+	"net/http"
+
 	v1alpha1 "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	"github.com/squat/kilo/pkg/k8s/clientset/versioned/scheme"
-	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -28,7 +29,7 @@ type KiloV1alpha1Interface interface {
 	PeersGetter
 }
 
-// KiloV1alpha1Client is used to interact with features provided by the kilo group.
+// KiloV1alpha1Client is used to interact with features provided by the kilo.squat.ai group.
 type KiloV1alpha1Client struct {
 	restClient rest.Interface
 }
@@ -38,12 +39,28 @@ func (c *KiloV1alpha1Client) Peers() PeerInterface {
 }
 
 // NewForConfig creates a new KiloV1alpha1Client for the given config.
+// NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
+// where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*KiloV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
 	}
-	client, err := rest.RESTClientFor(&config)
+	httpClient, err := rest.HTTPClientFor(&config)
+	if err != nil {
+		return nil, err
+	}
+	return NewForConfigAndClient(&config, httpClient)
+}
+
+// NewForConfigAndClient creates a new KiloV1alpha1Client for the given config and http client.
+// Note the http client provided takes precedence over the configured transport values.
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*KiloV1alpha1Client, error) {
+	config := *c
+	if err := setConfigDefaults(&config); err != nil {
+		return nil, err
+	}
+	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +86,7 @@ func setConfigDefaults(config *rest.Config) error {
 	gv := v1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

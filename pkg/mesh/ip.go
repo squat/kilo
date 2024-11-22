@@ -42,12 +42,12 @@ func isLocal(ip net.IP) bool {
 func isPublic(ip net.IP) bool {
 	// Check RFC 1918 addresses.
 	if ip4 := ip.To4(); ip4 != nil {
-		switch true {
+		switch {
 		// Check for 10.0.0.0/8.
 		case ip4[0] == 10:
 			return false
 		// Check for 172.16.0.0/12.
-		case ip4[0] == 172 && ip4[1]&0xf0 == 0x01:
+		case ip4[0] == 172 && ip4[1]&0xf0 == 0x10:
 			return false
 		// Check for 192.168.0.0/16.
 		case ip4[0] == 192 && ip4[1] == 168:
@@ -58,7 +58,7 @@ func isPublic(ip net.IP) bool {
 	}
 	// Check RFC 4193 addresses.
 	if len(ip) == net.IPv6len {
-		switch true {
+		switch {
 		// Check for fd00::/8.
 		case ip[0] == 0xfd && ip[1] == 0x00:
 			return false

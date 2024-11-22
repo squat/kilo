@@ -1,0 +1,10 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane$WORKERS
+networking:
+  disableDefaultCNI: true # disable kindnet
+  apiServerAddress: 172.18.0.1
+  apiServerPort: $API_SERVER_PORT
+  podSubnet: $POD_SUBNET
+  serviceSubnet: $SERVICE_SUBNET

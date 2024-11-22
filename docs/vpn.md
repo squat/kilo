@@ -3,6 +3,7 @@
 Kilo enables peers outside of a Kubernetes cluster to connect to the created WireGuard network.
 This enables several use cases, for example:
 * giving cluster applications secure access to external services, e.g. services behind a corporate VPN;
+* improving the development flow of applications by running them locally and connecting them to the cluster;
 * allowing external services to access the cluster; and
 * enabling developers and support to securely debug cluster resources.
 
@@ -74,7 +75,7 @@ From any node or Pod on the cluster, one can now ping the peer:
 ping 10.5.0.1
 ```
 
-If the peer exposes a layer 4 service, for example an HTTP service, then one could also make requests against that endpoint from the cluster:
+If the peer exposes a layer 4 service, for example an HTTP server listening on TCP port 80, then one could also make requests against that endpoint from the cluster:
 
 ```shell
 curl http://10.5.0.1

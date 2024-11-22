@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,6 +48,7 @@ var PeerShortNames = []string{"peer"}
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
+// +kubebuilder:resource:scope=Cluster
 
 // Peer is a WireGuard peer that should have access to the VPN.
 type Peer struct {
@@ -76,20 +78,21 @@ type PeerSpec struct {
 	PersistentKeepalive int `json:"persistentKeepalive,omitempty"`
 	// PresharedKey is the optional symmetric encryption key for the peer.
 	// +optional
-	PresharedKey string `json:"presharedKey"`
+	PresharedKey string `json:"presharedKey,omitempty"`
 	// PublicKey is the WireGuard public key for the peer.
 	PublicKey string `json:"publicKey"`
 }
 
-// PeerEndpoint represents a WireGuard enpoint, which is a ip:port tuple.
+// PeerEndpoint represents a WireGuard endpoint, which is an IP:port tuple.
 type PeerEndpoint struct {
-	DNSOrIP
+	// DNSOrIP is a DNS name or an IP address.
+	DNSOrIP `json:"dnsOrIP"`
 	// Port must be a valid port number.
 	Port uint32 `json:"port"`
 }
 
 // DNSOrIP represents either a DNS name or an IP address.
-// IPs, as they are more specific, are preferred.
+// When both are given, the IP address, as it is more specific, override the DNS name.
 type DNSOrIP struct {
 	// DNS must be a valid RFC 1123 subdomain.
 	// +optional
@@ -133,7 +136,7 @@ func (p *Peer) Copy() *Peer {
 func (p *Peer) Validate() error {
 	for _, ip := range p.Spec.AllowedIPs {
 		if _, n, err := net.ParseCIDR(ip); err != nil {
-			return fmt.Errorf("failed to parse %q as a valid IP address: %v", ip, err)
+			return fmt.Errorf("failed to parse %q as a valid IP address: %w", ip, err)
 		} else if n == nil {
 			return fmt.Errorf("got invalid IP address for %q", ip)
 		}
@@ -157,8 +160,11 @@ func (p *Peer) Validate() error {
 	if p.Spec.PersistentKeepalive < 0 {
 		return fmt.Errorf("persistent keepalive must be greater than or equal to zero; got %q", p.Spec.PersistentKeepalive)
 	}
-	if len(p.Spec.PublicKey) == 0 {
-		return errors.New("public keys cannot be empty")
+	if b, err := base64.StdEncoding.DecodeString(p.Spec.PublicKey); err != nil {
+		return fmt.Errorf("WireGuard public key is not base64 encoded: %w", err)
+		// Since WireGuard is using Curve25519 for the key exchange, the key length of 256 bits should not change in the near future.
+	} else if len(b) != 32 {
+		return errors.New("WireGuard public key has invalid length")
 	}
 	return nil
 }
@@ -168,6 +174,9 @@ func (p *Peer) Validate() error {
 // PeerList is a list of peers.
 type PeerList struct {
 	metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 	// List of peers.
 	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md

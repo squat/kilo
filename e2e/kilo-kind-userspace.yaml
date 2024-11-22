@@ -1,0 +1,203 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kilo
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kilo
+data:
+  cni-conf.json: |
+    {
+       "cniVersion":"0.4.0",
+       "name":"kilo",
+       "plugins":[
+          {
+             "name":"kubernetes",
+             "type":"bridge",
+             "bridge":"kube-bridge",
+             "isDefaultGateway":true,
+             "forceAddress":true,
+             "mtu": 1420,
+             "ipam":{
+                "type":"host-local"
+             }
+          },
+          {
+             "type":"portmap",
+             "snat":true,
+             "capabilities":{
+                "portMappings":true
+             }
+          }
+       ]
+    }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kilo
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kilo
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - kilo.squat.ai
+  resources:
+  - peers
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kilo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kilo
+subjects:
+  - kind: ServiceAccount
+    name: kilo
+    namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kilo
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kilo-userspace
+    app.kubernetes.io/part-of: kilo
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kilo-userspace
+      app.kubernetes.io/part-of: kilo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kilo-userspace
+        app.kubernetes.io/part-of: kilo
+    spec:
+      serviceAccountName: kilo
+      hostNetwork: true
+      containers:
+      - name: kilo
+        image: squat/kilo:test
+        imagePullPolicy: Never
+        args:
+        - --hostname=$(NODE_NAME)
+        - --create-interface=false
+        - --mesh-granularity=full
+        - --kubeconfig=/etc/kubernetes/kubeconfig
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        ports:
+        - containerPort: 1107
+          name: metrics
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: cni-conf-dir
+          mountPath: /etc/cni/net.d
+        - name: kilo-dir
+          mountPath: /var/lib/kilo
+        - name: lib-modules
+          mountPath: /lib/modules
+          readOnly: true
+        - name: xtables-lock
+          mountPath: /run/xtables.lock
+          readOnly: false
+        - name: wireguard
+          mountPath: /var/run/wireguard
+          readOnly: false
+        - name: kubeconfig
+          mountPath: /etc/kubernetes
+          readOnly: true
+      - name: boringtun
+        image: leonnicolas/boringtun
+        args:
+        - --disable-drop-privileges
+        - --foreground
+        - kilo0
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: wireguard
+          mountPath: /var/run/wireguard
+          readOnly: false
+      initContainers:
+      - name: install-cni
+        image: squat/kilo:test
+        imagePullPolicy: Never
+        command:
+        - /bin/sh
+        - -c
+        - set -e -x;
+          cp /opt/cni/bin/* /host/opt/cni/bin/;
+          TMP_CONF="$CNI_CONF_NAME".tmp;
+          echo "$CNI_NETWORK_CONFIG" > $TMP_CONF;
+          rm -f /host/etc/cni/net.d/*;
+          mv $TMP_CONF /host/etc/cni/net.d/$CNI_CONF_NAME
+        env:
+        - name: CNI_CONF_NAME
+          value: 10-kilo.conflist
+        - name: CNI_NETWORK_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: kilo
+              key: cni-conf.json
+        volumeMounts:
+        - name: cni-bin-dir
+          mountPath: /host/opt/cni/bin
+        - name: cni-conf-dir
+          mountPath: /host/etc/cni/net.d
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      volumes:
+      - name: cni-bin-dir
+        hostPath:
+          path: /opt/cni/bin
+      - name: cni-conf-dir
+        hostPath:
+          path: /etc/cni/net.d
+      - name: kilo-dir
+        hostPath:
+          path: /var/lib/kilo
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: xtables-lock
+        hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate
+      - name: wireguard
+        hostPath:
+          path: /var/run/wireguard
+      - name: kubeconfig
+        secret:
+          secretName: kubeconfig

@@ -127,3 +127,46 @@ func TestSortIPs(t *testing.T) {
 		}
 	}
 }
+
+func TestIsPublic(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ip   net.IP
+		out  bool
+	}{
+		{
+			name: "10/8",
+			ip:   net.ParseIP("10.0.0.1"),
+			out:  false,
+		},
+		{
+			name: "172.16/12",
+			ip:   net.ParseIP("172.16.0.0"),
+			out:  false,
+		},
+		{
+			name: "172.16/12 random",
+			ip:   net.ParseIP("172.24.135.46"),
+			out:  false,
+		},
+		{
+			name: "below 172.16/12",
+			ip:   net.ParseIP("172.15.255.255"),
+			out:  true,
+		},
+		{
+			name: "above 172.16/12",
+			ip:   net.ParseIP("172.160.255.255"),
+			out:  true,
+		},
+		{
+			name: "192.168/16",
+			ip:   net.ParseIP("192.168.0.0"),
+			out:  false,
+		},
+	} {
+		if isPublic(tc.ip) != tc.out {
+			t.Errorf("test case %q: expected %t, got %t", tc.name, tc.out, !tc.out)
+		}
+	}
+}

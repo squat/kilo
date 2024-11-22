@@ -4,19 +4,22 @@
 
 Kilo is a multi-cloud network overlay built on WireGuard and designed for Kubernetes.
 
-[![Build Status](https://travis-ci.org/squat/kilo.svg?branch=master)](https://travis-ci.org/squat/kilo)
+[![Build Status](https://github.com/squat/kilo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/squat/kilo/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/squat/kilo)](https://goreportcard.com/report/github.com/squat/kilo)
+[![Docker Pulls](https://img.shields.io/docker/pulls/squat/kilo)](https://hub.docker.com/r/squat/kilo)
+[![Slack](https://img.shields.io/badge/join%20slack-%23kilo-brightgreen.svg)](https://slack.k8s.io/)
 
 ## Overview
 
 Kilo connects nodes in a cluster by providing an encrypted layer 3 network that can span across data centers and public clouds.
+The Pod network created by Kilo is always fully connected, even when the nodes are in different networks or behind NAT.
 By allowing pools of nodes in different locations to communicate securely, Kilo enables the operation of multi-cloud clusters.
 Kilo's design allows clients to VPN to a cluster in order to securely access services running on the cluster.
 In addition to creating multi-cloud clusters, Kilo enables the creation of multi-cluster services, i.e. services that span across different Kubernetes clusters.
 
-An introductionary video about Kilo is on [youtube](https://www.youtube.com/watch?v=iPz_DAOOCKA).
+An introductory video about Kilo from KubeCon EU 2019 can be found on [youtube](https://www.youtube.com/watch?v=iPz_DAOOCKA).
 
-## How it works
+## How It Works
 
 Kilo uses [WireGuard](https://www.wireguard.com/), a performant and secure VPN, to create a mesh between the different nodes in a cluster.
 The Kilo agent, `kg`, runs on every node in the cluster, setting up the public and private keys for the VPN as well as the necessary rules to route packets between locations.
@@ -28,12 +31,14 @@ This means that if a cluster uses, for example, Flannel for networking, Kilo can
 
 Kilo can be installed on any Kubernetes cluster either pre- or post-bring-up.
 
-### Step 1: install WireGuard
+### Step 1: get WireGuard
 
 Kilo requires the WireGuard kernel module to be loaded on all nodes in the cluster.
 Starting at Linux 5.6, the kernel includes WireGuard in-tree; Linux distributions with older kernels will need to install WireGuard.
 For most Linux distributions, this can be done using the system package manager.
 [See the WireGuard website for up-to-date instructions for installing WireGuard](https://www.wireguard.com/install/).
+
+Clusters with nodes on which the WireGuard kernel module cannot be installed can use Kilo by leveraging a [userspace WireGuard implementation](./docs/userspace-wireguard.md).
 
 ### Step 2: open WireGuard port
 
@@ -67,25 +72,29 @@ Kilo can be installed by deploying a DaemonSet to the cluster.
 To run Kilo on kubeadm:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-kubeadm.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-kubeadm.yaml
 ```
 
 To run Kilo on bootkube:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-bootkube.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-bootkube.yaml
 ```
 
 To run Kilo on Typhoon:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-typhoon.yaml
 ```
 
 To run Kilo on k3s:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-k3s.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-k3s.yaml
 ```
 
 ## Add-on Mode
@@ -97,15 +106,16 @@ Kilo currently supports running on top of Flannel.
 For example, to run Kilo on a Typhoon cluster running Flannel:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/master/manifests/kilo-typhoon-flannel.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/kilo-typhoon-flannel.yaml
 ```
 
-[See the manifests directory for more examples](https://github.com/squat/kilo/tree/master/manifests).
+[See the manifests directory for more examples](https://github.com/squat/kilo/tree/main/manifests).
 
 ## VPN
 
 Kilo also enables peers outside of a Kubernetes cluster to connect to the VPN, allowing cluster applications to securely access external services and permitting developers and support to securely debug cluster resources.
-In order to declare a peer, start by defining a Kilo peer resource:
+In order to declare a peer, start by defining a Kilo Peer resource:
 
 ```shell
 cat <<'EOF' | kubectl apply -f -
@@ -146,7 +156,7 @@ for n in $(kubectl --kubeconfig $KUBECONFIG2 get no -o name | cut -d'/' -f2); do
     kgctl --kubeconfig $KUBECONFIG2 showconf node $n --as-peer -o yaml --allowed-ips $SERVICECIDR2 | kubectl --kubeconfig $KUBECONFIG1 apply -f -
 done
 # Create a Service in cluster2 to mirror the Service in cluster1.
-cat <<'EOF' | kubectl --kubeconfig $KUBECONFIG2 apply -f -
+cat <<EOF | kubectl --kubeconfig $KUBECONFIG2 apply -f -
 apiVersion: v1
 kind: Service
 metadata:

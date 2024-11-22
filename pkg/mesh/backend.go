@@ -15,16 +15,19 @@
 package mesh
 
 import (
+	"context"
 	"net"
 	"time"
+
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/squat/kilo/pkg/wireguard"
 )
 
 const (
-	// resyncPeriod is how often the mesh checks state if no events have been received.
-	resyncPeriod = 30 * time.Second
-	// DefaultKiloInterface is the default iterface created and used by Kilo.
+	// checkInPeriod is how often nodes should check-in.
+	checkInPeriod = 30 * time.Second
+	// DefaultKiloInterface is the default interface created and used by Kilo.
 	DefaultKiloInterface = "kilo0"
 	// DefaultKiloPort is the default UDP port Kilo uses.
 	DefaultKiloPort = 51820
@@ -47,13 +50,17 @@ const (
 	// FullGranularity indicates that the network should create
 	// a mesh between every node.
 	FullGranularity Granularity = "full"
+	// AutoGranularity can be used with kgctl to obtain
+	// the granularity automatically.
+	AutoGranularity Granularity = "auto"
 )
 
 // Node represents a node in the network.
 type Node struct {
-	Endpoint   *wireguard.Endpoint
-	Key        []byte
-	InternalIP *net.IPNet
+	Endpoint     *wireguard.Endpoint
+	Key          wgtypes.Key
+	NoInternalIP bool
+	InternalIP   *net.IPNet
 	// LastSeen is a Unix time for the last time
 	// the node confirmed it was live.
 	LastSeen int64
@@ -62,15 +69,23 @@ type Node struct {
 	Leader              bool
 	Location            string
 	Name                string
-	PersistentKeepalive int
+	PersistentKeepalive time.Duration
 	Subnet              *net.IPNet
 	WireGuardIP         *net.IPNet
+	// DiscoveredEndpoints cannot be DNS endpoints, only net.UDPAddr.
+	DiscoveredEndpoints map[string]*net.UDPAddr
+	AllowedLocationIPs  []net.IPNet
+	Granularity         Granularity
 }
 
 // Ready indicates whether or not the node is ready.
 func (n *Node) Ready() bool {
 	// Nodes that are not leaders will not have WireGuardIPs, so it is not required.
-	return n != nil && n.Endpoint != nil && !(n.Endpoint.IP == nil && n.Endpoint.DNS == "") && n.Endpoint.Port != 0 && n.Key != nil && n.InternalIP != nil && n.Subnet != nil && time.Now().Unix()-n.LastSeen < int64(resyncPeriod)*2/int64(time.Second)
+	return n != nil &&
+		n.Endpoint.Ready() &&
+		n.Key != wgtypes.Key{} &&
+		n.Subnet != nil &&
+		time.Now().Unix()-n.LastSeen < int64(checkInPeriod)*2/int64(time.Second)
 }
 
 // Peer represents a peer in the network.
@@ -85,7 +100,10 @@ type Peer struct {
 // will not declare their endpoint and instead allow it to be
 // discovered.
 func (p *Peer) Ready() bool {
-	return p != nil && p.AllowedIPs != nil && len(p.AllowedIPs) != 0 && p.PublicKey != nil
+	return p != nil &&
+		p.AllowedIPs != nil &&
+		len(p.AllowedIPs) != 0 &&
+		p.PublicKey != wgtypes.Key{} // If Key was not set, it will be wgtypes.Key{}.
 }
 
 // EventType describes what kind of an action an event represents.
@@ -129,11 +147,11 @@ type Backend interface {
 // clean up any changes applied to the backend,
 // and watch for changes to nodes.
 type NodeBackend interface {
-	CleanUp(string) error
+	CleanUp(context.Context, string) error
 	Get(string) (*Node, error)
-	Init(<-chan struct{}) error
+	Init(context.Context) error
 	List() ([]*Node, error)
-	Set(string, *Node) error
+	Set(context.Context, string, *Node) error
 	Watch() <-chan *NodeEvent
 }
 
@@ -143,10 +161,10 @@ type NodeBackend interface {
 // clean up any changes applied to the backend,
 // and watch for changes to peers.
 type PeerBackend interface {
-	CleanUp(string) error
+	CleanUp(context.Context, string) error
 	Get(string) (*Peer, error)
-	Init(<-chan struct{}) error
+	Init(context.Context) error
 	List() ([]*Peer, error)
-	Set(string, *Peer) error
+	Set(context.Context, string, *Peer) error
 	Watch() <-chan *PeerEvent
 }

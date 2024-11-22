@@ -19,8 +19,20 @@ import (
 	"testing"
 	"time"
 
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+
 	"github.com/squat/kilo/pkg/wireguard"
 )
+
+func mustKey() wgtypes.Key {
+	if k, err := wgtypes.GeneratePrivateKey(); err != nil {
+		panic(err.Error())
+	} else {
+		return k
+	}
+}
+
+var key = mustKey()
 
 func TestReady(t *testing.T) {
 	internalIP := oneAddressCIDR(net.ParseIP("1.1.1.1"))
@@ -44,7 +56,7 @@ func TestReady(t *testing.T) {
 			name: "empty endpoint",
 			node: &Node{
 				InternalIP: internalIP,
-				Key:        []byte{},
+				Key:        key,
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
@@ -52,9 +64,9 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty endpoint IP",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{}, Port: DefaultKiloPort},
+				Endpoint:   wireguard.NewEndpoint(nil, DefaultKiloPort),
 				InternalIP: internalIP,
-				Key:        []byte{},
+				Key:        wgtypes.Key{},
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
@@ -62,9 +74,9 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty endpoint port",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}},
+				Endpoint:   wireguard.NewEndpoint(externalIP.IP, 0),
 				InternalIP: internalIP,
-				Key:        []byte{},
+				Key:        wgtypes.Key{},
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
@@ -72,8 +84,8 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty internal IP",
 			node: &Node{
-				Endpoint: &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
-				Key:      []byte{},
+				Endpoint: wireguard.NewEndpoint(externalIP.IP, DefaultKiloPort),
+				Key:      wgtypes.Key{},
 				Subnet:   &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
 			ready: false,
@@ -81,7 +93,7 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty key",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
+				Endpoint:   wireguard.NewEndpoint(externalIP.IP, DefaultKiloPort),
 				InternalIP: internalIP,
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},
@@ -90,18 +102,18 @@ func TestReady(t *testing.T) {
 		{
 			name: "empty subnet",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
+				Endpoint:   wireguard.NewEndpoint(externalIP.IP, DefaultKiloPort),
 				InternalIP: internalIP,
-				Key:        []byte{},
+				Key:        wgtypes.Key{},
 			},
 			ready: false,
 		},
 		{
 			name: "valid",
 			node: &Node{
-				Endpoint:   &wireguard.Endpoint{DNSOrIP: wireguard.DNSOrIP{IP: externalIP.IP}, Port: DefaultKiloPort},
+				Endpoint:   wireguard.NewEndpoint(externalIP.IP, DefaultKiloPort),
 				InternalIP: internalIP,
-				Key:        []byte{},
+				Key:        key,
 				LastSeen:   time.Now().Unix(),
 				Subnet:     &net.IPNet{IP: net.ParseIP("10.2.0.0"), Mask: net.CIDRMask(16, 32)},
 			},

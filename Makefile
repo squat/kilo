@@ -1,9 +1,8 @@
 export GO111MODULE=on
-.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate client deepcopy informer lister openapi manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate
+.PHONY: push container clean container-name container-latest push-latest fmt lint test unit vendor header generate crd client deepcopy informer lister manifest manfest-latest manifest-annotate manifest manfest-latest manifest-annotate release gen-docs e2e
 
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
-ALL_OS := linux darwin windows
 ALL_ARCH := amd64 arm arm64
 DOCKER_ARCH := "amd64" "arm v7" "arm64 v8"
 ifeq ($(OS),linux)
@@ -11,10 +10,12 @@ ifeq ($(OS),linux)
 else
     BINS := bin/$(OS)/$(ARCH)/kgctl
 endif
+RELEASE_BINS := $(addprefix bin/release/kgctl-, $(addprefix linux-, $(ALL_ARCH)) darwin-amd64 darwin-arm64 windows-amd64)
 PROJECT := kilo
 PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
 IMAGE ?= squat/$(PROJECT)
+FULLY_QUALIFIED_IMAGE := $(REGISTRY)/$(IMAGE)
 
 TAG := $(shell git describe --abbrev=0 --tags HEAD 2>/dev/null)
 COMMIT := $(shell git rev-parse HEAD)
@@ -31,16 +32,21 @@ SRC := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_FILES ?= $$(find . -name '*.go' -not -path './vendor/*')
 GO_PKGS ?= $$(go list ./... | grep -v "$(PKG)/vendor")
 
+CONTROLLER_GEN_BINARY := bin/controller-gen
 CLIENT_GEN_BINARY := bin/client-gen
+DOCS_GEN_BINARY := bin/docs-gen
 DEEPCOPY_GEN_BINARY := bin/deepcopy-gen
 INFORMER_GEN_BINARY := bin/informer-gen
 LISTER_GEN_BINARY := bin/lister-gen
-OPENAPI_GEN_BINARY := bin/openapi-gen
-GOLINT_BINARY := bin/golint
+STATICCHECK_BINARY := bin/staticcheck
 EMBEDMD_BINARY := bin/embedmd
+KIND_BINARY := $(shell pwd)/bin/kind
+KUBECTL_BINARY := $(shell pwd)/bin/kubectl
+BASH_UNIT := $(shell pwd)/bin/bash_unit
+BASH_UNIT_FLAGS :=
 
-BUILD_IMAGE ?= golang:1.14.2-alpine
-BASE_IMAGE ?= alpine:3.12
+BUILD_IMAGE ?= golang:1.19.0
+BASE_IMAGE ?= alpine:3.20
 
 build: $(BINS)
 
@@ -69,7 +75,13 @@ all-container-latest: $(addprefix container-latest-, $(ALL_ARCH))
 
 all-push-latest: $(addprefix push-latest-, $(ALL_ARCH))
 
-generate: client deepcopy informer lister openapi
+generate: client deepcopy informer lister crd
+
+crd: manifests/crds.yaml
+manifests/crds.yaml: pkg/k8s/apis/kilo/v1alpha1/types.go $(CONTROLLER_GEN_BINARY)
+	$(CONTROLLER_GEN_BINARY) crd \
+	paths=./pkg/k8s/apis/kilo/... \
+	output:crd:stdout > $@
 
 client: pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/peer.go
 pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/types.go $(CLIENT_GEN_BINARY)
@@ -127,16 +139,9 @@ pkg/k8s/listers/kilo/v1alpha1/peer.go: .header pkg/k8s/apis/kilo/v1alpha1/types.
 	rm -r github.com || true
 	go fmt ./pkg/k8s/listers/...
 
-openapi: pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go
-pkg/k8s/apis/kilo/v1alpha1/openapi_generated.go: pkg/k8s/apis/kilo/v1alpha1/types.go $(OPENAPI_GEN_BINARY)
-	$(OPENAPI_GEN_BINARY) \
-	--input-dirs $(PKG)/$(@D),k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/api/core/v1 \
-	--output-base $(CURDIR) \
-	--output-package ./$(@D) \
-	--logtostderr \
-	--report-filename /dev/null \
-	--go-header-file=.header
-	go fmt $@
+gen-docs: generate docs/api.md docs/kg.md
+docs/api.md: pkg/k8s/apis/kilo/v1alpha1/types.go $(DOCS_GEN_BINARY)
+	$(DOCS_GEN_BINARY) $< > $@
 
 $(BINS): $(SRC) go.mod
 	@mkdir -p bin/$(word 2,$(subst /, ,$@))/$(word 3,$(subst /, ,$@))
@@ -160,7 +165,7 @@ fmt:
 	@echo $(GO_PKGS)
 	gofmt -w -s $(GO_FILES)
 
-lint: header $(GOLINT_BINARY)
+lint: header $(STATICCHECK_BINARY)
 	@echo 'go vet $(GO_PKGS)'
 	@vet_res=$$(GO111MODULE=on go vet -mod=vendor $(GO_PKGS) 2>&1); if [ -n "$$vet_res" ]; then \
 		echo ""; \
@@ -169,10 +174,10 @@ lint: header $(GOLINT_BINARY)
 		echo "$$vet_res"; \
 		exit 1; \
 	fi
-	@echo '$(GOLINT_BINARY) $(GO_PKGS)'
-	@lint_res=$$($(GOLINT_BINARY) $(GO_PKGS)); if [ -n "$$lint_res" ]; then \
+	@echo '$(STATICCHECK_BINARY) $(GO_PKGS)'
+	@lint_res=$$($(STATICCHECK_BINARY) $(GO_PKGS)); if [ -n "$$lint_res" ]; then \
 		echo ""; \
-		echo "Golint found style issues. Please check the reported issues"; \
+		echo "Staticcheck found style issues. Please check the reported issues"; \
 		echo "and fix them if necessary before submitting the code for review:"; \
 		echo "$$lint_res"; \
 		exit 1; \
@@ -189,7 +194,22 @@ lint: header $(GOLINT_BINARY)
 unit:
 	go test -mod=vendor --race ./...
 
-test: lint unit
+test: lint unit e2e
+
+$(KIND_BINARY):
+	curl -Lo $@ https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-$(ARCH)
+	chmod +x $@
+
+$(KUBECTL_BINARY):
+	curl -Lo $@ https://dl.k8s.io/release/v1.21.0/bin/linux/$(ARCH)/kubectl
+	chmod +x $@
+
+$(BASH_UNIT):
+	curl -Lo $@ https://raw.githubusercontent.com/pgrange/bash_unit/v1.7.2/bash_unit
+	chmod +x $@
+
+e2e: container $(KIND_BINARY) $(KUBECTL_BINARY) $(BASH_UNIT) bin/$(OS)/$(ARCH)/kgctl
+	KILO_IMAGE=$(IMAGE):$(ARCH)-$(VERSION) KIND_BINARY=$(KIND_BINARY) KUBECTL_BINARY=$(KUBECTL_BINARY) KGCTL_BINARY=$(shell pwd)/bin/$(OS)/$(ARCH)/kgctl $(BASH_UNIT) $(BASH_UNIT_FLAGS) ./e2e/setup.sh ./e2e/full-mesh.sh ./e2e/location-mesh.sh ./e2e/multi-cluster.sh ./e2e/handlers.sh ./e2e/kgctl.sh ./e2e/teardown.sh
 
 header: .header
 	@HEADER=$$(cat .header); \
@@ -197,7 +217,7 @@ header: .header
 	FILES=; \
 	for f in $(GO_FILES); do \
 		for i in 0 1 2 3 4 5; do \
-			FILE=$$(tail -n +$$i $$f | head -n $$HEADER_LEN | sed "s/[0-9]\{4\}/YEAR/"); \
+			FILE=$$(t=$$(mktemp) && tail -n +$$i $$f > $$t && head -n $$HEADER_LEN $$t | sed "s/[0-9]\{4\}/YEAR/"); \
 			[ "$$FILE" = "$$HEADER" ] && continue 2; \
 		done; \
 		FILES="$$FILES$$f "; \
@@ -222,15 +242,17 @@ website/docs/README.md: README.md
 	cat README.md >> $@
 	cp -r docs/graphs website/static/img/
 	sed -i 's/\.\/docs\///g' $@
-	find $(@D)  -type f -name '*.md' | xargs -I{} sed -i 's/\.\/\(.\+\.svg\)/\/img\/\1/g' {}
+	find $(@D)  -type f -name '*.md' | xargs -I{} sed -i 's/\.\/\(.\+\.\(svg\|png\)\)/\/img\/\1/g' {}
 	sed -i 's/graphs\//\/img\/graphs\//g' $@
+	# The next line is a workaround until mdx, docusaurus' markdown parser, can parse links with preceding brackets.
+	sed -i  's/\[\]\(\[.*\](.*)\)/\&#91;\&#93;\1/g' website/docs/api.md
 
-website/build/index.html: website/docs/README.md
+website/build/index.html: website/docs/README.md docs/api.md
 	yarn --cwd website install
 	yarn --cwd website build
 
 container: .container-$(ARCH)-$(VERSION) container-name
-.container-$(ARCH)-$(VERSION): bin/linux/$(ARCH)/kg Dockerfile
+.container-$(ARCH)-$(VERSION): bin/linux/$(ARCH)/kg bin/linux/$(ARCH)/kgctl Dockerfile
 	@i=0; for a in $(ALL_ARCH); do [ "$$a" = $(ARCH) ] && break; i=$$((i+1)); done; \
 	ia=""; iv=""; \
 	j=0; for a in $(DOCKER_ARCH); do \
@@ -241,7 +263,7 @@ container: .container-$(ARCH)-$(VERSION) container-name
 	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
 container-latest: .container-$(ARCH)-$(VERSION)
-	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(IMAGE):$(ARCH)-latest
+	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(FULLY_QUALIFIED_IMAGE):$(ARCH)-latest
 	@echo "container: $(IMAGE):$(ARCH)-latest"
 
 container-name:
@@ -249,14 +271,15 @@ container-name:
 
 manifest: .manifest-$(VERSION) manifest-name
 .manifest-$(VERSION): Dockerfile $(addprefix push-, $(ALL_ARCH))
-	@docker manifest create --amend $(IMAGE):$(VERSION) $(addsuffix -$(VERSION), $(addprefix squat/$(PROJECT):, $(ALL_ARCH)))
+	@docker manifest create --amend $(FULLY_QUALIFIED_IMAGE):$(VERSION) $(addsuffix -$(VERSION), $(addprefix $(FULLY_QUALIFIED_IMAGE):, $(ALL_ARCH)))
 	@$(MAKE) --no-print-directory manifest-annotate-$(VERSION)
-	@docker manifest push $(IMAGE):$(VERSION) > $@
+	@docker manifest push $(FULLY_QUALIFIED_IMAGE):$(VERSION) > $@
 
 manifest-latest: Dockerfile $(addprefix push-latest-, $(ALL_ARCH))
-	@docker manifest create --amend $(IMAGE):latest $(addsuffix -latest, $(addprefix squat/$(PROJECT):, $(ALL_ARCH)))
+	@docker manifest rm $(FULLY_QUALIFIED_IMAGE):latest || echo no old manifest
+	@docker manifest create --amend $(FULLY_QUALIFIED_IMAGE):latest $(addsuffix -latest, $(addprefix $(FULLY_QUALIFIED_IMAGE):, $(ALL_ARCH)))
 	@$(MAKE) --no-print-directory manifest-annotate-latest
-	@docker manifest push $(IMAGE):latest
+	@docker manifest push $(FULLY_QUALIFIED_IMAGE):latest
 	@echo "manifest: $(IMAGE):latest"
 
 manifest-annotate: manifest-annotate-$(VERSION)
@@ -267,7 +290,7 @@ manifest-annotate-%:
 	    annotate=; \
 	    j=0; for da in $(DOCKER_ARCH); do \
 		if [ "$$j" -eq "$$i" ] && [ -n "$$da" ]; then \
-		    annotate="docker manifest annotate $(IMAGE):$* $(IMAGE):$$a-$* --os linux --arch"; \
+		    annotate="docker manifest annotate $(FULLY_QUALIFIED_IMAGE):$* $(FULLY_QUALIFIED_IMAGE):$$a-$* --os linux --arch"; \
 		    k=0; for ea in $$da; do \
 			[ "$$k" = 0 ] && annotate="$$annotate $$ea"; \
 			[ "$$k" != 0 ] && annotate="$$annotate --variant $$ea"; \
@@ -281,19 +304,28 @@ manifest-annotate-%:
 	done
 
 manifest-name:
-	@echo "manifest: $(IMAGE_ROOT):$(VERSION)"
+	@echo "manifest: $(IMAGE):$(VERSION)"
 
 push: .push-$(ARCH)-$(VERSION) push-name
 .push-$(ARCH)-$(VERSION): .container-$(ARCH)-$(VERSION)
-	@docker push $(REGISTRY)/$(IMAGE):$(ARCH)-$(VERSION)
+ifneq ($(REGISTRY),index.docker.io)
+	@docker tag $(IMAGE):$(ARCH)-$(VERSION) $(FULLY_QUALIFIED_IMAGE):$(ARCH)-$(VERSION)
+endif
+	@docker push $(FULLY_QUALIFIED_IMAGE):$(ARCH)-$(VERSION)
 	@docker images -q $(IMAGE):$(ARCH)-$(VERSION) > $@
 
 push-latest: container-latest
-	@docker push $(REGISTRY)/$(IMAGE):$(ARCH)-latest
+	@docker push $(FULLY_QUALIFIED_IMAGE):$(ARCH)-latest
 	@echo "pushed: $(IMAGE):$(ARCH)-latest"
 
 push-name:
 	@echo "pushed: $(IMAGE):$(ARCH)-$(VERSION)"
+
+release: $(RELEASE_BINS)
+$(RELEASE_BINS):
+	@make OS=$(word 2,$(subst -, ,$(@F))) ARCH=$(word 3,$(subst -, ,$(@F)))
+	mkdir -p $(@D)
+	cp bin/$(word 2,$(subst -, ,$(@F)))/$(word 3,$(subst -, ,$(@F)))/kgctl $@
 
 clean: container-clean bin-clean
 	rm -rf .cache
@@ -308,6 +340,9 @@ vendor:
 	go mod tidy
 	go mod vendor
 
+$(CONTROLLER_GEN_BINARY):
+	go build -mod=vendor -o $@ sigs.k8s.io/controller-tools/cmd/controller-gen
+
 $(CLIENT_GEN_BINARY):
 	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/client-gen
 
@@ -320,11 +355,11 @@ $(INFORMER_GEN_BINARY):
 $(LISTER_GEN_BINARY):
 	go build -mod=vendor -o $@ k8s.io/code-generator/cmd/lister-gen
 
-$(OPENAPI_GEN_BINARY):
-	go build -mod=vendor -o $@ k8s.io/kube-openapi/cmd/openapi-gen
+$(DOCS_GEN_BINARY): cmd/docs-gen/main.go
+	go build -mod=vendor -o $@ ./cmd/docs-gen
 
-$(GOLINT_BINARY):
-	go build -mod=vendor -o $@ golang.org/x/lint/golint
+$(STATICCHECK_BINARY):
+	go build -mod=vendor -o $@ honnef.co/go/tools/cmd/staticcheck
 
 $(EMBEDMD_BINARY):
 	go build -mod=vendor -o $@ github.com/campoy/embedmd

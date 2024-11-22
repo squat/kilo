@@ -987,10 +987,10 @@ func validatePatchWithSetOrderList(patchList, setOrderList interface{}, mergeKey
 		return nil
 	}
 
-	var nonDeleteList, toDeleteList []interface{}
+	var nonDeleteList []interface{}
 	var err error
 	if len(mergeKey) > 0 {
-		nonDeleteList, toDeleteList, err = extractToDeleteItems(typedPatchList)
+		nonDeleteList, _, err = extractToDeleteItems(typedPatchList)
 		if err != nil {
 			return err
 		}
@@ -1014,11 +1014,10 @@ func validatePatchWithSetOrderList(patchList, setOrderList interface{}, mergeKey
 		setOrderIndex++
 	}
 	// If patchIndex is inbound but setOrderIndex if out of bound mean there are items mismatching between the patch list and setElementOrder list.
-	// the second check is is a sanity check, and should always be true if the first is true.
+	// the second check is a sanity check, and should always be true if the first is true.
 	if patchIndex < len(nonDeleteList) && setOrderIndex >= len(typedSetOrderList) {
 		return fmt.Errorf("The order in patch list:\n%v\n doesn't match %s list:\n%v\n", typedPatchList, setElementOrderDirectivePrefix, setOrderList)
 	}
-	typedPatchList = append(nonDeleteList, toDeleteList...)
 	return nil
 }
 
@@ -1321,9 +1320,7 @@ func mergeMap(original, patch map[string]interface{}, schema LookupPatchMeta, me
 		// Preserving the null value is useful when we want to send an explicit
 		// delete to the API server.
 		if patchV == nil {
-			if _, ok := original[k]; ok {
-				delete(original, k)
-			}
+			delete(original, k)
 			if mergeOptions.IgnoreUnmatchedNulls {
 				continue
 			}
@@ -1331,15 +1328,19 @@ func mergeMap(original, patch map[string]interface{}, schema LookupPatchMeta, me
 
 		_, ok := original[k]
 		if !ok {
-			// If it's not in the original document, just take the patch value.
-			original[k] = patchV
+			if !isDeleteList {
+				// If it's not in the original document, just take the patch value.
+				original[k] = patchV
+			}
 			continue
 		}
 
 		originalType := reflect.TypeOf(original[k])
 		patchType := reflect.TypeOf(patchV)
 		if originalType != patchType {
-			original[k] = patchV
+			if !isDeleteList {
+				original[k] = patchV
+			}
 			continue
 		}
 		// If they're both maps or lists, recurse into the value.

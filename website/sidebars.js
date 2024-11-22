@@ -7,12 +7,17 @@ module.exports = {
     {
       type: 'category',
       label: 'Guides',
-      items: ['topology', 'vpn', 'vpn-server', 'multi-cluster-services', 'network-policies'],
+      items: ['topology', 'vpn', 'vpn-server', 'multi-cluster-services', 'network-policies', 'userspace-wireguard', 'peer-validation', 'monitoring'],
     },
     {
       type: 'category',
       label: 'Reference',
-      items: ['annotations', 'kg', 'kgctl'],
+      items: ['annotations', 'kg', 'kgctl', 'api'],
+    },
+    {
+      type: 'category',
+      label: 'Contributing',
+      items: ['building_kilo', 'building_website'],
     },
     //Features: ['mdx'],
   ],

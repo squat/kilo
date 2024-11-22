@@ -23,14 +23,13 @@ rules:
   - peers
   verbs:
   - list
-  - update
   - watch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
   verbs:
-  - create
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -45,6 +44,35 @@ subjects:
     name: kilo
     namespace: kube-system
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kilo-scripts
+  namespace: kube-system
+data:
+  init.sh: |
+    #!/bin/sh
+    cat > /etc/kubernetes/kubeconfig <<EOF
+        apiVersion: v1
+        kind: Config
+        name: kilo
+        clusters:
+        - cluster:
+            server: $(sed -n 's/.*server: \(.*\)/\1/p' /var/lib/rancher/k3s/agent/kubelet.kubeconfig)
+            certificate-authority: /var/lib/rancher/k3s/agent/server-ca.crt
+        users:
+        - name: kilo
+          user:
+            token: $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+        contexts:
+        - name: kilo
+          context:
+            cluster: kilo
+            namespace: ${NAMESPACE}
+            user: kilo
+        current-context: kilo
+    EOF
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -52,20 +80,23 @@ metadata:
   namespace: kube-system
   labels:
     app.kubernetes.io/name: kilo
+    app.kubernetes.io/part-of: kilo
 spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: kilo
+      app.kubernetes.io/part-of: kilo
   template:
     metadata:
       labels:
         app.kubernetes.io/name: kilo
+        app.kubernetes.io/part-of: kilo
     spec:
       serviceAccountName: kilo
       hostNetwork: true
       containers:
       - name: kilo
-        image: squat/kilo
+        image: squat/kilo:0.6.0
         args:
         - --kubeconfig=/etc/kubernetes/kubeconfig
         - --hostname=$(NODE_NAME)
@@ -77,13 +108,16 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        ports:
+        - containerPort: 1107
+          name: metrics
         securityContext:
           privileged: true
         volumeMounts:
         - name: kilo-dir
           mountPath: /var/lib/kilo
         - name: kubeconfig
-          mountPath: /etc/kubernetes/kubeconfig
+          mountPath: /etc/kubernetes
           readOnly: true
         - name: lib-modules
           mountPath: /lib/modules
@@ -91,6 +125,28 @@ spec:
         - name: xtables-lock
           mountPath: /run/xtables.lock
           readOnly: false
+      initContainers:
+      - name: generate-kubeconfig
+        image: squat/kilo:0.6.0
+        command:
+        - /bin/sh
+        args:
+        - /scripts/init.sh
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: kubeconfig
+          mountPath: /etc/kubernetes
+        - name: scripts
+          mountPath: /scripts/
+          readOnly: true
+        - name: k3s-agent
+          mountPath: /var/lib/rancher/k3s/agent/
+          readOnly: true
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       tolerations:
       - effect: NoSchedule
         operator: Exists
@@ -101,11 +157,13 @@ spec:
         hostPath:
           path: /var/lib/kilo
       - name: kubeconfig
-        hostPath: 
-          # Since kilo runs as a daemonset, it is recommended that you copy the
-          # k3s.yaml kubeconfig file from the master node to all worker nodes
-          # with the same path structure.
-          path: /etc/rancher/k3s/k3s.yaml
+        emptyDir: {}
+      - name: scripts
+        configMap:
+          name: kilo-scripts
+      - name: k3s-agent
+        hostPath:
+          path: /var/lib/rancher/k3s/agent
       - name: lib-modules
         hostPath:
           path: /lib/modules

@@ -16,16 +16,40 @@ package iptables
 
 import (
 	"fmt"
+	"io"
 	"net"
-	"strings"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/coreos/go-iptables/iptables"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+const ipv6ModuleDisabledPath = "/sys/module/ipv6/parameters/disable"
+
+func ipv6Disabled() (bool, error) {
+	f, err := os.Open(ipv6ModuleDisabledPath)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	disabled := make([]byte, 1)
+	if _, err = io.ReadFull(f, disabled); err != nil {
+		return false, err
+	}
+	return disabled[0] == '1', nil
+}
 
 // Protocol represents an IP protocol.
 type Protocol byte
+
+type RuleSet struct {
+	appendRules  []Rule // Rules to append to the chain - order matters.
+	prependRules []Rule // Rules to prepend to the chain - order does not matter.
+}
 
 const (
 	// ProtocolIPv4 represents the IPv4 protocol.
@@ -34,27 +58,46 @@ const (
 	ProtocolIPv6
 )
 
-// GetProtocol will return a protocol from the length of an IP address.
-func GetProtocol(length int) Protocol {
-	if length == net.IPv6len {
-		return ProtocolIPv6
+func (rs *RuleSet) AddToAppend(rule Rule) {
+	rs.appendRules = append(rs.appendRules, rule)
+}
+
+func (rs *RuleSet) AddToPrepend(rule Rule) {
+	rs.prependRules = append(rs.prependRules, rule)
+}
+
+func (rs *RuleSet) AppendRuleSet(other RuleSet) RuleSet {
+	return RuleSet{
+		appendRules:  append(rs.appendRules, other.appendRules...),
+		prependRules: append(rs.prependRules, other.prependRules...),
 	}
-	return ProtocolIPv4
+}
+
+// GetProtocol will return a protocol from the length of an IP address.
+func GetProtocol(ip net.IP) Protocol {
+	if len(ip) == net.IPv4len || ip.To4() != nil {
+		return ProtocolIPv4
+	}
+	return ProtocolIPv6
 }
 
 // Client represents any type that can administer iptables rules.
 type Client interface {
 	AppendUnique(table string, chain string, rule ...string) error
+	InsertUnique(table, chain string, pos int, rule ...string) error
 	Delete(table string, chain string, rule ...string) error
 	Exists(table string, chain string, rule ...string) (bool, error)
+	List(table string, chain string) ([]string, error)
 	ClearChain(table string, chain string) error
 	DeleteChain(table string, chain string) error
 	NewChain(table string, chain string) error
+	ListChains(table string) ([]string, error)
 }
 
 // Rule is an interface for interacting with iptables objects.
 type Rule interface {
-	Add(Client) error
+	Append(Client) error
+	Prepend(Client) error
 	Delete(Client) error
 	Exists(Client) (bool, error)
 	String() string
@@ -85,7 +128,14 @@ func NewIPv6Rule(table, chain string, spec ...string) Rule {
 	return &rule{table, chain, spec, ProtocolIPv6}
 }
 
-func (r *rule) Add(client Client) error {
+func (r *rule) Prepend(client Client) error {
+	if err := client.InsertUnique(r.table, r.chain, 1, r.spec...); err != nil {
+		return fmt.Errorf("failed to add iptables rule: %v", err)
+	}
+	return nil
+}
+
+func (r *rule) Append(client Client) error {
 	if err := client.AppendUnique(r.table, r.chain, r.spec...); err != nil {
 		return fmt.Errorf("failed to add iptables rule: %v", err)
 	}
@@ -107,7 +157,17 @@ func (r *rule) String() string {
 	if r == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s_%s_%s", r.table, r.chain, strings.Join(r.spec, "_"))
+	spec := r.table + " -A " + r.chain
+	for i, s := range r.spec {
+		spec += " "
+		// If this is the content of a comment, wrap the value in quotes.
+		if i > 0 && r.spec[i-1] == "--comment" {
+			spec += `"` + s + `"`
+		} else {
+			spec += s
+		}
+	}
+	return spec
 }
 
 func (r *rule) Proto() Protocol {
@@ -131,7 +191,12 @@ func NewIPv6Chain(table, name string) Rule {
 	return &chain{table, name, ProtocolIPv6}
 }
 
-func (c *chain) Add(client Client) error {
+func (c *chain) Prepend(client Client) error {
+	return c.Append(client)
+}
+
+func (c *chain) Append(client Client) error {
+	// Note: `ClearChain` creates a chain if it does not exist.
 	if err := client.ClearChain(c.table, c.chain); err != nil {
 		return fmt.Errorf("failed to add iptables chain: %v", err)
 	}
@@ -171,41 +236,98 @@ func (c *chain) String() string {
 	if c == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s_%s", c.table, c.chain)
+	return chainToString(c.table, c.chain)
 }
 
 func (c *chain) Proto() Protocol {
 	return c.proto
 }
 
+func chainToString(table, chain string) string {
+	return fmt.Sprintf("%s -N %s", table, chain)
+}
+
 // Controller is able to reconcile a given set of iptables rules.
 type Controller struct {
-	v4     Client
-	v6     Client
-	errors chan error
+	v4           Client
+	v6           Client
+	errors       chan error
+	logger       log.Logger
+	resyncPeriod time.Duration
+	registerer   prometheus.Registerer
 
 	sync.Mutex
-	rules      []Rule
-	subscribed bool
+	appendRules  []Rule
+	prependRules []Rule
+	subscribed   bool
+}
+
+// ControllerOption modifies the controller's configuration.
+type ControllerOption func(h *Controller)
+
+// WithLogger adds a logger to the controller.
+func WithLogger(logger log.Logger) ControllerOption {
+	return func(c *Controller) {
+		c.logger = logger
+	}
+}
+
+// WithResyncPeriod modifies how often the controller reconciles.
+func WithResyncPeriod(resyncPeriod time.Duration) ControllerOption {
+	return func(c *Controller) {
+		c.resyncPeriod = resyncPeriod
+	}
+}
+
+// WithClients adds iptables clients to the controller.
+func WithClients(v4, v6 Client) ControllerOption {
+	return func(c *Controller) {
+		c.v4 = v4
+		c.v6 = v6
+	}
+}
+
+func WithRegisterer(registerer prometheus.Registerer) ControllerOption {
+	return func(c *Controller) {
+		c.registerer = registerer
+	}
 }
 
 // New generates a new iptables rules controller.
-// It expects an IP address length to determine
-// whether to operate in IPv4 or IPv6 mode.
-func New() (*Controller, error) {
-	v4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create iptables IPv4 client: %v", err)
-	}
-	v6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
-	}
-	return &Controller{
-		v4:     v4,
-		v6:     v6,
+// If no options are given, IPv4 and IPv6 clients
+// will be instantiated using the regular iptables backend.
+func New(opts ...ControllerOption) (*Controller, error) {
+	c := &Controller{
 		errors: make(chan error),
-	}, nil
+		logger: log.NewNopLogger(),
+	}
+	for _, o := range opts {
+		o(c)
+	}
+	if c.v4 == nil {
+		v4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create iptables IPv4 client: %v", err)
+		}
+		c.v4 = wrapWithMetrics(v4, "IPv4", c.registerer)
+	}
+	if c.v6 == nil {
+		disabled, err := ipv6Disabled()
+		if err != nil {
+			return nil, fmt.Errorf("failed to check IPv6 status: %v", err)
+		}
+		if disabled {
+			level.Info(c.logger).Log("msg", "IPv6 is disabled in the kernel; disabling the IPv6 iptables controller")
+			c.v6 = &fakeClient{}
+		} else {
+			v6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create iptables IPv6 client: %v", err)
+			}
+			c.v6 = wrapWithMetrics(v6, "IPv6", c.registerer)
+		}
+	}
+	return c, nil
 }
 
 // Run watches for changes to iptables rules and reconciles
@@ -220,15 +342,17 @@ func (c *Controller) Run(stop <-chan struct{}) (<-chan error, error) {
 	c.subscribed = true
 	c.Unlock()
 	go func() {
+		t := time.NewTimer(c.resyncPeriod)
 		defer close(c.errors)
 		for {
 			select {
-			case <-time.After(5 * time.Second):
+			case <-t.C:
+				if err := c.reconcile(); err != nil {
+					nonBlockingSend(c.errors, fmt.Errorf("failed to reconcile rules: %v", err))
+				}
+				t.Reset(c.resyncPeriod)
 			case <-stop:
 				return
-			}
-			if err := c.reconcile(); err != nil {
-				nonBlockingSend(c.errors, fmt.Errorf("failed to reconcile rules: %v", err))
 			}
 		}
 	}()
@@ -242,16 +366,41 @@ func (c *Controller) Run(stop <-chan struct{}) (<-chan error, error) {
 func (c *Controller) reconcile() error {
 	c.Lock()
 	defer c.Unlock()
-	for i, r := range c.rules {
-		ok, err := r.Exists(c.client(r.Proto()))
+	var rc ruleCache
+	if err := c.reconcileAppendRules(rc); err != nil {
+		return err
+	}
+	return c.reconcilePrependRules(rc)
+}
+
+func (c *Controller) reconcileAppendRules(rc ruleCache) error {
+	for i, r := range c.appendRules {
+		ok, err := rc.exists(c.client(r.Proto()), r)
 		if err != nil {
 			return fmt.Errorf("failed to check if rule exists: %v", err)
 		}
 		if !ok {
-			if err := c.resetFromIndex(i, c.rules); err != nil {
+			level.Info(c.logger).Log("msg", fmt.Sprintf("applying %d iptables rules", len(c.appendRules)-i))
+			if err := c.resetFromIndex(i, c.appendRules); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
 			break
+		}
+	}
+	return nil
+}
+
+func (c *Controller) reconcilePrependRules(rc ruleCache) error {
+	for _, r := range c.prependRules {
+		ok, err := rc.exists(c.client(r.Proto()), r)
+		if err != nil {
+			return fmt.Errorf("failed to check if rule exists: %v", err)
+		}
+		if !ok {
+			level.Info(c.logger).Log("msg", "prepending iptables rule")
+			if err := r.Prepend(c.client(r.Proto())); err != nil {
+				return fmt.Errorf("failed to prepend rule: %v", err)
+			}
 		}
 	}
 	return nil
@@ -266,7 +415,7 @@ func (c *Controller) resetFromIndex(i int, rules []Rule) error {
 		if err := rules[j].Delete(c.client(rules[j].Proto())); err != nil {
 			return fmt.Errorf("failed to delete rule: %v", err)
 		}
-		if err := rules[j].Add(c.client(rules[j].Proto())); err != nil {
+		if err := rules[j].Append(c.client(rules[j].Proto())); err != nil {
 			return fmt.Errorf("failed to add rule: %v", err)
 		}
 	}
@@ -291,34 +440,87 @@ func (c *Controller) deleteFromIndex(i int, rules *[]Rule) error {
 
 // Set idempotently overwrites any iptables rules previously defined
 // for the controller with the given set of rules.
-func (c *Controller) Set(rules []Rule) error {
+func (c *Controller) Set(rules RuleSet) error {
 	c.Lock()
 	defer c.Unlock()
+	if err := c.setAppendRules(rules.appendRules); err != nil {
+		return err
+	}
+	return c.setPrependRules(rules.prependRules)
+}
+
+func (c *Controller) setAppendRules(appendRules []Rule) error {
 	var i int
-	for ; i < len(rules); i++ {
-		if i < len(c.rules) {
-			if rules[i].String() != c.rules[i].String() {
-				if err := c.deleteFromIndex(i, &c.rules); err != nil {
+	for ; i < len(appendRules); i++ {
+		if i < len(c.appendRules) {
+			if appendRules[i].String() != c.appendRules[i].String() {
+				if err := c.deleteFromIndex(i, &c.appendRules); err != nil {
 					return err
 				}
 			}
 		}
-		if i >= len(c.rules) {
-			if err := rules[i].Add(c.client(rules[i].Proto())); err != nil {
+		if i >= len(c.appendRules) {
+			if err := appendRules[i].Append(c.client(appendRules[i].Proto())); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
-			c.rules = append(c.rules, rules[i])
+			c.appendRules = append(c.appendRules, appendRules[i])
 		}
-
 	}
-	return c.deleteFromIndex(i, &c.rules)
+	err := c.deleteFromIndex(i, &c.appendRules)
+	if err != nil {
+		return fmt.Errorf("failed to delete rule: %v", err)
+	}
+	return nil
+}
+
+func (c *Controller) setPrependRules(prependRules []Rule) error {
+	for _, prependRule := range prependRules {
+		if !containsRule(c.prependRules, prependRule) {
+			if err := prependRule.Prepend(c.client(prependRule.Proto())); err != nil {
+				return fmt.Errorf("failed to add rule: %v", err)
+			}
+			c.prependRules = append(c.prependRules, prependRule)
+		}
+	}
+	for _, existingRule := range c.prependRules {
+		if !containsRule(prependRules, existingRule) {
+			if err := existingRule.Delete(c.client(existingRule.Proto())); err != nil {
+				return fmt.Errorf("failed to delete rule: %v", err)
+			}
+			c.prependRules = removeRule(c.prependRules, existingRule)
+		}
+	}
+	return nil
+}
+
+func removeRule(rules []Rule, toRemove Rule) []Rule {
+	ret := make([]Rule, 0, len(rules))
+	for _, rule := range rules {
+		if rule.String() != toRemove.String() {
+			ret = append(ret, rule)
+		}
+	}
+	return ret
+}
+
+func containsRule(haystack []Rule, needle Rule) bool {
+	for _, element := range haystack {
+		if element.String() == needle.String() {
+			return true
+		}
+	}
+	return false
 }
 
 // CleanUp will clean up any rules created by the controller.
 func (c *Controller) CleanUp() error {
 	c.Lock()
 	defer c.Unlock()
-	return c.deleteFromIndex(0, &c.rules)
+	err := c.deleteFromIndex(0, &c.prependRules)
+	if err != nil {
+		return err
+	}
+	return c.deleteFromIndex(0, &c.appendRules)
 }
 
 func (c *Controller) client(p Protocol) Client {

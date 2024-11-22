@@ -16,5 +16,5 @@ package kilo
 
 const (
 	// GroupName contains the API group name for Kilo API group.
-	GroupName = "kilo"
+	GroupName = "kilo.squat.ai"
 )

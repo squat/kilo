@@ -1,4 +1,4 @@
-// Copyright 2020 the Kilo authors
+// Copyright 2024 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	"context"
 	time "time"
 
 	kilov1alpha1 "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
@@ -58,13 +59,13 @@ func NewFilteredPeerInformer(client versioned.Interface, resyncPeriod time.Durat
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KiloV1alpha1().Peers().List(options)
+				return client.KiloV1alpha1().Peers().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KiloV1alpha1().Peers().Watch(options)
+				return client.KiloV1alpha1().Peers().Watch(context.TODO(), options)
 			},
 		},
 		&kilov1alpha1.Peer{},

@@ -1,4 +1,4 @@
-// Copyright 2019 the Kilo authors
+// Copyright 2021 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/awalterschulze/gographviz"
+
 	"github.com/squat/kilo/pkg/wireguard"
 )
 
@@ -27,7 +28,7 @@ import (
 func (t *Topology) Dot() (string, error) {
 	g := gographviz.NewGraph()
 	g.Name = "kilo"
-	if err := g.AddAttr("kilo", string(gographviz.Label), graphEscape(t.subnet.String())); err != nil {
+	if err := g.AddAttr("kilo", string(gographviz.Label), graphEscape((&net.IPNet{IP: t.wireGuardCIDR.IP.Mask(t.wireGuardCIDR.Mask), Mask: t.wireGuardCIDR.Mask}).String())); err != nil {
 		return "", fmt.Errorf("failed to add label to graph")
 	}
 	if err := g.AddAttr("kilo", string(gographviz.LabelLOC), "t"); err != nil {
@@ -70,7 +71,11 @@ func (t *Topology) Dot() (string, error) {
 					return "", fmt.Errorf("failed to add rank to node")
 				}
 			}
-			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], s.privateIPs[j], wg, endpoint)); err != nil {
+			var priv net.IP
+			if s.privateIPs != nil {
+				priv = s.privateIPs[j]
+			}
+			if err := g.Nodes.Lookup[graphEscape(s.hostnames[j])].Attrs.Add(string(gographviz.Label), nodeLabel(s.location, s.hostnames[j], s.cidrs[j], priv, wg, endpoint)); err != nil {
 				return "", fmt.Errorf("failed to add label to node")
 			}
 		}
@@ -155,17 +160,20 @@ func nodeLabel(location, name string, cidr *net.IPNet, priv, wgIP net.IP, endpoi
 		location,
 		name,
 		cidr.String(),
-		priv.String(),
+	}
+	if priv != nil {
+		label = append(label, priv.String())
 	}
 	if wgIP != nil {
 		label = append(label, wgIP.String())
 	}
-	if endpoint != nil {
-		label = append(label, endpoint.String())
+	str := endpoint.String()
+	if str != "" {
+		label = append(label, str)
 	}
-	return graphEscape(strings.Join(label, "\n"))
+	return graphEscape(strings.Join(label, "\\n"))
 }
 
 func peerLabel(peer *Peer) string {
-	return graphEscape(fmt.Sprintf("%s\n%s\n", peer.Name, peer.Endpoint.String()))
+	return graphEscape(fmt.Sprintf("%s\\n%s\n", peer.Name, peer.Endpoint.String()))
 }

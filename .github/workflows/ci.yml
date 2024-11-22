@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - "*"
+  pull_request:
+  schedule:
+  - cron:  '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Vendor
+      run: |
+        make vendor
+        git diff --exit-code
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Build
+      run: make
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Build docs
+      run: |
+        make gen-docs
+        git diff --exit-code
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Build kg and kgctl for all Linux Architectures
+      run: make all-build
+
+  darwin:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Build kgctl for Darwin amd64
+      run: make OS=darwin ARCH=amd64
+    - name: Build kgctl for Darwin arm64
+      run: make OS=darwin ARCH=arm64
+
+  windows:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Build kgctl for Windows
+      run: make OS=windows
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Run Unit Tests
+      run: make unit
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Run e2e Tests
+      run: make e2e
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Lint Code
+      run: make lint
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Container
+      run: make container
+
+  push:
+    if: github.event_name != 'pull_request'
+    needs:
+    - vendor
+    - build
+    - linux
+    - darwin
+    - windows
+    - unit
+    - lint
+    - container
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+      with:
+        platforms: all
+    - name: Login to DockerHub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Build and push
+      if: github.event_name != 'pull_request'
+      run: make manifest
+    - name: Build and push latest
+      if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      run: make manifest-latest

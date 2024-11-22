@@ -56,6 +56,8 @@ func (f *flannel) Gw(_, _ net.IP, subnet *net.IPNet) net.IP {
 
 // Index returns the index of the Flannel interface.
 func (f *flannel) Index() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.iface
 }
 
@@ -93,8 +95,8 @@ func (f *flannel) Init(_ int) error {
 }
 
 // Rules is a no-op.
-func (f *flannel) Rules(_ []*net.IPNet) []iptables.Rule {
-	return nil
+func (f *flannel) Rules(_ []*net.IPNet) iptables.RuleSet {
+	return iptables.RuleSet{}
 }
 
 // Set is a no-op.

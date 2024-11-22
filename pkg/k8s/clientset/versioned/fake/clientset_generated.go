@@ -1,4 +1,4 @@
-// Copyright 2020 the Kilo authors
+// Copyright 2024 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 		}
 	}
 
-	cs := &Clientset{}
+	cs := &Clientset{tracker: o}
 	cs.discovery = &fakediscovery.FakeDiscovery{Fake: &cs.Fake}
 	cs.AddReactor("*", "*", testing.ObjectReaction(o))
 	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
@@ -61,13 +61,21 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 type Clientset struct {
 	testing.Fake
 	discovery *fakediscovery.FakeDiscovery
+	tracker   testing.ObjectTracker
 }
 
 func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	return c.discovery
 }
 
-var _ clientset.Interface = &Clientset{}
+func (c *Clientset) Tracker() testing.ObjectTracker {
+	return c.tracker
+}
+
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // KiloV1alpha1 retrieves the KiloV1alpha1Client
 func (c *Clientset) KiloV1alpha1() kilov1alpha1.KiloV1alpha1Interface {

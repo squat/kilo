@@ -1,4 +1,4 @@
-// Copyright 2020 the Kilo authors
+// Copyright 2024 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,10 +24,13 @@ import (
 )
 
 // PeerLister helps list Peers.
+// All objects returned here must be treated as read-only.
 type PeerLister interface {
 	// List lists all Peers in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.Peer, err error)
 	// Get retrieves the Peer from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.Peer, error)
 	PeerListerExpansion
 }
