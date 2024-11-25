@@ -4,6 +4,8 @@
 
 Kilo is a multi-cloud network overlay built on WireGuard and designed for Kubernetes.
 
+Dummy test
+
 [![Build Status](https://github.com/squat/kilo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/squat/kilo/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/squat/kilo)](https://goreportcard.com/report/github.com/squat/kilo)
 [![Docker Pulls](https://img.shields.io/docker/pulls/squat/kilo)](https://hub.docker.com/r/squat/kilo)
