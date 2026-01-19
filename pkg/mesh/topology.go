@@ -263,17 +263,22 @@ CheckIPs:
 				}
 			}
 			// Check if allowed location IPs intersect with the allowed IPs.
+			// If the allowed location IP fully contains an allowed IP, that's fine -
+			// the more specific route will be used. Only warn if it's a partial overlap
+			// or if the allowed IP contains the allowed location IP.
 			for _, i := range s.allowedIPs {
-				if intersect(ip, i) {
+				if intersect(ip, i) && !ip.Contains(i.IP) {
 					_ = level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with allowed IPnets", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
 					continue CheckIPs
 				}
 			}
 			// Check if allowed location IPs intersect with the private IPs of the segment.
+			// If the allowed location IP fully contains a private IP, that's fine.
 			for _, i := range s.privateIPs {
 				if ip.Contains(i) {
-					_ = level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with privateIP", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
-					continue CheckIPs
+					// This is OK - the allowed location IP contains the private IP,
+					// so the more specific route to the private IP will still work.
+					_ = level.Debug(t.logger).Log("msg", "allowed location IPnet contains privateIP", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
 				}
 			}
 		}
