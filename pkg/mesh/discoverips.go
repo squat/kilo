@@ -40,7 +40,8 @@ import (
 // - private IP assigned to interface of default route
 // - private IP assigned to local interface
 // - if no IP was found, return nil and an error.
-func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error) {
+// If allowedCIDRs is not empty, only IPs within these CIDRs will be considered for private IP selection.
+func getIP(hostname string, allowedCIDRs []*net.IPNet, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error) {
 	ignore := make(map[string]struct{})
 	for i := range ignoreIfaces {
 		if ignoreIfaces[i] == 0 {
@@ -142,6 +143,10 @@ func getIP(hostname string, ignoreIfaces ...int) (*net.IPNet, *net.IPNet, error)
 	tmpPub = append(tmpPub, interfacePub...)
 	for i := range tmpPriv {
 		if _, ok := ignore[tmpPriv[i].String()]; ok {
+			continue
+		}
+		// If allowedCIDRs is specified, filter private IPs by these CIDRs.
+		if len(allowedCIDRs) > 0 && !isInCIDRs(tmpPriv[i].IP, allowedCIDRs) {
 			continue
 		}
 		priv = append(priv, tmpPriv[i])
@@ -289,4 +294,14 @@ func defaultInterface() (*net.Interface, error) {
 	}
 
 	return nil, errors.New("failed to find default route")
+}
+
+// isInCIDRs checks if the given IP is within any of the provided CIDRs.
+func isInCIDRs(ip net.IP, cidrs []*net.IPNet) bool {
+	for _, cidr := range cidrs {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
