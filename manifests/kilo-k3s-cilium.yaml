@@ -106,11 +106,16 @@ spec:
         - --encapsulate=crosssubnet
         - --clean-up-interface=true
         - --log-level=all
+        - --internal-cidr=$(NODE_IP)/32
         env:
         - name: NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
         ports:
         - containerPort: 1107
           name: metrics
