@@ -1,6 +1,8 @@
 ARG FROM=alpine
 FROM $FROM AS cni
-ARG GOARCH=amd64
+# TARGETARCH is automatically set by Docker buildx for multi-platform builds
+ARG TARGETARCH
+ARG GOARCH=${TARGETARCH:-amd64}
 ARG CNI_PLUGINS_VERSION=v1.1.1
 RUN apk add --no-cache curl && \
     curl -Lo cni.tar.gz https://github.com/containernetworking/plugins/releases/download/$CNI_PLUGINS_VERSION/cni-plugins-linux-$GOARCH-$CNI_PLUGINS_VERSION.tgz && \
