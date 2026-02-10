@@ -4,7 +4,7 @@ KIND_CLUSTER="kind-cluster-kilo"
 KIND_BINARY="${KIND_BINARY:-kind}"
 KUBECTL_BINARY="${KUBECTL_BINARY:-kubectl}"
 KGCTL_BINARY="${KGCTL_BINARY:-kgctl}"
-KILO_IMAGE="${KILO_IMAGE:-squat/kilo}"
+KILO_IMAGE="${KILO_IMAGE:-ghcr.io/cozystack/cozystack/kilo}"
 
 retry() {
 	local COUNT="${1:-10}"
@@ -118,9 +118,9 @@ create_cluster() {
 	# Create the kind cluster.
 	_kind create cluster --name $KIND_CLUSTER --config <(echo "$CONFIG")
 	# Load the Kilo image into kind.
-	docker tag "$KILO_IMAGE" squat/kilo:test
+	docker tag "$KILO_IMAGE" ghcr.io/cozystack/cozystack/kilo:test
 	# This command does not accept the --kubeconfig flag, so call the command directly.
-	$KIND_BINARY load docker-image squat/kilo:test --name $KIND_CLUSTER
+	$KIND_BINARY load docker-image ghcr.io/cozystack/cozystack/kilo:test --name $KIND_CLUSTER
 	# Create the kubeconfig secret.
 	_kubectl create secret generic kubeconfig --from-file=kubeconfig="$KUBECONFIG" -n kube-system
 	# Apply Kilo the the cluster.
