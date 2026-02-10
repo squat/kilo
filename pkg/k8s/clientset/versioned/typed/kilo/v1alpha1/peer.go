@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
-	v1alpha1 "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
-	scheme "github.com/squat/kilo/pkg/k8s/clientset/versioned/scheme"
+	v1alpha1 "github.com/cozystack/kilo/pkg/k8s/apis/kilo/v1alpha1"
+	scheme "github.com/cozystack/kilo/pkg/k8s/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

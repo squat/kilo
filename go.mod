@@ -1,4 +1,4 @@
-module github.com/squat/kilo
+module github.com/cozystack/kilo
 
 go 1.18
 

@@ -101,7 +101,7 @@ spec:
       hostNetwork: true
       containers:
       - name: kilo
-        image: squat/kilo:0.6.0
+        image: ghcr.io/cozystack/cozystack/kilo:v0.7.0
         args:
         - --kubeconfig=/etc/kubernetes/kubeconfig
         - --hostname=$(NODE_NAME)
@@ -131,7 +131,7 @@ spec:
           readOnly: false
       initContainers:
       - name: install-cni
-        image: squat/kilo:0.6.0
+        image: ghcr.io/cozystack/cozystack/kilo:v0.7.0
         command:
         - /bin/sh
         - -c

@@ -17,7 +17,7 @@ package encapsulation
 import (
 	"net"
 
-	"github.com/squat/kilo/pkg/iptables"
+	"github.com/cozystack/kilo/pkg/iptables"
 )
 
 // Noop is an encapsulation that does nothing.

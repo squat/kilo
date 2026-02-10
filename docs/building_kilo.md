@@ -14,7 +14,7 @@ To follow along, you need to install the following utilities:
 
 Clone the Repository and `cd` into it.
 ```shell
-git clone https://github.com/squat/kilo.git
+git clone https://github.com/cozystack/kilo.git
 cd kilo
 ```
 
@@ -97,4 +97,4 @@ make manifest-latest
 ```
 
 Now you can deploy the custom build of Kilo to your cluster.
-If you are already running Kilo, change the image from `squat/kilo` to `[registry/]<username>/kilo[:sha]`.
+If you are already running Kilo, change the image from `cozystack/kilo` to `[registry/]<username>/kilo[:sha]`.

@@ -17,7 +17,7 @@
 package fake
 
 import (
-	kilov1alpha1 "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
+	kilov1alpha1 "github.com/cozystack/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

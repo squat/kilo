@@ -35,8 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	kilo "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
-	"github.com/squat/kilo/pkg/version"
+	kilo "github.com/cozystack/kilo/pkg/k8s/apis/kilo/v1alpha1"
+	"github.com/cozystack/kilo/pkg/version"
 )
 
 var webhookCmd = &cobra.Command{

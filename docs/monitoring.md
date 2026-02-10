@@ -6,7 +6,7 @@ The following assumes that you have applied the [kube-prometheus](https://github
 
 Monitor the Kilo DaemonSet with:
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/podmonitor.yaml
+kubectl apply -f https://raw.githubusercontent.com/cozystack/kilo/main/manifests/podmonitor.yaml
 ```
 
 ## WireGuard
@@ -14,7 +14,7 @@ kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/pod
 Monitor the WireGuard interfaces with:
 ```shell
 kubectl create ns kilo
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/wg-exporter.yaml
+kubectl apply -f https://raw.githubusercontent.com/cozystack/kilo/main/manifests/wg-exporter.yaml
 ```
 
 The manifest will deploy the [Prometheus WireGuard Exporter](https://github.com/MindFlavor/prometheus_wireguard_exporter) as a DaemonSet and a [PodMonitor](https://docs.openshift.com/container-platform/4.8/rest_api/monitoring_apis/podmonitor-monitoring-coreos-com-v1.html).
@@ -22,7 +22,7 @@ The manifest will deploy the [Prometheus WireGuard Exporter](https://github.com/
 By default the kube-prometheus stack only monitors the `default`, `kube-system` and `monitoring` namespaces.
 In order to allow Prometheus to monitor the `kilo` namespace, apply the Role and RoleBinding with:
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/main/manifests/wg-exporter-role-kube-prometheus.yaml
+kubectl apply -f https://raw.githubusercontent.com/cozystack/kilo/main/manifests/wg-exporter-role-kube-prometheus.yaml
 ```
 
 ## Metrics
@@ -91,7 +91,7 @@ kubectl -n monitoring port-forward svc/grafana 3000
 Now navigate your browser to `localhost:3000`.
 The default user and password is `admin` `admin`.
 
-An example configuration for a dashboard displaying Kilo metrics can be found [here](https://raw.githubusercontent.com/squat/kilo/main/docs/grafana/kilo.json).
+An example configuration for a dashboard displaying Kilo metrics can be found [here](https://raw.githubusercontent.com/cozystack/kilo/main/docs/grafana/kilo.json).
 You can import this dashboard by hitting **+** -> **Import** on the Grafana dashboard.
 
 The dashboard looks like this:

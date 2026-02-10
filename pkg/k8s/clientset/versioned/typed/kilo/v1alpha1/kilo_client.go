@@ -19,8 +19,8 @@ package v1alpha1
 import (
 	"net/http"
 
-	v1alpha1 "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
-	"github.com/squat/kilo/pkg/k8s/clientset/versioned/scheme"
+	v1alpha1 "github.com/cozystack/kilo/pkg/k8s/apis/kilo/v1alpha1"
+	"github.com/cozystack/kilo/pkg/k8s/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

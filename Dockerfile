@@ -9,7 +9,7 @@ RUN apk add --no-cache curl && \
 FROM $FROM
 ARG GOARCH
 ARG ALPINE_VERSION=v3.20
-LABEL maintainer="squat <lserven@gmail.com>"
+LABEL maintainer="Cozystack <https://github.com/cozystack>"
 RUN echo -e "https://alpine.global.ssl.fastly.net/alpine/$ALPINE_VERSION/main\nhttps://alpine.global.ssl.fastly.net/alpine/$ALPINE_VERSION/community" > /etc/apk/repositories && \
     apk add --no-cache ipset iptables ip6tables graphviz font-noto
 COPY --from=cni bridge host-local loopback portmap /opt/cni/bin/
