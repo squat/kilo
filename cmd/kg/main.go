@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -116,7 +117,7 @@ var (
 	listen                string
 	local                 bool
 	master                string
-	mtu                   uint
+	mtuFlag               string
 	topologyLabel         string
 	port                  int
 	serviceCIDRsRaw       []string
@@ -149,7 +150,7 @@ func init() {
 	cmd.Flags().StringVar(&listen, "listen", ":1107", "The address at which to listen for health and metrics.")
 	cmd.Flags().BoolVar(&local, "local", true, "Should Kilo manage routes within a location?")
 	cmd.Flags().StringVar(&master, "master", "", "The address of the Kubernetes API server (overrides any value in kubeconfig).")
-	cmd.Flags().UintVar(&mtu, "mtu", wireguard.DefaultMTU, "The MTU of the WireGuard interface created by Kilo.")
+	cmd.Flags().StringVar(&mtuFlag, "mtu", "auto", "The MTU of the WireGuard interface created by Kilo. Set to 'auto' to detect from the underlay interface.")
 	cmd.Flags().StringVar(&topologyLabel, "topology-label", k8s.RegionLabelKey, "Kubernetes node label used to group nodes into logical locations.")
 	cmd.Flags().IntVar(&port, "port", mesh.DefaultKiloPort, "The port over which WireGuard peers should communicate.")
 	cmd.Flags().StringSliceVar(&serviceCIDRsRaw, "service-cidr", nil, "The service CIDR for the Kubernetes cluster. Can be provided optionally to avoid masquerading packets sent to service IPs. Can be specified multiple times.")
@@ -277,7 +278,20 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		internalCIDRs = append(internalCIDRs, s)
 	}
 
-	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUp, cleanUpIface, createIface, mtu, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, internalCIDRs, serviceCIDRs, log.With(logger, "component", "kilo"), registry)
+	var mtu uint
+	var autoMTU bool
+	if mtuFlag == "auto" {
+		autoMTU = true
+		mtu = wireguard.DefaultMTU
+	} else {
+		v, err := strconv.ParseUint(mtuFlag, 10, 32)
+		if err != nil {
+			return fmt.Errorf("failed to parse MTU %q: %v", mtuFlag, err)
+		}
+		mtu = uint(v)
+	}
+
+	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUp, cleanUpIface, createIface, mtu, autoMTU, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, internalCIDRs, serviceCIDRs, log.With(logger, "component", "kilo"), registry)
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}
