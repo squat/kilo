@@ -43,6 +43,7 @@ Flags:
   -h, --help                           help for kg
       --hostname string                Hostname of the node on which this process is running.
       --interface string               Name of the Kilo interface to use; if it does not exist, it will be created. (default "kilo0")
+      --internal-cidr strings          CIDRs to consider for internal IP auto-detection. If specified, only IPs within these CIDRs will be used. Can be specified multiple times.
       --iptables-forward-rules         Add default accept rules to the FORWARD chain in iptables. Warning: this may break firewalls with a deny all policy and is potentially insecure!
       --kubeconfig string              Path to kubeconfig.
       --listen string                  The address at which to listen for health and metrics. (default ":1107")
@@ -50,7 +51,7 @@ Flags:
       --log-level string               Log level to use. Possible values: all, debug, info, warn, error, none (default "info")
       --master string                  The address of the Kubernetes API server (overrides any value in kubeconfig).
       --mesh-granularity string        The granularity of the network mesh to create. Possible values: location, full (default "location")
-      --mtu uint                       The MTU of the WireGuard interface created by Kilo. (default 1420)
+      --mtu string                     The MTU of the WireGuard interface created by Kilo. Set to 'auto' to detect from the underlay interface. (default "auto")
       --port int                       The port over which WireGuard peers should communicate. (default 51820)
       --prioritise-private-addresses   Prefer to assign a private IP address to the node's endpoint.
       --resync-period duration         How often should the Kilo controllers reconcile? (default 30s)
