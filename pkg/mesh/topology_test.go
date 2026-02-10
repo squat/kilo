@@ -886,6 +886,7 @@ func TestFilterAllowedIPs(t *testing.T) {
 			},
 			result: map[int][]net.IPNet{
 				0: {
+					mustParseCIDR("10.4.0.1/32"),
 					mustParseCIDR("192.168.178.8/32"),
 				},
 				1: {
