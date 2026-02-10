@@ -9,13 +9,13 @@ Once such a configuration is applied, the Kubernetes API server will send an Adm
 With regard to the [failure policy](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#failure-policy), the API server will apply the requested changes to a resource if the request was answered with `"allowed": true`, or deny the changes if the answer was `"allowed": false`.
 
 In case of Kilo Peer Validation, the specified operations are `UPDATE` and `CREATE`, the resources are `Peers`, and the default `failurePolicy` is set to `Fail`.
-View the full ValidatingWebhookConfiguration [here](https://github.com/squat/kilo/blob/main/manifests/peer-validation.yaml).
+View the full ValidatingWebhookConfiguration [here](https://github.com/cozystack/kilo/blob/main/manifests/peer-validation.yaml).
 
 ## Getting Started
 
 Apply the Service, the Deployment of the actual webserver, and the ValidatingWebhookConfiguration with:
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/squat/kilo/blob/main/manifests/peer-validation.yaml
+kubectl apply -f https://raw.githubusercontent.com/cozystack/kilo/blob/main/manifests/peer-validation.yaml
 ```
 
 The Kubernetes API server will only talk to webhook servers via TLS so the Kilo-Peer-Validation server must be given a valid TLS certificate and key, and the API server must be told what certificate authority (CA) to trust.

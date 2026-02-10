@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/squat/kilo/pkg/iproute"
-	"github.com/squat/kilo/pkg/iptables"
+	"github.com/cozystack/kilo/pkg/iproute"
+	"github.com/cozystack/kilo/pkg/iptables"
 )
 
 type ipip struct {

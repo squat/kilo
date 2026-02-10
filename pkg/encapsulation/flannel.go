@@ -19,7 +19,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/squat/kilo/pkg/iptables"
+	"github.com/cozystack/kilo/pkg/iptables"
 	"github.com/vishvananda/netlink"
 )
 

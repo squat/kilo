@@ -21,7 +21,7 @@ import (
 
 	"github.com/awalterschulze/gographviz"
 
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/cozystack/kilo/pkg/wireguard"
 )
 
 // Dot generates a Graphviz graph of the Topology in DOT fomat.

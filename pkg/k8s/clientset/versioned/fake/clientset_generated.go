@@ -17,9 +17,9 @@
 package fake
 
 import (
-	clientset "github.com/squat/kilo/pkg/k8s/clientset/versioned"
-	kilov1alpha1 "github.com/squat/kilo/pkg/k8s/clientset/versioned/typed/kilo/v1alpha1"
-	fakekilov1alpha1 "github.com/squat/kilo/pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/fake"
+	clientset "github.com/cozystack/kilo/pkg/k8s/clientset/versioned"
+	kilov1alpha1 "github.com/cozystack/kilo/pkg/k8s/clientset/versioned/typed/kilo/v1alpha1"
+	fakekilov1alpha1 "github.com/cozystack/kilo/pkg/k8s/clientset/versioned/typed/kilo/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

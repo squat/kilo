@@ -23,7 +23,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/cozystack/kilo/pkg/wireguard"
 )
 
 func mustParseCIDR(s string) (r net.IPNet) {

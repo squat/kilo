@@ -46,7 +46,7 @@ spec:
         runAsUser: 1000
       containers:
       - name: server
-        image: squat/kilo:0.6.0
+        image: ghcr.io/cozystack/cozystack/kilo:v0.7.0
         args:
         - webhook
         - --cert-file=/run/secrets/tls/tls.crt

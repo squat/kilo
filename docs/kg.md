@@ -8,7 +8,7 @@ It performs several key functions, including:
 * maintaining routing table entries and iptables rules.
 
 `kg` is typically installed on all nodes of a Kubernetes cluster using a DaemonSet.
-Example manifests can be found [in the manifests directory](https://github.com/squat/kilo/tree/main/manifests).
+Example manifests can be found [in the manifests directory](https://github.com/cozystack/kilo/tree/main/manifests).
 
 ## Usage
 

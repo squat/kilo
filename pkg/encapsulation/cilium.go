@@ -21,7 +21,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/squat/kilo/pkg/iptables"
+	"github.com/cozystack/kilo/pkg/iptables"
 )
 
 const ciliumDeviceName = "cilium_host"

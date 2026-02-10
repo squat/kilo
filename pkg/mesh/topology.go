@@ -24,7 +24,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/cozystack/kilo/pkg/wireguard"
 )
 
 const (

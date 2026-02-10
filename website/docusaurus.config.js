@@ -21,7 +21,7 @@ module.exports = {
           position: 'left',
         },
         {
-          href: 'https://github.com/squat/kilo',
+          href: 'https://github.com/cozystack/kilo',
           label: 'GitHub',
           position: 'right',
         },
@@ -52,7 +52,7 @@ module.exports = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/squat/kilo',
+              href: 'https://github.com/cozystack/kilo',
             },
           ],
         },
@@ -66,7 +66,7 @@ module.exports = {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl:
-            'https://github.com/squat/kilo/edit/master/',
+            'https://github.com/cozystack/kilo/edit/master/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),

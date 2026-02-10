@@ -37,11 +37,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/squat/kilo/pkg/iproute"
-	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
-	"github.com/squat/kilo/pkg/mesh"
-	"github.com/squat/kilo/pkg/route"
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/cozystack/kilo/pkg/iproute"
+	"github.com/cozystack/kilo/pkg/k8s/apis/kilo/v1alpha1"
+	"github.com/cozystack/kilo/pkg/mesh"
+	"github.com/cozystack/kilo/pkg/route"
+	"github.com/cozystack/kilo/pkg/wireguard"
 )
 
 var (

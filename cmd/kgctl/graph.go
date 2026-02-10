@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/squat/kilo/pkg/mesh"
+	"github.com/cozystack/kilo/pkg/mesh"
 )
 
 func graph() *cobra.Command {

@@ -39,12 +39,12 @@ import (
 	v1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
-	kiloclient "github.com/squat/kilo/pkg/k8s/clientset/versioned"
-	v1alpha1informers "github.com/squat/kilo/pkg/k8s/informers/kilo/v1alpha1"
-	v1alpha1listers "github.com/squat/kilo/pkg/k8s/listers/kilo/v1alpha1"
-	"github.com/squat/kilo/pkg/mesh"
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/cozystack/kilo/pkg/k8s/apis/kilo/v1alpha1"
+	kiloclient "github.com/cozystack/kilo/pkg/k8s/clientset/versioned"
+	v1alpha1informers "github.com/cozystack/kilo/pkg/k8s/informers/kilo/v1alpha1"
+	v1alpha1listers "github.com/cozystack/kilo/pkg/k8s/listers/kilo/v1alpha1"
+	"github.com/cozystack/kilo/pkg/mesh"
+	"github.com/cozystack/kilo/pkg/wireguard"
 )
 
 const (

@@ -33,11 +33,11 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/squat/kilo/pkg/encapsulation"
-	"github.com/squat/kilo/pkg/iproute"
-	"github.com/squat/kilo/pkg/iptables"
-	"github.com/squat/kilo/pkg/route"
-	"github.com/squat/kilo/pkg/wireguard"
+	"github.com/cozystack/kilo/pkg/encapsulation"
+	"github.com/cozystack/kilo/pkg/iproute"
+	"github.com/cozystack/kilo/pkg/iptables"
+	"github.com/cozystack/kilo/pkg/route"
+	"github.com/cozystack/kilo/pkg/wireguard"
 )
 
 const (

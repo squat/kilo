@@ -17,8 +17,8 @@
 package kilo
 
 import (
-	internalinterfaces "github.com/squat/kilo/pkg/k8s/informers/internalinterfaces"
-	v1alpha1 "github.com/squat/kilo/pkg/k8s/informers/kilo/v1alpha1"
+	internalinterfaces "github.com/cozystack/kilo/pkg/k8s/informers/internalinterfaces"
+	v1alpha1 "github.com/cozystack/kilo/pkg/k8s/informers/kilo/v1alpha1"
 )
 
 // Interface provides access to each of this group's versions.
