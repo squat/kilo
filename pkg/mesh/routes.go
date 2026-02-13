@@ -76,6 +76,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 								Flags:     int(netlink.FLAG_ONLINK),
 								Gw:        segment.privateIPs[i],
 								LinkIndex: tunlIface,
+								Src:       t.privateIP.IP,
 								Protocol:  unix.RTPROT_STATIC,
 								Table:     kiloTableIndex,
 							})
@@ -169,6 +170,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 							Flags:     int(netlink.FLAG_ONLINK),
 							Gw:        segment.privateIPs[i],
 							LinkIndex: tunlIface,
+							Src:       t.privateIP.IP,
 							Protocol:  unix.RTPROT_STATIC,
 							Table:     kiloTableIndex,
 						})
@@ -316,8 +318,11 @@ func (t *Topology) PeerRoutes(name string, kiloIface int, additionalAllowedIPs [
 }
 
 func encapsulateRoute(route *netlink.Route, encapsulate encapsulation.Strategy, subnet *net.IPNet, tunlIface int) *netlink.Route {
-	if encapsulate == encapsulation.Always || (encapsulate == encapsulation.CrossSubnet && !subnet.Contains(route.Gw)) {
+	if encapsulate == encapsulation.Always || (encapsulate == encapsulation.CrossSubnet && subnet != nil && !subnet.Contains(route.Gw)) {
 		route.LinkIndex = tunlIface
+		if subnet != nil && route.Src == nil {
+			route.Src = subnet.IP
+		}
 	}
 	return route
 }
