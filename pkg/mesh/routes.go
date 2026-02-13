@@ -135,6 +135,14 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		}
 		return routes, rules
 	}
+	// Compute the preferred source address for routes through the WireGuard interface.
+	// Without this, the kernel picks the WireGuard overlay IP (e.g. 100.66.0.x) as the
+	// source, which can cause issues in environments like Azure SDN where the overlay
+	// IP is unknown to the network fabric and reply packets cannot be routed back.
+	var src net.IP
+	if t.privateIP != nil {
+		src = t.privateIP.IP
+	}
 	for _, segment := range t.segments {
 		// Add routes for the current segment if local is true.
 		if segment.location == t.location {
@@ -190,6 +198,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 				Flags:     int(netlink.FLAG_ONLINK),
 				Gw:        segment.wireGuardIP,
 				LinkIndex: kiloIface,
+				Src:       src,
 				Protocol:  unix.RTPROT_STATIC,
 			})
 			// Don't add routes through Kilo if the private IP
@@ -207,6 +216,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 				Flags:     int(netlink.FLAG_ONLINK),
 				Gw:        segment.wireGuardIP,
 				LinkIndex: kiloIface,
+				Src:       src,
 				Protocol:  unix.RTPROT_STATIC,
 			})
 		}
@@ -218,6 +228,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 				Flags:     int(netlink.FLAG_ONLINK),
 				Gw:        segment.wireGuardIP,
 				LinkIndex: kiloIface,
+				Src:       src,
 				Protocol:  unix.RTPROT_STATIC,
 			})
 		}
@@ -228,6 +239,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 			routes = append(routes, &netlink.Route{
 				Dst:       &peer.AllowedIPs[i],
 				LinkIndex: kiloIface,
+				Src:       src,
 				Protocol:  unix.RTPROT_STATIC,
 			})
 		}
