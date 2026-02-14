@@ -86,6 +86,8 @@ type segment struct {
 	leader int
 	// privateIPs is a slice of private IPs of all peers in the segment.
 	privateIPs []net.IP
+	// ciliumInternalIPs is a slice of Cilium internal IPs of all peers in the segment.
+	ciliumInternalIPs []net.IP
 	// wireGuardIP is the allocated IP address of the WireGuard
 	// interface on the leader of the segment.
 	wireGuardIP net.IP
@@ -155,6 +157,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		var cidrs []*net.IPNet
 		var hostnames []string
 		var privateIPs []net.IP
+		var ciliumInternalIPs []net.IP
 		for _, node := range topoMap[location] {
 			// Allowed IPs should include:
 			// - the node's allocated subnet
@@ -174,6 +177,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 				allowedIPs = append(allowedIPs, *oneAddressCIDR(node.InternalIP.IP))
 				privateIPs = append(privateIPs, node.InternalIP.IP)
 			}
+			ciliumInternalIPs = append(ciliumInternalIPs, node.CiliumInternalIP)
 			cidrs = append(cidrs, node.Subnet)
 			hostnames = append(hostnames, node.Name)
 		}
@@ -191,6 +195,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			hostnames:           hostnames,
 			leader:              leader,
 			privateIPs:          privateIPs,
+			ciliumInternalIPs:   ciliumInternalIPs,
 			allowedLocationIPs:  allowedLocationIPs,
 		})
 		_ = level.Debug(t.logger).Log("msg", "generated segment", "location", location, "allowedIPs", allowedIPs, "endpoint", topoMap[location][leader].Endpoint, "cidrs", cidrs, "hostnames", hostnames, "leader", leader, "privateIPs", privateIPs, "allowedLocationIPs", allowedLocationIPs)

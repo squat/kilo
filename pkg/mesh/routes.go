@@ -40,7 +40,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 		var gw net.IP
 		for _, segment := range t.segments {
 			if segment.location == t.location {
-				gw = enc.Gw(t.updateEndpoint(segment.endpoint, segment.key, &segment.persistentKeepalive).IP(), segment.privateIPs[segment.leader], segment.cidrs[segment.leader])
+				gw = enc.Gw(t.updateEndpoint(segment.endpoint, segment.key, &segment.persistentKeepalive).IP(), segment.privateIPs[segment.leader], segment.ciliumInternalIPs[segment.leader], segment.cidrs[segment.leader])
 				break
 			}
 		}
@@ -61,10 +61,11 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 						if segment.privateIPs[i].Equal(t.privateIP.IP) {
 							continue
 						}
+						nodeGw := enc.Gw(nil, segment.privateIPs[i], segment.ciliumInternalIPs[i], segment.cidrs[i])
 						routes = append(routes, encapsulateRoute(&netlink.Route{
 							Dst:       segment.cidrs[i],
 							Flags:     int(netlink.FLAG_ONLINK),
-							Gw:        segment.privateIPs[i],
+							Gw:        nodeGw,
 							LinkIndex: privIface,
 							Protocol:  unix.RTPROT_STATIC,
 						}, enc.Strategy(), t.privateIP, tunlIface))
@@ -74,7 +75,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 							routes = append(routes, &netlink.Route{
 								Dst:       oneAddressCIDR(segment.privateIPs[i]),
 								Flags:     int(netlink.FLAG_ONLINK),
-								Gw:        segment.privateIPs[i],
+								Gw:        nodeGw,
 								LinkIndex: tunlIface,
 								Protocol:  unix.RTPROT_STATIC,
 								Table:     kiloTableIndex,
@@ -146,10 +147,11 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 					if segment.privateIPs[i].Equal(t.privateIP.IP) {
 						continue
 					}
+					nodeGw := enc.Gw(nil, segment.privateIPs[i], segment.ciliumInternalIPs[i], segment.cidrs[i])
 					routes = append(routes, encapsulateRoute(&netlink.Route{
 						Dst:       segment.cidrs[i],
 						Flags:     int(netlink.FLAG_ONLINK),
-						Gw:        segment.privateIPs[i],
+						Gw:        nodeGw,
 						LinkIndex: privIface,
 						Protocol:  unix.RTPROT_STATIC,
 					}, enc.Strategy(), t.privateIP, tunlIface))
@@ -159,7 +161,7 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 						routes = append(routes, &netlink.Route{
 							Dst:       oneAddressCIDR(segment.privateIPs[i]),
 							Flags:     int(netlink.FLAG_ONLINK),
-							Gw:        segment.privateIPs[i],
+							Gw:        nodeGw,
 							LinkIndex: tunlIface,
 							Protocol:  unix.RTPROT_STATIC,
 							Table:     kiloTableIndex,
