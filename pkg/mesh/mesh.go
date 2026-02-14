@@ -700,7 +700,7 @@ func nodesAreEqual(a, b *Node) bool {
 	return a.Key.String() == b.Key.String() &&
 		ipNetsEqual(a.WireGuardIP, b.WireGuardIP) &&
 		ipNetsEqual(a.InternalIP, b.InternalIP) &&
-		bytes.Equal(a.CiliumInternalIP, b.CiliumInternalIP) &&
+		a.CiliumInternalIP.Equal(b.CiliumInternalIP) &&
 		a.Leader == b.Leader &&
 		a.Location == b.Location &&
 		a.Name == b.Name &&
