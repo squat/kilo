@@ -38,7 +38,7 @@ func NewCilium(strategy Strategy) Encapsulator {
 // CleanUp will remove any created IPIP devices.
 func (c *cilium) CleanUp() error {
 	if err := iproute.DeleteAddresses(c.iface); err != nil {
-		return nil
+		return err
 	}
 	return iproute.RemoveInterface(c.iface)
 }
