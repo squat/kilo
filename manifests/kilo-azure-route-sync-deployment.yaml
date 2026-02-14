@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kilo-azure-route-sync
+  namespace: cozy-cluster-autoscaler-azure
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kilo-azure-route-sync
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kilo-azure-route-sync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kilo-azure-route-sync
+subjects:
+- kind: ServiceAccount
+  name: kilo-azure-route-sync
+  namespace: cozy-cluster-autoscaler-azure
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kilo-azure-route-sync
+  namespace: cozy-cluster-autoscaler-azure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kilo-azure-route-sync
+  template:
+    metadata:
+      labels:
+        app: kilo-azure-route-sync
+    spec:
+      serviceAccountName: kilo-azure-route-sync
+      containers:
+      - name: sync
+        image: mcr.microsoft.com/azure-cli:2.67.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: cluster-autoscaler-azure-azure-cluster-autoscaler
+              key: ClientID
+        - name: AZURE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: cluster-autoscaler-azure-azure-cluster-autoscaler
+              key: ClientSecret
+        - name: AZURE_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: cluster-autoscaler-azure-azure-cluster-autoscaler
+              key: TenantID
+        - name: AZURE_SUBSCRIPTION_ID
+          valueFrom:
+            secretKeyRef:
+              name: cluster-autoscaler-azure-azure-cluster-autoscaler
+              key: SubscriptionID
+        - name: AZURE_RESOURCE_GROUP
+          valueFrom:
+            secretKeyRef:
+              name: cluster-autoscaler-azure-azure-cluster-autoscaler
+              key: ResourceGroup
+        - name: AZURE_ROUTE_TABLE
+          value: kilo-routes-workers-serverscom
+        - name: AZURE_VNET_NAME
+          value: cozystack-vnet
+        - name: AZURE_SUBNET_NAME
+          value: workers-serverscom
+        - name: AZURE_ROUTES
+          value: to-serverscom=192.168.102.0/23
+        command: ["/bin/sh","-ceu"]
+        args:
+        - |
+          az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" >/dev/null
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+
+          az aks install-cli --install-location /usr/local/bin/kubectl >/dev/null
+
+          sync_route() {
+            route_name="$1"
+            route_prefix="$2"
+            leader_ip="$3"
+            az network route-table route create -g "$AZURE_RESOURCE_GROUP" --route-table-name "$AZURE_ROUTE_TABLE" \
+              -n "$route_name" --address-prefix "$route_prefix" \
+              --next-hop-type VirtualAppliance --next-hop-ip-address "$leader_ip" >/dev/null || true
+            az network route-table route update -g "$AZURE_RESOURCE_GROUP" --route-table-name "$AZURE_ROUTE_TABLE" \
+              -n "$route_name" --address-prefix "$route_prefix" \
+              --next-hop-type VirtualAppliance --next-hop-ip-address "$leader_ip" >/dev/null
+          }
+
+          sync_all_routes() {
+            leader_ip="$1"
+            IFS=','
+            for entry in $AZURE_ROUTES; do
+              route_name="${entry%%=*}"
+              route_prefix="${entry#*=}"
+              [ -n "$route_name" ] && [ -n "$route_prefix" ] || continue
+              sync_route "$route_name" "$route_prefix" "$leader_ip"
+            done
+            unset IFS
+          }
+
+          kubectl get node -w -l topology.kubernetes.io/zone=azure --no-headers \
+            -o 'custom-columns=NAME:.metadata.name,LEADER:.metadata.annotations.kilo\.squat\.ai/leader,IP:.status.addresses[?(@.type=="InternalIP")].address' \
+            | while read -r n leader ip; do
+                echo "$(date -Iseconds) event node=${n} leader=${leader} ip=${ip}"
+                [ "$leader" = "true" ] || continue
+                az network vnet subnet update \
+                  -g "$AZURE_RESOURCE_GROUP" \
+                  --vnet-name "$AZURE_VNET_NAME" \
+                  -n "$AZURE_SUBNET_NAME" \
+                  --route-table "$AZURE_ROUTE_TABLE" >/dev/null
+
+                sync_all_routes "$ip"
+
+                echo "$(date -Iseconds) synced routes to leader ${n} (${ip})"
+              done

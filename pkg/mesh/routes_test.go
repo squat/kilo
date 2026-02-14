@@ -51,6 +51,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -58,6 +59,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -65,6 +67,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -72,6 +75,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -79,6 +83,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -86,21 +91,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -115,6 +124,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -122,6 +132,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -129,21 +140,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -299,6 +314,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -306,6 +322,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -313,6 +330,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -320,6 +338,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -327,6 +346,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -334,21 +354,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[3].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -363,6 +387,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -370,6 +395,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -377,6 +403,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -384,6 +411,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -391,21 +419,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[3].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -420,6 +452,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -427,6 +460,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -434,6 +468,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -441,6 +476,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -448,6 +484,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -455,21 +492,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[3].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -485,6 +526,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -492,6 +534,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -499,6 +542,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -506,6 +550,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -513,6 +558,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -520,21 +566,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -550,6 +600,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -557,6 +608,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -564,6 +616,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -571,6 +624,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -578,6 +632,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -585,21 +640,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -615,6 +674,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -622,6 +682,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -636,21 +697,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -666,6 +731,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -673,6 +739,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -680,6 +747,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["c"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -687,6 +755,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["c"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 					Table:     kiloTableIndex,
 				},
@@ -695,21 +764,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(LogicalGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -815,6 +888,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -822,6 +896,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -829,6 +904,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -836,6 +912,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -843,6 +920,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -850,6 +928,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 					Table:     kiloTableIndex,
 				},
@@ -858,6 +937,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -865,6 +945,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -872,6 +953,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -879,6 +961,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -886,6 +969,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        nodes["b"].InternalIP.IP,
 					LinkIndex: tunlIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -908,6 +992,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -915,6 +1000,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -922,6 +1008,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -929,6 +1016,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -936,6 +1024,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -943,21 +1032,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["a"].Name).segments[3].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["a"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -973,6 +1066,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -980,6 +1074,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -987,6 +1082,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -994,6 +1090,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[2].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -1001,21 +1098,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["b"].Name).segments[3].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["b"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
@@ -1031,6 +1132,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -1038,6 +1140,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[0].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -1045,6 +1148,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -1052,6 +1156,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -1059,6 +1164,7 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[1].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
@@ -1066,21 +1172,25 @@ func TestRoutes(t *testing.T) {
 					Flags:     int(netlink.FLAG_ONLINK),
 					Gw:        mustTopoForGranularityAndHost(FullGranularity, nodes["c"].Name).segments[3].wireGuardIP,
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["a"].AllowedIPs[1],
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 				{
 					Dst:       &peers["b"].AllowedIPs[0],
 					LinkIndex: kiloIface,
+					Src:       nodes["c"].InternalIP.IP,
 					Protocol:  unix.RTPROT_STATIC,
 				},
 			},
