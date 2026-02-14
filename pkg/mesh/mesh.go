@@ -412,6 +412,7 @@ func (m *Mesh) handleLocal(ctx context.Context, n *Node) {
 		Key:                 m.pub,
 		NoInternalIP:        n.NoInternalIP,
 		InternalIP:          n.InternalIP,
+		CiliumInternalIP:    m.enc.LocalIP(),
 		LastSeen:            time.Now().Unix(),
 		Leader:              n.Leader,
 		Location:            n.Location,
@@ -699,6 +700,7 @@ func nodesAreEqual(a, b *Node) bool {
 	return a.Key.String() == b.Key.String() &&
 		ipNetsEqual(a.WireGuardIP, b.WireGuardIP) &&
 		ipNetsEqual(a.InternalIP, b.InternalIP) &&
+		a.CiliumInternalIP.Equal(b.CiliumInternalIP) &&
 		a.Leader == b.Leader &&
 		a.Location == b.Location &&
 		a.Name == b.Name &&
