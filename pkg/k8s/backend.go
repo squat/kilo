@@ -49,20 +49,21 @@ import (
 
 const (
 	// Backend is the name of this mesh backend.
-	Backend                      = "kubernetes"
-	endpointAnnotationKey        = "kilo.squat.ai/endpoint"
-	forceEndpointAnnotationKey   = "kilo.squat.ai/force-endpoint"
-	forceInternalIPAnnotationKey = "kilo.squat.ai/force-internal-ip"
-	internalIPAnnotationKey      = "kilo.squat.ai/internal-ip"
-	keyAnnotationKey             = "kilo.squat.ai/key"
-	lastSeenAnnotationKey        = "kilo.squat.ai/last-seen"
-	leaderAnnotationKey          = "kilo.squat.ai/leader"
-	locationAnnotationKey        = "kilo.squat.ai/location"
-	persistentKeepaliveKey       = "kilo.squat.ai/persistent-keepalive"
-	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
-	discoveredEndpointsKey       = "kilo.squat.ai/discovered-endpoints"
-	allowedLocationIPsKey        = "kilo.squat.ai/allowed-location-ips"
-	granularityKey               = "kilo.squat.ai/granularity"
+	Backend                       = "kubernetes"
+	endpointAnnotationKey         = "kilo.squat.ai/endpoint"
+	forceEndpointAnnotationKey    = "kilo.squat.ai/force-endpoint"
+	forceInternalIPAnnotationKey  = "kilo.squat.ai/force-internal-ip"
+	internalIPAnnotationKey       = "kilo.squat.ai/internal-ip"
+	keyAnnotationKey              = "kilo.squat.ai/key"
+	lastSeenAnnotationKey         = "kilo.squat.ai/last-seen"
+	leaderAnnotationKey           = "kilo.squat.ai/leader"
+	locationAnnotationKey         = "kilo.squat.ai/location"
+	persistentKeepaliveKey        = "kilo.squat.ai/persistent-keepalive"
+	wireGuardIPAnnotationKey      = "kilo.squat.ai/wireguard-ip"
+	discoveredEndpointsKey        = "kilo.squat.ai/discovered-endpoints"
+	allowedLocationIPsKey         = "kilo.squat.ai/allowed-location-ips"
+	granularityKey                = "kilo.squat.ai/granularity"
+	ciliumInternalIPAnnotationKey = "kilo.squat.ai/cilium-internal-ip"
 	// RegionLabelKey is the key for the well-known Kubernetes topology region label.
 	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
@@ -241,6 +242,11 @@ func (nb *nodeBackend) Set(ctx context.Context, name string, node *mesh.Node) er
 		n.ObjectMeta.Annotations[discoveredEndpointsKey] = string(discoveredEndpoints)
 	}
 	n.ObjectMeta.Annotations[granularityKey] = string(node.Granularity)
+	if node.CiliumInternalIP != nil {
+		n.ObjectMeta.Annotations[ciliumInternalIPAnnotationKey] = node.CiliumInternalIP.String()
+	} else {
+		n.ObjectMeta.Annotations[ciliumInternalIPAnnotationKey] = ""
+	}
 	oldData, err := json.Marshal(old)
 	if err != nil {
 		return err
@@ -342,6 +348,12 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	// TODO log some error or warning.
 	key, _ := wgtypes.ParseKey(node.ObjectMeta.Annotations[keyAnnotationKey])
 
+	// Parse the Cilium internal IP if present.
+	var ciliumInternalIP net.IP
+	if cipStr, ok := node.ObjectMeta.Annotations[ciliumInternalIPAnnotationKey]; ok && cipStr != "" {
+		ciliumInternalIP = net.ParseIP(cipStr)
+	}
+
 	return &mesh.Node{
 		// Endpoint and InternalIP should only ever fail to parse if the
 		// remote node's agent has not yet set its IP address;
@@ -352,6 +364,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		Endpoint:            endpoint,
 		NoInternalIP:        noInternalIP,
 		InternalIP:          internalIP,
+		CiliumInternalIP:    ciliumInternalIP,
 		Key:                 key,
 		LastSeen:            lastSeen,
 		Leader:              leader,
