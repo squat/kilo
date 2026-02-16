@@ -18,15 +18,24 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/squat/kilo/pkg/iproute"
 	"github.com/squat/kilo/pkg/iptables"
 )
 
-const ciliumHostIface = "cilium_host"
+const (
+	ciliumHostIface = "cilium_host"
+	// ciliumTunlIface is the kernel's default IPIP tunnel (tunl0) renamed
+	// by Cilium when enable-ipip-termination is active. Unlike cilium_ipip4,
+	// which is receive-only (for DSR), cilium_tunl supports both TX and RX.
+	ciliumTunlIface = "cilium_tunl"
+)
 
 type cilium struct {
-	iface    int
-	strategy Strategy
+	iface      int
+	strategy   Strategy
+	ownsTunnel bool
 }
 
 // NewCilium returns an encapsulator that uses IPIP tunnels
@@ -36,7 +45,11 @@ func NewCilium(strategy Strategy) Encapsulator {
 }
 
 // CleanUp will remove any created IPIP devices.
+// If the tunnel is owned by Cilium, skip removal.
 func (c *cilium) CleanUp() error {
+	if !c.ownsTunnel {
+		return nil
+	}
 	if err := iproute.DeleteAddresses(c.iface); err != nil {
 		return err
 	}
@@ -79,8 +92,17 @@ func (c *cilium) Index() int {
 }
 
 // Init initializes the IPIP tunnel interface.
+// When Cilium's enable-ipip-termination is active, it renames the kernel's
+// tunl0 to cilium_tunl and creates a receive-only cilium_ipip4 device.
+// We use cilium_tunl because it supports both sending and receiving IPIP
+// traffic, whereas cilium_ipip4 only handles incoming packets (DSR).
 func (c *cilium) Init(base int) error {
-	iface, err := iproute.NewIPIP(base)
+	if link, err := netlink.LinkByName(ciliumTunlIface); err == nil {
+		c.iface = link.Attrs().Index
+		c.ownsTunnel = false
+		return nil
+	}
+	iface, err := iproute.NewIPIPWithName(base, ciliumTunlIface)
 	if err != nil {
 		return fmt.Errorf("failed to create tunnel interface: %v", err)
 	}
@@ -88,6 +110,7 @@ func (c *cilium) Init(base int) error {
 		return fmt.Errorf("failed to set tunnel interface up: %v", err)
 	}
 	c.iface = iface
+	c.ownsTunnel = true
 	return nil
 }
 
