@@ -75,22 +75,14 @@ func connect() *cobra.Command {
 	}
 	cmd.Flags().IPNetVarP(&connectOpts.allowedIP, "allowed-ip", "a", *takeIPNet(net.ParseCIDR("10.10.10.10/32")), "Allowed IP of the peer.")
 	cmd.Flags().StringSliceVar(&allowedIPs, "allowed-ips", []string{}, "Additional allowed IPs of the cluster, e.g. the service CIDR.")
-	cmd.Flags().StringVar(&logLevel, "log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
+	cmd.Flags().StringVar(&logLevel, "log-level", logLevelInfo, fmt.Sprintf("Log level to use. Possible values: %s", strings.Join(availableLogLevels, ", ")))
+	_ = cmd.RegisterFlagCompletionFunc("log-level", cobra.FixedCompletions(availableLogLevels, cobra.ShellCompDirectiveNoFileComp))
 	cmd.Flags().StringVar(&connectOpts.privateKey, "private-key", "", "Path to an existing WireGuard private key file.")
 	cmd.Flags().BoolVar(&connectOpts.cleanUp, "clean-up", true, "Should Kilo clean up the routes and interface when it shuts down?")
 	cmd.Flags().UintVar(&connectOpts.mtu, "mtu", uint(1420), "The MTU for the WireGuard interface.")
 	cmd.Flags().DurationVar(&connectOpts.resyncPeriod, "resync-period", 30*time.Second, "How often should Kilo reconcile?")
 	cmd.Flags().StringVarP(&connectOpts.interfaceName, "interface", "i", mesh.DefaultKiloInterface, "Name of the Kilo interface to use; if it does not exist, it will be created.")
 	cmd.Flags().IntVar(&connectOpts.persistentKeepalive, "persistent-keepalive", 10, "How often should WireGuard send keepalives? Setting to 0 will disable sending keepalives.")
-
-	availableLogLevels = strings.Join([]string{
-		logLevelAll,
-		logLevelDebug,
-		logLevelInfo,
-		logLevelWarn,
-		logLevelError,
-		logLevelNone,
-	}, ", ")
 
 	return cmd
 }
@@ -114,7 +106,7 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	case logLevelNone:
 		logger = level.NewFilter(logger, level.AllowNone())
 	default:
-		return fmt.Errorf("log level %s unknown; possible values are: %s", logLevel, availableLogLevels)
+		return fmt.Errorf("log level %s unknown; possible values are: %s", logLevel, strings.Join(availableLogLevels, ", "))
 	}
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)

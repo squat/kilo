@@ -43,22 +43,22 @@ const (
 )
 
 var (
-	availableBackends = strings.Join([]string{
+	availableBackends = []string{
 		k8s.Backend,
-	}, ", ")
-	availableGranularities = strings.Join([]string{
+	}
+	availableGranularities = []string{
 		string(mesh.LogicalGranularity),
 		string(mesh.FullGranularity),
 		string(mesh.AutoGranularity),
-	}, ", ")
-	availableLogLevels = strings.Join([]string{
+	}
+	availableLogLevels = []string{
 		logLevelAll,
 		logLevelDebug,
 		logLevelInfo,
 		logLevelWarn,
 		logLevelError,
 		logLevelNone,
-	}, ", ")
+	}
 	opts struct {
 		backend     mesh.Backend
 		granularity mesh.Granularity
@@ -72,6 +72,17 @@ var (
 )
 
 func runRoot(c *cobra.Command, _ []string) error {
+	p := c
+	for {
+		if p.Name() == "completion" || strings.HasPrefix(p.Name(), cobra.ShellCompRequestCmd) {
+			return nil
+		}
+		if !p.HasParent() {
+			break
+		}
+		p = p.Parent()
+	}
+
 	if opts.port < 1 || opts.port > 1<<16-1 {
 		return fmt.Errorf("invalid port: port mus be in range [%d:%d], but got %d", 1, 1<<16-1, opts.port)
 	}
@@ -118,8 +129,10 @@ func main() {
 		Version:           version.Version,
 		SilenceErrors:     true,
 	}
-	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", availableBackends))
-	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.AutoGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", availableGranularities))
+	cmd.PersistentFlags().StringVar(&backend, "backend", k8s.Backend, fmt.Sprintf("The backend for the mesh. Possible values: %s", strings.Join(availableBackends, ", ")))
+	_ = cmd.RegisterFlagCompletionFunc("backend", cobra.FixedCompletions(availableBackends, cobra.ShellCompDirectiveNoFileComp))
+	cmd.PersistentFlags().StringVar(&granularity, "mesh-granularity", string(mesh.AutoGranularity), fmt.Sprintf("The granularity of the network mesh to create. Possible values: %s", strings.Join(availableGranularities, ", ")))
+	_ = cmd.RegisterFlagCompletionFunc("mesh-granularity", cobra.FixedCompletions(availableGranularities, cobra.ShellCompDirectiveNoFileComp))
 	defaultKubeconfig := os.Getenv("KUBECONFIG")
 	if _, err := os.Stat(defaultKubeconfig); os.IsNotExist(err) {
 		defaultKubeconfig = filepath.Join(os.Getenv("HOME"), ".kube/config")
