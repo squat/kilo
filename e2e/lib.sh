@@ -133,7 +133,7 @@ create_cluster() {
 	# Ensure the curl helper is not scheduled on a control-plane node.
 	_kubectl apply -f helper-curl.yaml
 	block_until_ready_by_name default curl
-	_kubectl taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/master:NoSchedule-
+	_kubectl taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/control-plane:NoSchedule-
 	_kubectl apply -f https://raw.githubusercontent.com/kilo-io/adjacency/main/example.yaml
 	block_until_ready_by_name default adjacency
 }
