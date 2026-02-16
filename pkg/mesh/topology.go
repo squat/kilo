@@ -193,7 +193,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			privateIPs:          privateIPs,
 			allowedLocationIPs:  allowedLocationIPs,
 		})
-		level.Debug(t.logger).Log("msg", "generated segment", "location", location, "allowedIPs", allowedIPs, "endpoint", topoMap[location][leader].Endpoint, "cidrs", cidrs, "hostnames", hostnames, "leader", leader, "privateIPs", privateIPs, "allowedLocationIPs", allowedLocationIPs)
+		_ = level.Debug(t.logger).Log("msg", "generated segment", "location", location, "allowedIPs", allowedIPs, "endpoint", topoMap[location][leader].Endpoint, "cidrs", cidrs, "hostnames", hostnames, "leader", leader, "privateIPs", privateIPs, "allowedLocationIPs", allowedLocationIPs)
 
 	}
 	// Sort the Topology segments so the result is stable.
@@ -241,7 +241,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		segment.allowedLocationIPs = t.filterAllowedLocationIPs(segment.allowedLocationIPs, segment.location)
 	}
 
-	level.Debug(t.logger).Log("msg", "generated topology", "location", t.location, "hostname", t.hostname, "wireGuardIP", t.wireGuardCIDR, "privateIP", t.privateIP, "subnet", t.subnet, "leader", t.leader)
+	_ = level.Debug(t.logger).Log("msg", "generated topology", "location", t.location, "hostname", t.hostname, "wireGuardIP", t.wireGuardCIDR, "privateIP", t.privateIP, "subnet", t.subnet, "leader", t.leader)
 	return &t, nil
 }
 
@@ -257,7 +257,7 @@ CheckIPs:
 			if location != s.location {
 				for _, i := range s.allowedLocationIPs {
 					if intersect(ip, i) {
-						level.Warn(t.logger).Log("msg", "overlapping allowed location IPnets", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
+						_ = level.Warn(t.logger).Log("msg", "overlapping allowed location IPnets", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
 						continue CheckIPs
 					}
 				}
@@ -265,14 +265,14 @@ CheckIPs:
 			// Check if allowed location IPs intersect with the allowed IPs.
 			for _, i := range s.allowedIPs {
 				if intersect(ip, i) {
-					level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with allowed IPnets", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
+					_ = level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with allowed IPnets", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
 					continue CheckIPs
 				}
 			}
 			// Check if allowed location IPs intersect with the private IPs of the segment.
 			for _, i := range s.privateIPs {
 				if ip.Contains(i) {
-					level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with privateIP", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
+					_ = level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with privateIP", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
 					continue CheckIPs
 				}
 			}
@@ -281,7 +281,7 @@ CheckIPs:
 		for _, p := range t.peers {
 			for _, i := range p.AllowedIPs {
 				if intersect(ip, i) {
-					level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with peer IPnet", "IP", ip.String(), "IP2", i.String(), "peer", p.Name)
+					_ = level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with peer IPnet", "IP", ip.String(), "IP2", i.String(), "peer", p.Name)
 					continue CheckIPs
 				}
 			}

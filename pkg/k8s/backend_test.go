@@ -316,8 +316,8 @@ func TestTranslateNode(t *testing.T) {
 		},
 	} {
 		n := &v1.Node{}
-		n.ObjectMeta.Annotations = tc.annotations
-		n.ObjectMeta.Labels = tc.labels
+		n.Annotations = tc.annotations
+		n.Labels = tc.labels
 		n.Spec.PodCIDR = tc.subnet
 		node := translateNode(n, RegionLabelKey)
 		if diff := pretty.Compare(node, tc.out); diff != "" {

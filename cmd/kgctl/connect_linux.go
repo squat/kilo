@@ -115,7 +115,7 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		peerName = args[0]
 	} else {
-		level.Debug(logger).Log("msg", "no peer name provided; using hostname")
+		_ = level.Debug(logger).Log("msg", "no peer name provided; using hostname")
 		if peerName, err = os.Hostname(); err != nil {
 			return fmt.Errorf("could not determine hostname: %w", err)
 		}
@@ -146,7 +146,7 @@ func runConnect(cmd *cobra.Command, args []string) error {
 		}
 	}
 	publicKey := privateKey.PublicKey()
-	level.Info(logger).Log("msg", "generated public key", "key", publicKey)
+	_ = level.Info(logger).Log("msg", "generated public key", "key", publicKey)
 
 	if _, err := opts.kc.KiloV1alpha1().Peers().Get(ctx, peerName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
 		peer := &v1alpha1.Peer{
@@ -162,15 +162,15 @@ func runConnect(cmd *cobra.Command, args []string) error {
 		if _, err := opts.kc.KiloV1alpha1().Peers().Create(ctx, peer, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create peer: %w", err)
 		}
-		level.Info(logger).Log("msg", "created peer", "peer", peerName)
+		_ = level.Info(logger).Log("msg", "created peer", "peer", peerName)
 		if connectOpts.cleanUp {
 			defer func() {
 				ctxWithTimeout, cancelWithTimeout := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancelWithTimeout()
 				if err := opts.kc.KiloV1alpha1().Peers().Delete(ctxWithTimeout, peerName, metav1.DeleteOptions{}); err != nil {
-					level.Error(logger).Log("err", fmt.Sprintf("failed to delete peer: %v", err))
+					_ = level.Error(logger).Log("err", fmt.Sprintf("failed to delete peer: %v", err))
 				} else {
-					level.Info(logger).Log("msg", "deleted peer", "peer", peerName)
+					_ = level.Info(logger).Log("msg", "deleted peer", "peer", peerName)
 				}
 			}()
 		}
@@ -183,7 +183,7 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create wg interface: %w", err)
 	}
-	level.Info(logger).Log("msg", "created WireGuard interface", "name", connectOpts.interfaceName, "index", iface)
+	_ = level.Info(logger).Log("msg", "created WireGuard interface", "name", connectOpts.interfaceName, "index", iface)
 
 	table := route.NewTable()
 	if connectOpts.cleanUp {
@@ -193,7 +193,7 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	if err := iproute.SetAddress(iface, &connectOpts.allowedIP); err != nil {
 		return err
 	}
-	level.Info(logger).Log("msg", "set IP address of WireGuard interface", "IP", connectOpts.allowedIP.String())
+	_ = level.Info(logger).Log("msg", "set IP address of WireGuard interface", "IP", connectOpts.allowedIP.String())
 
 	if err := iproute.Set(iface, true); err != nil {
 		return err
@@ -213,7 +213,7 @@ func runConnect(cmd *cobra.Command, args []string) error {
 					select {
 					case err, ok := <-errCh:
 						if ok {
-							level.Error(logger).Log("err", err.Error())
+							_ = level.Error(logger).Log("err", err.Error())
 						} else {
 							return nil
 						}
@@ -226,9 +226,9 @@ func runConnect(cmd *cobra.Command, args []string) error {
 				cancel()
 				var serr run.SignalError
 				if ok := errors.As(err, &serr); ok {
-					level.Debug(logger).Log("msg", "received signal", "signal", serr.Signal.String(), "err", err.Error())
+					_ = level.Debug(logger).Log("msg", "received signal", "signal", serr.Signal.String(), "err", err.Error())
 				} else {
-					level.Error(logger).Log("msg", "received error", "err", err.Error())
+					_ = level.Error(logger).Log("msg", "received error", "err", err.Error())
 				}
 			},
 		)
@@ -236,10 +236,10 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	{
 		g.Add(
 			func() error {
-				level.Info(logger).Log("msg", "starting syncer")
+				_ = level.Info(logger).Log("msg", "starting syncer")
 				for {
 					if err := sync(table, peerName, privateKey, iface, logger); err != nil {
-						level.Error(logger).Log("msg", "failed to sync", "err", err.Error())
+						_ = level.Error(logger).Log("msg", "failed to sync", "err", err.Error())
 					}
 					select {
 					case <-time.After(connectOpts.resyncPeriod):
@@ -251,9 +251,9 @@ func runConnect(cmd *cobra.Command, args []string) error {
 				cancel()
 				var serr run.SignalError
 				if ok := errors.As(err, &serr); ok {
-					level.Debug(logger).Log("msg", "received signal", "signal", serr.Signal.String(), "err", err.Error())
+					_ = level.Debug(logger).Log("msg", "received signal", "signal", serr.Signal.String(), "err", err.Error())
 				} else {
-					level.Error(logger).Log("msg", "received error", "err", err.Error())
+					_ = level.Error(logger).Log("msg", "received error", "err", err.Error())
 				}
 			})
 	}
@@ -268,13 +268,13 @@ func runConnect(cmd *cobra.Command, args []string) error {
 
 func cleanUp(iface int, t *route.Table, logger log.Logger) {
 	if err := iproute.Set(iface, false); err != nil {
-		level.Error(logger).Log("err", fmt.Sprintf("failed to set WireGuard interface down: %v", err))
+		_ = level.Error(logger).Log("err", fmt.Sprintf("failed to set WireGuard interface down: %v", err))
 	}
 	if err := iproute.RemoveInterface(iface); err != nil {
-		level.Error(logger).Log("err", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
+		_ = level.Error(logger).Log("err", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
 	}
 	if err := t.CleanUp(); err != nil {
-		level.Error(logger).Log("failed to clean up routes: %v", err)
+		_ = level.Error(logger).Log("failed to clean up routes: %v", err)
 	}
 }
 
@@ -342,7 +342,7 @@ func sync(table *route.Table, peerName string, privateKey wgtypes.Key, iface int
 	if err != nil {
 		return err
 	}
-	defer wgClient.Close()
+	defer func() { _ = wgClient.Close() }()
 
 	current, err := wgClient.Device(connectOpts.interfaceName)
 	if err != nil {
@@ -356,9 +356,9 @@ func sync(table *route.Table, peerName string, privateKey wgtypes.Key, iface int
 		// If the key is empty, then it's the first time we are running
 		// so don't bother printing a diff.
 		if current.PrivateKey != [wgtypes.KeyLen]byte{} {
-			level.Info(logger).Log("msg", "WireGuard configurations are different", "diff", diff)
+			_ = level.Info(logger).Log("msg", "WireGuard configurations are different", "diff", diff)
 		}
-		level.Debug(logger).Log("msg", "setting WireGuard config", "config", conf.WGConfig())
+		_ = level.Debug(logger).Log("msg", "setting WireGuard config", "config", conf.WGConfig())
 		if err := wgClient.ConfigureDevice(connectOpts.interfaceName, conf.WGConfig()); err != nil {
 			return err
 		}

@@ -74,6 +74,7 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dot, err := topo.Dot()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to generate graph: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	buf := bytes.NewBufferString(dot)
@@ -85,7 +86,11 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "dot", "gv":
 		// If the raw dot data is requested, return it as string.
 		// This allows client-side rendering rather than server-side.
-		w.Write(buf.Bytes())
+		_, err = w.Write(buf.Bytes())
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to generate graph: %v", err), http.StatusInternalServerError)
+			return
+		}
 		return
 
 	case "svg", "png", "bmp", "fig", "gif", "json", "ps":
@@ -140,7 +145,11 @@ func (h *graphHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Add("content-type", mimeType)
-	w.Write(output)
+	_, err = w.Write(output)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {

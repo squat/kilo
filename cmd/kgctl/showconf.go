@@ -193,7 +193,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		}
 	}
 	if !found {
-		_, err := os.Stderr.WriteString(fmt.Sprintf("Node %q is not a leader node\n", hostname))
+		_, err := fmt.Fprintf(os.Stderr, "Node %q is not a leader node\n", hostname)
 		return err
 	}
 
