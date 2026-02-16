@@ -181,6 +181,35 @@ func (t *Topology) Routes(kiloIfaceName string, kiloIface, privIface, tunlIface 
 					}
 				}
 			}
+			// When not managing local routes, the leader still needs to
+			// route return WireGuard traffic through IPIP when non-leaders
+			// use overlay routing (e.g. Cilium) to reach the leader.
+			// Use the overlay gateway (e.g. Cilium internal IP) so the
+			// IPIP outer packet is routed through the overlay tunnel,
+			// since direct IPIP may be blocked by the cloud network.
+			if !local && t.privateIP != nil && enc.Strategy() != encapsulation.Never {
+				for i := range segment.cidrs {
+					if segment.privateIPs[i].Equal(t.privateIP.IP) {
+						continue
+					}
+					nodeGw := enc.Gw(nil, segment.privateIPs[i], segment.ciliumInternalIPs[i], segment.cidrs[i])
+					if nodeGw != nil && !nodeGw.Equal(segment.privateIPs[i]) {
+						routes = append(routes, &netlink.Route{
+							Dst:       oneAddressCIDR(segment.privateIPs[i]),
+							Flags:     int(netlink.FLAG_ONLINK),
+							Gw:        nodeGw,
+							LinkIndex: tunlIface,
+							Protocol:  unix.RTPROT_STATIC,
+							Table:     kiloTableIndex,
+						})
+						rules = append(rules, defaultRule(&netlink.Rule{
+							Dst:     oneAddressCIDR(segment.privateIPs[i]),
+							Table:   kiloTableIndex,
+							IifName: kiloIfaceName,
+						}))
+					}
+				}
+			}
 			// Continuing here prevents leaders form adding routes via WireGuard to
 			// nodes in their own location.
 			continue
