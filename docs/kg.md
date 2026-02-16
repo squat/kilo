@@ -14,7 +14,7 @@ Example manifests can be found [in the manifests directory](https://github.com/s
 
 The behavior of `kg` can be configured using the command line flags listed below.
 
-[embedmd]:# (../tmp/help.txt)
+[embedmd]:# (../help.txt)
 ```txt
 kg is the Kilo agent.
 		It runs on every node of a cluster,
@@ -26,7 +26,7 @@ Usage:
   kg [command]
 
 Available Commands:
-  completion  generate the autocompletion script for the specified shell
+  completion  Generate the autocompletion script for the specified shell
   help        Help about any command
   version     Print the version and exit.
   webhook     webhook starts a HTTPS server to validate updates and creations of Kilo peers.
@@ -58,5 +58,4 @@ Flags:
       --subnet string                  CIDR from which to allocate addresses for WireGuard interfaces. (default "10.4.0.0/16")
       --topology-label string          Kubernetes node label used to group nodes into logical locations. (default "topology.kubernetes.io/region")
       --version                        Print version and exit.
-
 ```
