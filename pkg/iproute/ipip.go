@@ -24,17 +24,23 @@ import (
 )
 
 const (
-	ipipHeaderSize = 20
-	tunnelName     = "tunl0"
+	ipipHeaderSize    = 20
+	DefaultTunnelName = "tunl0"
 )
 
-// NewIPIP creates an IPIP interface using the base interface
+// NewIPIP creates an IPIP interface named tunl0 using the base interface
 // to derive the tunnel's MTU.
 func NewIPIP(baseIndex int) (int, error) {
-	link, err := netlink.LinkByName(tunnelName)
+	return NewIPIPWithName(baseIndex, DefaultTunnelName)
+}
+
+// NewIPIPWithName creates a named IPIP interface using the base interface
+// to derive the tunnel's MTU.
+func NewIPIPWithName(baseIndex int, name string) (int, error) {
+	link, err := netlink.LinkByName(name)
 	if err != nil {
 		// If we failed to find the tunnel, then it probably simply does not exist.
-		cmd := exec.Command("ip", "tunnel", "add", tunnelName, "mode", "ipip")
+		cmd := exec.Command("ip", "tunnel", "add", name, "mode", "ipip")
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		// Sometimes creating a tunnel returns the error "File exists,"
@@ -42,7 +48,7 @@ func NewIPIP(baseIndex int) (int, error) {
 		if err := cmd.Run(); err != nil && !strings.Contains(stderr.String(), "File exists") {
 			return 0, fmt.Errorf("failed to create IPIP tunnel: %s", stderr.String())
 		}
-		link, err = netlink.LinkByName(tunnelName)
+		link, err = netlink.LinkByName(name)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get tunnel device: %v", err)
 		}
