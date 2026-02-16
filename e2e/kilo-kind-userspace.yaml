@@ -74,9 +74,9 @@ roleRef:
   kind: ClusterRole
   name: kilo
 subjects:
-  - kind: ServiceAccount
-    name: kilo
-    namespace: kube-system
+- kind: ServiceAccount
+  name: kilo
+  namespace: kube-system
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -154,7 +154,8 @@ spec:
         command:
         - /bin/sh
         - -c
-        - set -e -x;
+        - |
+          set -e -x;
           cp /opt/cni/bin/* /host/opt/cni/bin/;
           TMP_CONF="$CNI_CONF_NAME".tmp;
           echo "$CNI_NETWORK_CONFIG" > $TMP_CONF;

@@ -10,11 +10,11 @@ metadata:
 webhooks:
 - name: "peers.kilo.squat.ai"
   rules:
-  - apiGroups:   ["kilo.squat.ai"]
+  - apiGroups: ["kilo.squat.ai"]
     apiVersions: ["v1alpha1"]
-    operations:  ["CREATE","UPDATE"]
-    resources:   ["peers"]
-    scope:       "Cluster"
+    operations: ["CREATE", "UPDATE"]
+    resources: ["peers"]
+    scope: "Cluster"
   clientConfig:
     service:
       namespace: "kilo"
@@ -76,8 +76,8 @@ spec:
   selector:
     app.kubernetes.io/name: peer-validation-server
   ports:
-    - port: 443
-      targetPort: webhook
+  - port: 443
+    targetPort: webhook
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -109,9 +109,9 @@ roleRef:
   kind: ClusterRole
   name: kilo-peer-validation
 subjects:
-  - kind: ServiceAccount
-    namespace: kilo
-    name: kilo-peer-validation
+- kind: ServiceAccount
+  namespace: kilo
+  name: kilo-peer-validation
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -137,9 +137,9 @@ roleRef:
   kind: Role
   name: kilo-peer-validation
 subjects:
-  - kind: ServiceAccount
-    namespace: kilo
-    name: kilo-peer-validation
+- kind: ServiceAccount
+  namespace: kilo
+  name: kilo-peer-validation
 ---
 apiVersion: batch/v1
 kind: Job

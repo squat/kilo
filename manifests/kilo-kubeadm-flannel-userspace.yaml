@@ -40,9 +40,9 @@ roleRef:
   kind: ClusterRole
   name: kilo
 subjects:
-  - kind: ServiceAccount
-    name: kilo
-    namespace: kube-system
+- kind: ServiceAccount
+  name: kilo
+  namespace: kube-system
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -69,15 +69,15 @@ spec:
       - name: boringtun
         image: leonnicolas/boringtun:cc19859
         args:
-          - --disable-drop-privileges=true
-          - --foreground
-          - kilo0
+        - --disable-drop-privileges=true
+        - --foreground
+        - kilo0
         securityContext:
           privileged: true
         volumeMounts:
-          - name: wireguard
-            mountPath: /var/run/wireguard
-            readOnly: false
+        - name: wireguard
+          mountPath: /var/run/wireguard
+          readOnly: false
       - name: kilo
         image: squat/kilo:0.6.0
         args:
