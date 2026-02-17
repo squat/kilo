@@ -27,8 +27,7 @@ import (
 const (
 	ciliumHostIface = "cilium_host"
 	// ciliumTunlIface is the kernel's default IPIP tunnel (tunl0) renamed
-	// by Cilium when enable-ipip-termination is active. Unlike cilium_ipip4,
-	// which is receive-only (for DSR), cilium_tunl supports both TX and RX.
+	// by Cilium when enable-ipip-termination is enabled.
 	ciliumTunlIface = "cilium_tunl"
 )
 
@@ -92,17 +91,24 @@ func (c *cilium) Index() int {
 }
 
 // Init initializes the IPIP tunnel interface.
-// When Cilium's enable-ipip-termination is active, it renames the kernel's
-// tunl0 to cilium_tunl and creates a receive-only cilium_ipip4 device.
-// We use cilium_tunl because it supports both sending and receiving IPIP
-// traffic, whereas cilium_ipip4 only handles incoming packets (DSR).
+// If Cilium is running with enable-ipip-termination, it renames the kernel's
+// tunl0 to cilium_tunl. In that case we reuse the existing cilium_tunl.
+// Otherwise we create the standard tunl0 ourselves.
 func (c *cilium) Init(base int) error {
+	// If Cilium created cilium_tunl (enable-ipip-termination), reuse it.
 	if link, err := netlink.LinkByName(ciliumTunlIface); err == nil {
 		c.iface = link.Attrs().Index
 		c.ownsTunnel = false
+		// Ensure the interface is UP — Cilium may leave it DOWN.
+		if link.Attrs().Flags&net.FlagUp == 0 {
+			if err := iproute.Set(c.iface, true); err != nil {
+				return fmt.Errorf("failed to set %s up: %v", ciliumTunlIface, err)
+			}
+		}
 		return nil
 	}
-	iface, err := iproute.NewIPIPWithName(base, ciliumTunlIface)
+	// No cilium_tunl — create standard tunl0.
+	iface, err := iproute.NewIPIP(base)
 	if err != nil {
 		return fmt.Errorf("failed to create tunnel interface: %v", err)
 	}
