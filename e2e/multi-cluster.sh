@@ -58,6 +58,9 @@ EOF
 }
 
 teardown_suite () {
+	if [ -n "$E2E_SKIP_TEARDOWN_ON_FAILURE" ]; then
+		return
+	fi
 	# Remove the nodes in cluster2 as peers of cluster1.
 	for n in $(KUBECONFIG=$KUBECONFIG2 _kubectl get no -o name | cut -d'/' -f2); do
 		_kubectl delete peer "$n"

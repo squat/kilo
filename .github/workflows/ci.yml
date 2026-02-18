@@ -95,7 +95,15 @@ jobs:
             VERSION=${{ github.sha }}
       - uses: DeterminateSystems/determinate-nix-action@v3.15.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - run: nix develop . --command make e2e
+      - env:
+          E2E_SKIP_TEARDOWN_ON_FAILURE: "true"
+        run: nix develop . --command make e2e
+      - name: Breakpoint if tests failed
+        if: failure()
+        uses: namespacelabs/breakpoint-action@v0
+        with:
+          duration: 15m
+          authorized-users: squat, leonnicolas
 
   lint:
     runs-on: ubuntu-latest
