@@ -14,7 +14,7 @@ const (
 	XFRM_PROTO_ESP       Proto = unix.IPPROTO_ESP
 	XFRM_PROTO_AH        Proto = unix.IPPROTO_AH
 	XFRM_PROTO_HAO       Proto = unix.IPPROTO_DSTOPTS
-	XFRM_PROTO_COMP      Proto = 0x6c // NOTE not defined on darwin
+	XFRM_PROTO_COMP      Proto = unix.IPPROTO_COMP
 	XFRM_PROTO_IPSEC_ANY Proto = unix.IPPROTO_RAW
 )
 
@@ -46,6 +46,14 @@ const (
 	XFRM_MODE_IN_TRIGGER
 	XFRM_MODE_BEET
 	XFRM_MODE_MAX
+)
+
+// SADir is an enum representing an ipsec template direction.
+type SADir uint8
+
+const (
+	XFRM_SA_DIR_IN SADir = iota + 1
+	XFRM_SA_DIR_OUT
 )
 
 func (m Mode) String() string {
