@@ -50,8 +50,7 @@ type Indexer interface {
 	// GetIndexers return the indexers
 	GetIndexers() Indexers
 
-	// AddIndexers adds more indexers to this store.  If you call this after you already have data
-	// in the store, the results are undefined.
+	// AddIndexers adds more indexers to this store. This supports adding indexes after the store already has items.
 	AddIndexers(newIndexers Indexers) error
 }
 
@@ -92,10 +91,10 @@ func MetaNamespaceIndexFunc(obj interface{}) ([]string, error) {
 }
 
 // Index maps the indexed value to a set of keys in the store that match on that value
-type Index map[string]sets.String
+type index map[string]sets.Set[string]
 
 // Indexers maps a name to an IndexFunc
 type Indexers map[string]IndexFunc
 
 // Indices maps a name to an Index
-type Indices map[string]Index
+type Indices map[string]index

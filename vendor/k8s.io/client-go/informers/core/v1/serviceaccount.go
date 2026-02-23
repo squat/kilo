@@ -19,16 +19,16 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	corev1 "k8s.io/api/core/v1"
+	apicorev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	internalinterfaces "k8s.io/client-go/informers/internalinterfaces"
 	kubernetes "k8s.io/client-go/kubernetes"
-	v1 "k8s.io/client-go/listers/core/v1"
+	corev1 "k8s.io/client-go/listers/core/v1"
 	cache "k8s.io/client-go/tools/cache"
 )
 
@@ -36,7 +36,7 @@ import (
 // ServiceAccounts.
 type ServiceAccountInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ServiceAccountLister
+	Lister() corev1.ServiceAccountLister
 }
 
 type serviceAccountInformer struct {
@@ -57,21 +57,33 @@ func NewServiceAccountInformer(client kubernetes.Interface, namespace string, re
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredServiceAccountInformer(client kubernetes.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoreV1().ServiceAccounts(namespace).List(context.TODO(), options)
+				return client.CoreV1().ServiceAccounts(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoreV1().ServiceAccounts(namespace).Watch(context.TODO(), options)
+				return client.CoreV1().ServiceAccounts(namespace).Watch(context.Background(), options)
 			},
-		},
-		&corev1.ServiceAccount{},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.CoreV1().ServiceAccounts(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.CoreV1().ServiceAccounts(namespace).Watch(ctx, options)
+			},
+		}, client),
+		&apicorev1.ServiceAccount{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *serviceAccountInformer) defaultInformer(client kubernetes.Interface, re
 }
 
 func (f *serviceAccountInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1.ServiceAccount{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1.ServiceAccount{}, f.defaultInformer)
 }
 
-func (f *serviceAccountInformer) Lister() v1.ServiceAccountLister {
-	return v1.NewServiceAccountLister(f.Informer().GetIndexer())
+func (f *serviceAccountInformer) Lister() corev1.ServiceAccountLister {
+	return corev1.NewServiceAccountLister(f.Informer().GetIndexer())
 }
