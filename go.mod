@@ -14,7 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.2
 	github.com/vishvananda/netlink v1.3.1
-	golang.org/x/sys v0.38.0
+	golang.org/x/sys v0.41.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20211124212657-dd7407c86d22
 	k8s.io/api v0.35.1
 	k8s.io/apiextensions-apiserver v0.35.1
