@@ -77,7 +77,9 @@ jobs:
       - run: nix develop . --command go test -mod=vendor --race ./...
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on:
+      - nscloud-ubuntu-22.04-amd64-8x16-with-features
+      - namespace-features:kernel.release-channel=bleeding-edge
     steps:
       - uses: actions/checkout@v6
       - name: Set up Docker Buildx
