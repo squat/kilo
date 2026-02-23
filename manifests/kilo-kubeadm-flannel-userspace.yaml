@@ -66,10 +66,10 @@ spec:
       serviceAccountName: kilo
       hostNetwork: true
       containers:
-      - name: boringtun
-        image: leonnicolas/boringtun:cc19859
+      - name: wireguard
+        image: masipcat/wireguard-go:0.0.20230223:cc19859
         args:
-        - --disable-drop-privileges=true
+        - wireguard-go=true
         - --foreground
         - kilo0
         securityContext:

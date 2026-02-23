@@ -298,10 +298,10 @@ spec:
         - name: wireguard
           mountPath: /var/run/wireguard
           readOnly: false
-      - name: boringtun
-        image: leonnicolas/boringtun:cc19859
+      - name: wireguard
+        image: masipcat/wireguard-go:0.0.20230223:cc19859
         args:
-        - --disable-drop-privileges
+        - wireguard-go
         - --foreground
         - kilo0
         securityContext:

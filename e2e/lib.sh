@@ -65,7 +65,7 @@ build_kind_config() {
 }
 
 create_interface() {
-	docker run -d --name="$1" --rm --network=host --cap-add=NET_ADMIN --device=/dev/net/tun -v /var/run/wireguard:/var/run/wireguard -e WG_LOG_LEVEL=debug leonnicolas/boringtun --foreground --disable-drop-privileges "$1"
+	docker run -d --name="$1" --rm --network=host --cap-add=NET_ADMIN --device=/dev/net/tun -v /var/run/wireguard:/var/run/wireguard -e WG_LOG_LEVEL=debug masipcat/wireguard-go:0.0.20230223 wireguard-go --foreground "$1"
 }
 
 delete_interface() {
