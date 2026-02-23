@@ -350,7 +350,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 
 	// Parse the Cilium internal IP if present.
 	var ciliumInternalIP net.IP
-	if cipStr, ok := node.ObjectMeta.Annotations[ciliumInternalIPAnnotationKey]; ok && cipStr != "" {
+	if cipStr, ok := node.Annotations[ciliumInternalIPAnnotationKey]; ok && cipStr != "" {
 		ciliumInternalIP = net.ParseIP(cipStr)
 	}
 
