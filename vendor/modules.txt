@@ -39,7 +39,7 @@ github.com/containernetworking/plugins/pkg/ns
 github.com/containernetworking/plugins/pkg/utils/sysctl
 github.com/containernetworking/plugins/plugins/ipam/host-local/backend
 github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator
-# github.com/coreos/go-iptables v0.6.1-0.20220901214115-d2b8608923d1
+# github.com/coreos/go-iptables v0.8.0
 ## explicit; go 1.16
 github.com/coreos/go-iptables/iptables
 # github.com/davecgh/go-spew v1.1.1
