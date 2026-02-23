@@ -16,6 +16,7 @@ package invoke
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -33,21 +34,64 @@ type Exec interface {
 	Decode(jsonBytes []byte) (version.PluginInfo, error)
 }
 
+// Plugin must return result in same version as specified in netconf; but
+// for backwards compatibility reasons if the result version is empty use
+// config version (rather than technically correct 0.1.0).
+// https://github.com/containernetworking/cni/issues/895
+func fixupResultVersion(netconf, result []byte) (string, []byte, error) {
+	versionDecoder := &version.ConfigDecoder{}
+	confVersion, err := versionDecoder.Decode(netconf)
+	if err != nil {
+		return "", nil, err
+	}
+
+	var rawResult map[string]interface{}
+	if err := json.Unmarshal(result, &rawResult); err != nil {
+		return "", nil, fmt.Errorf("failed to unmarshal raw result: %w", err)
+	}
+
+	// plugin output of "null" is successfully unmarshalled, but results in a nil
+	// map which causes a panic when the confVersion is assigned below.
+	if rawResult == nil {
+		rawResult = make(map[string]interface{})
+	}
+
+	// Manually decode Result version; we need to know whether its cniVersion
+	// is empty, while built-in decoders (correctly) substitute 0.1.0 for an
+	// empty version per the CNI spec.
+	if resultVerRaw, ok := rawResult["cniVersion"]; ok {
+		resultVer, ok := resultVerRaw.(string)
+		if ok && resultVer != "" {
+			return resultVer, result, nil
+		}
+	}
+
+	// If the cniVersion is not present or empty, assume the result is
+	// the same CNI spec version as the config
+	rawResult["cniVersion"] = confVersion
+	newBytes, err := json.Marshal(rawResult)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to remarshal fixed result: %w", err)
+	}
+
+	return confVersion, newBytes, nil
+}
+
 // For example, a testcase could pass an instance of the following fakeExec
 // object to ExecPluginWithResult() to verify the incoming stdin and environment
 // and provide a tailored response:
 //
-//import (
+// import (
 //	"encoding/json"
 //	"path"
 //	"strings"
-//)
+// )
 //
-//type fakeExec struct {
+// type fakeExec struct {
 //	version.PluginDecoder
-//}
+// }
 //
-//func (f *fakeExec) ExecPlugin(pluginPath string, stdinData []byte, environ []string) ([]byte, error) {
+// func (f *fakeExec) ExecPlugin(pluginPath string, stdinData []byte, environ []string) ([]byte, error) {
 //	net := &types.NetConf{}
 //	err := json.Unmarshal(stdinData, net)
 //	if err != nil {
@@ -65,14 +109,14 @@ type Exec interface {
 //		}
 //	}
 //	return []byte("{\"CNIVersion\":\"0.4.0\"}"), nil
-//}
+// }
 //
-//func (f *fakeExec) FindInPath(plugin string, paths []string) (string, error) {
+// func (f *fakeExec) FindInPath(plugin string, paths []string) (string, error) {
 //	if len(paths) > 0 {
 //		return path.Join(paths[0], plugin), nil
 //	}
 //	return "", fmt.Errorf("failed to find plugin %s in paths %v", plugin, paths)
-//}
+// }
 
 func ExecPluginWithResult(ctx context.Context, pluginPath string, netconf []byte, args CNIArgs, exec Exec) (types.Result, error) {
 	if exec == nil {
@@ -84,7 +128,12 @@ func ExecPluginWithResult(ctx context.Context, pluginPath string, netconf []byte
 		return nil, err
 	}
 
-	return create.CreateFromBytes(stdoutBytes)
+	resultVersion, fixedBytes, err := fixupResultVersion(netconf, stdoutBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return create.Create(resultVersion, fixedBytes)
 }
 
 func ExecPluginWithoutResult(ctx context.Context, pluginPath string, netconf []byte, args CNIArgs, exec Exec) error {
