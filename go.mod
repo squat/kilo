@@ -10,7 +10,7 @@ require (
 	github.com/go-kit/kit v0.9.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
-	github.com/oklog/run v1.1.0
+	github.com/oklog/run v1.2.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.2
 	github.com/vishvananda/netlink v1.3.1
