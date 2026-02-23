@@ -15,14 +15,14 @@ RUN VERSION="$VERSION" nix \
     build --impure ".#kilo-cross-$TARGETOS-$TARGETARCH"
 RUN ln -s ../bin result/bin/"$BUILDOS"_"$BUILDARCH"
 
-FROM alpine:3.20 AS cni
+FROM alpine:3.23 AS cni
 ARG TARGETARCH
 ARG CNI_PLUGINS_VERSION=v1.9.0
 RUN apk add --no-cache curl && \
     curl -Lo cni.tar.gz https://github.com/containernetworking/plugins/releases/download/$CNI_PLUGINS_VERSION/cni-plugins-linux-$TARGETARCH-$CNI_PLUGINS_VERSION.tgz && \
     tar -xf cni.tar.gz
 
-FROM alpine:3.20
+FROM alpine:3.23
 ARG TARGETOS
 ARG TARGETARCH
 ARG ALPINE_VERSION=v3.20
