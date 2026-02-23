@@ -63,6 +63,8 @@ type Mesh struct {
 	kiloIface           int
 	kiloIfaceName       string
 	local               bool
+	mtu                 uint
+	autoMTU             bool
 	port                int
 	priv                wgtypes.Key
 	privIface           int
@@ -89,7 +91,7 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, allowedInternalCIDRs []*net.IPNet, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, autoMTU bool, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, allowedInternalCIDRs []*net.IPNet, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}
@@ -155,6 +157,9 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		enc = encapsulation.Noop(enc.Strategy())
 		_ = level.Debug(logger).Log("msg", "running without a private IP address")
 	}
+	if autoMTU {
+		mtu = detectMTU(logger)
+	}
 	var externalIP *net.IPNet
 	if prioritisePrivateAddr && privateIP != nil {
 		externalIP = privateIP
@@ -189,6 +194,8 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 		resyncPeriod:        resyncPeriod,
 		iptablesForwardRule: iptablesForwardRule,
 		local:               local,
+		mtu:                 mtu,
+		autoMTU:             autoMTU,
 		serviceCIDRs:        serviceCIDRs,
 		subnet:              subnet,
 		table:               route.NewTable(),
@@ -477,6 +484,16 @@ func (m *Mesh) applyTopology() {
 	m.peersGuage.Set(readyPeers)
 	// We cannot do anything with the topology until the local node is available.
 	if nodes[m.hostname] == nil {
+		return
+	}
+	// Re-detect MTU if auto mode is enabled.
+	if m.autoMTU {
+		m.mtu = detectMTU(m.logger)
+	}
+	// Ensure the WireGuard interface has the correct MTU.
+	if err := wireguard.SetMTU(m.kiloIface, m.mtu); err != nil {
+		_ = level.Error(m.logger).Log("error", fmt.Errorf("failed to set MTU on WireGuard interface: %v", err))
+		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
 	// Find the Kilo interface name.
@@ -793,6 +810,24 @@ func discoveredEndpointsAreEqual(a, b map[string]*net.UDPAddr) bool {
 		}
 	}
 	return true
+}
+
+func detectMTU(logger log.Logger) uint {
+	iface, err := defaultInterface()
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "failed to get default interface for MTU detection, using default MTU", "error", err)
+		return wireguard.DefaultMTU
+	}
+	link, err := netlink.LinkByIndex(iface.Index)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "failed to get default interface link for MTU detection, using default MTU", "error", err)
+		return wireguard.DefaultMTU
+	}
+	baseMTU := link.Attrs().MTU
+	_ = level.Info(logger).Log("msg", fmt.Sprintf("detected underlay MTU %d on default interface %s", baseMTU, link.Attrs().Name))
+	mtu := uint(baseMTU) - wireguard.WireGuardOverhead
+	_ = level.Info(logger).Log("msg", fmt.Sprintf("auto-detected WireGuard MTU: %d (underlay %d - overhead %d)", mtu, baseMTU, wireguard.WireGuardOverhead))
+	return mtu
 }
 
 func linkByIndex(index int) (netlink.Link, error) {

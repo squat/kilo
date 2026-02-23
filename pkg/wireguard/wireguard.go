@@ -26,6 +26,23 @@ import (
 // DefaultMTU is the the default MTU used by WireGuard.
 const DefaultMTU = 1420
 
+// WireGuardOverhead is the overhead in bytes added by WireGuard encapsulation.
+// IPv4 header (20) + UDP header (8) + WireGuard header (32) + MAC (16) + padding (4) = 80 bytes.
+const WireGuardOverhead = 80
+
+// SetMTU sets the MTU on the interface with the given index.
+// If the current MTU already matches, no change is made.
+func SetMTU(index int, mtu uint) error {
+	link, err := netlink.LinkByIndex(index)
+	if err != nil {
+		return fmt.Errorf("failed to get link: %v", err)
+	}
+	if link.Attrs().MTU == int(mtu) {
+		return nil
+	}
+	return netlink.LinkSetMTU(link, int(mtu))
+}
+
 type wgLink struct {
 	a netlink.LinkAttrs
 	t string

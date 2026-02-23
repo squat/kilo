@@ -51,7 +51,7 @@ Flags:
       --log-level string               Log level to use. Possible values: all, debug, info, warn, error, none (default "info")
       --master string                  The address of the Kubernetes API server (overrides any value in kubeconfig).
       --mesh-granularity string        The granularity of the network mesh to create. Possible values: location, full (default "location")
-      --mtu uint                       The MTU of the WireGuard interface created by Kilo. (default 1420)
+      --mtu string                     The MTU of the WireGuard interface created by Kilo. Set to 'auto' to detect from the underlay interface. (default "auto")
       --port int                       The port over which WireGuard peers should communicate. (default 51820)
       --prioritise-private-addresses   Prefer to assign a private IP address to the node's endpoint.
       --resync-period duration         How often should the Kilo controllers reconcile? (default 30s)
