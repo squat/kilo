@@ -21,9 +21,9 @@ import (
 	"io"
 	"strings"
 
-	"k8s.io/gengo/generator"
-	"k8s.io/gengo/namer"
-	"k8s.io/gengo/types"
+	"k8s.io/gengo/v2/generator"
+	"k8s.io/gengo/v2/namer"
+	"k8s.io/gengo/v2/types"
 
 	"k8s.io/code-generator/cmd/client-gen/generators/util"
 	clientgentypes "k8s.io/code-generator/cmd/client-gen/types"
@@ -34,7 +34,7 @@ import (
 // informerGenerator produces a file of listers for a given GroupVersion and
 // type.
 type informerGenerator struct {
-	generator.DefaultGen
+	generator.GoGenerator
 	outputPackage             string
 	groupPkgName              string
 	groupVersion              clientgentypes.GroupVersion
@@ -78,29 +78,32 @@ func (g *informerGenerator) GenerateType(c *generator.Context, t *types.Type, w 
 	}
 
 	m := map[string]interface{}{
-		"apiScheme":                       c.Universe.Type(apiScheme),
-		"cacheIndexers":                   c.Universe.Type(cacheIndexers),
-		"cacheListWatch":                  c.Universe.Type(cacheListWatch),
-		"cacheMetaNamespaceIndexFunc":     c.Universe.Function(cacheMetaNamespaceIndexFunc),
-		"cacheNamespaceIndex":             c.Universe.Variable(cacheNamespaceIndex),
-		"cacheNewSharedIndexInformer":     c.Universe.Function(cacheNewSharedIndexInformer),
-		"cacheSharedIndexInformer":        c.Universe.Type(cacheSharedIndexInformer),
-		"clientSetInterface":              clientSetInterface,
-		"group":                           namer.IC(g.groupGoName),
-		"informerFor":                     informerFor,
-		"interfacesTweakListOptionsFunc":  c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "TweakListOptionsFunc"}),
-		"interfacesSharedInformerFactory": c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "SharedInformerFactory"}),
-		"listOptions":                     c.Universe.Type(listOptions),
-		"lister":                          c.Universe.Type(types.Name{Package: listerPackage, Name: t.Name.Name + "Lister"}),
-		"namespaceAll":                    c.Universe.Type(metav1NamespaceAll),
-		"namespaced":                      !tags.NonNamespaced,
-		"newLister":                       c.Universe.Function(types.Name{Package: listerPackage, Name: "New" + t.Name.Name + "Lister"}),
-		"runtimeObject":                   c.Universe.Type(runtimeObject),
-		"timeDuration":                    c.Universe.Type(timeDuration),
-		"type":                            t,
-		"v1ListOptions":                   c.Universe.Type(v1ListOptions),
-		"version":                         namer.IC(g.groupVersion.Version.String()),
-		"watchInterface":                  c.Universe.Type(watchInterface),
+		"apiScheme":                                c.Universe.Type(apiScheme),
+		"cacheIndexers":                            c.Universe.Type(cacheIndexers),
+		"cacheListWatch":                           c.Universe.Type(cacheListWatch),
+		"cacheMetaNamespaceIndexFunc":              c.Universe.Function(cacheMetaNamespaceIndexFunc),
+		"cacheNamespaceIndex":                      c.Universe.Variable(cacheNamespaceIndex),
+		"cacheNewSharedIndexInformer":              c.Universe.Function(cacheNewSharedIndexInformer),
+		"cacheSharedIndexInformer":                 c.Universe.Type(cacheSharedIndexInformer),
+		"cacheToListWatcherWithWatchListSemantics": c.Universe.Function(cacheToListWatcherWithWatchListSemanticsFunc),
+		"clientSetInterface":                       clientSetInterface,
+		"contextContext":                           c.Universe.Type(contextContext),
+		"contextBackground":                        c.Universe.Function(contextBackgroundFunc),
+		"group":                                    namer.IC(g.groupGoName),
+		"informerFor":                              informerFor,
+		"interfacesTweakListOptionsFunc":           c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "TweakListOptionsFunc"}),
+		"interfacesSharedInformerFactory":          c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "SharedInformerFactory"}),
+		"listOptions":                              c.Universe.Type(listOptions),
+		"lister":                                   c.Universe.Type(types.Name{Package: listerPackage, Name: t.Name.Name + "Lister"}),
+		"namespaceAll":                             c.Universe.Type(metav1NamespaceAll),
+		"namespaced":                               !tags.NonNamespaced,
+		"newLister":                                c.Universe.Function(types.Name{Package: listerPackage, Name: "New" + t.Name.Name + "Lister"}),
+		"runtimeObject":                            c.Universe.Type(runtimeObject),
+		"timeDuration":                             c.Universe.Type(timeDuration),
+		"type":                                     t,
+		"v1ListOptions":                            c.Universe.Type(v1ListOptions),
+		"version":                                  namer.IC(g.groupVersion.Version.String()),
+		"watchInterface":                           c.Universe.Type(watchInterface),
 	}
 
 	sw.Do(typeInformerInterface, m)
@@ -146,20 +149,32 @@ var typeFilteredInformerPublicConstructor = `
 // one. This reduces memory footprint and number of connections to the server.
 func NewFiltered$.type|public$Informer(client $.clientSetInterface|raw$$if .namespaced$, namespace string$end$, resyncPeriod $.timeDuration|raw$, indexers $.cacheIndexers|raw$, tweakListOptions $.interfacesTweakListOptionsFunc|raw$) $.cacheSharedIndexInformer|raw$ {
 	return $.cacheNewSharedIndexInformer|raw$(
-		&$.cacheListWatch|raw${
+		$.cacheToListWatcherWithWatchListSemantics|raw$(&$.cacheListWatch|raw${
 			ListFunc: func(options $.v1ListOptions|raw$) ($.runtimeObject|raw$, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.$.group$$.version$().$.type|publicPlural$($if .namespaced$namespace$end$).List(context.TODO(), options)
+				return client.$.group$$.version$().$.type|publicPlural$($if .namespaced$namespace$end$).List($.contextBackground|raw$(), options)
 			},
 			WatchFunc: func(options $.v1ListOptions|raw$) ($.watchInterface|raw$, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.$.group$$.version$().$.type|publicPlural$($if .namespaced$namespace$end$).Watch(context.TODO(), options)
+				return client.$.group$$.version$().$.type|publicPlural$($if .namespaced$namespace$end$).Watch($.contextBackground|raw$(), options)
 			},
-		},
+			ListWithContextFunc: func(ctx $.contextContext|raw$, options $.v1ListOptions|raw$) ($.runtimeObject|raw$, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.$.group$$.version$().$.type|publicPlural$($if .namespaced$namespace$end$).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx $.contextContext|raw$, options $.v1ListOptions|raw$) ($.watchInterface|raw$, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.$.group$$.version$().$.type|publicPlural$($if .namespaced$namespace$end$).Watch(ctx, options)
+			},
+		}, client),
 		&$.type|raw${},
 		resyncPeriod,
 		indexers,

@@ -23,14 +23,14 @@ import (
 
 	clientgentypes "k8s.io/code-generator/cmd/client-gen/types"
 	codegennamer "k8s.io/code-generator/pkg/namer"
-	"k8s.io/gengo/generator"
-	"k8s.io/gengo/namer"
-	"k8s.io/gengo/types"
+	"k8s.io/gengo/v2/generator"
+	"k8s.io/gengo/v2/namer"
+	"k8s.io/gengo/v2/types"
 )
 
 // genericGenerator generates the generic informer.
 type genericGenerator struct {
-	generator.DefaultGen
+	generator.GoGenerator
 	outputPackage        string
 	imports              namer.ImportTracker
 	groupVersions        map[string]clientgentypes.GroupVersions
@@ -61,7 +61,6 @@ func (g *genericGenerator) Namers(c *generator.Context) namer.NameSystems {
 
 func (g *genericGenerator) Imports(c *generator.Context) (imports []string) {
 	imports = append(imports, g.imports.ImportLines()...)
-	imports = append(imports, "fmt")
 	return
 }
 
@@ -127,6 +126,7 @@ func (g *genericGenerator) GenerateType(c *generator.Context, t *types.Type, w i
 		"cacheGenericLister":         c.Universe.Type(cacheGenericLister),
 		"cacheNewGenericLister":      c.Universe.Function(cacheNewGenericLister),
 		"cacheSharedIndexInformer":   c.Universe.Type(cacheSharedIndexInformer),
+		"fmtErrorf":                  c.Universe.Type(fmtErrorfFunc),
 		"groups":                     groups,
 		"schemeGVs":                  schemeGVs,
 		"schemaGroupResource":        c.Universe.Type(schemaGroupResource),
@@ -179,6 +179,6 @@ func (f *sharedInformerFactory) ForResource(resource {{.schemaGroupVersionResour
 		{{end -}}
 	}
 
-	return nil, fmt.Errorf("no informer found for %v", resource)
+	return nil, {{.fmtErrorf|raw}}("no informer found for %v", resource)
 }
 `
