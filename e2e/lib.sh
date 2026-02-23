@@ -126,13 +126,13 @@ create_cluster() {
 	# Apply Kilo the the cluster.
 	_kubectl apply -f ../manifests/crds.yaml
 	_kubectl apply -f kilo-kind-userspace.yaml
-	block_until_ready_by_name kube-system kilo-userspace
+	if ! block_until_ready_by_name kube-system kilo-userspace; then return 1; fi
 	_kubectl wait nodes --all --for=condition=Ready
 	# Wait for CoreDNS.
 	block_until_ready kube_system k8s-app=kube-dns
 	# Ensure the curl helper is not scheduled on a control-plane node.
 	_kubectl apply -f helper-curl.yaml
-	block_until_ready_by_name default curl
+	block_until_ready_by_name default curl || return 1
 	_kubectl taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/control-plane:NoSchedule-
 	_kubectl apply -f https://raw.githubusercontent.com/kilo-io/adjacency/main/example.yaml
 	block_until_ready_by_name default adjacency
