@@ -6,7 +6,6 @@ setup_suite() {
 	# shellcheck disable=SC2016
 	_kubectl patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=full"]}]}}}}'
 	block_until_ready_by_name kube-system kilo-userspace 
-	_kubectl wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
 }
 
 test_full_mesh_connectivity() {

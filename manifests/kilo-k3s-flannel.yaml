@@ -40,9 +40,9 @@ roleRef:
   kind: ClusterRole
   name: kilo
 subjects:
-  - kind: ServiceAccount
-    name: kilo
-    namespace: kube-system
+- kind: ServiceAccount
+  name: kilo
+  namespace: kube-system
 ---
 apiVersion: v1
 kind: ConfigMap

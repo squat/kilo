@@ -1,7 +1,6 @@
-.cache/
-.container*
-.manifest*
-.push*
-bin/
-tmp/
 e2e/kind.yaml*
+.direnv/
+/.pre-commit-config.yaml
+/result*
+/e2e-*/
+/help.txt

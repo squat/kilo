@@ -107,6 +107,6 @@ roleRef:
   kind: ClusterRole
   name: kube-router
 subjects:
-  - kind: ServiceAccount
-    name: kube-router
-    namespace: kube-system
+- kind: ServiceAccount
+  name: kube-router
+  namespace: kube-system

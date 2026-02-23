@@ -40,9 +40,9 @@ roleRef:
   kind: ClusterRole
   name: kilo
 subjects:
-  - kind: ServiceAccount
-    name: kilo
-    namespace: kube-system
+- kind: ServiceAccount
+  name: kilo
+  namespace: kube-system
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -92,18 +92,16 @@ spec:
         volumeMounts:
         - name: kilo-dir
           mountPath: /var/lib/kilo
-
-        # with kube-proxy configmap
-        # - name: kubeconfig
-        #   mountPath: /etc/kubernetes
-        #   readOnly: true
-
         # without kube-proxy host kubeconfig binding
         - name: kubeconfig
+          # with kube-proxy configmap
+          # - name: kubeconfig
+          #   mountPath: /etc/kubernetes
+          #   readOnly: true
+
           mountPath: /etc/kubernetes/kubeconfig
           subPath: admin.conf
           readOnly: true
-
         - name: lib-modules
           mountPath: /lib/modules
           readOnly: true
@@ -119,20 +117,18 @@ spec:
       - name: kilo-dir
         hostPath:
           path: /var/lib/kilo
-
-      # with kube-proxy configmap
-      # - name: kubeconfig
-      #   configMap:
-      #     name: kube-proxy
-      #     items:
-      #       - key: kubeconfig.conf
-      #         path: kubeconfig
-
       # without kube-proxy host kubeconfig binding
       - name: kubeconfig
+        # with kube-proxy configmap
+        # - name: kubeconfig
+        #   configMap:
+        #     name: kube-proxy
+        #     items:
+        #       - key: kubeconfig.conf
+        #         path: kubeconfig
+
         hostPath:
           path: /etc/kubernetes
-
       - name: lib-modules
         hostPath:
           path: /lib/modules

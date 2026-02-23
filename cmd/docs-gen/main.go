@@ -47,7 +47,7 @@ var (
 
 func toSectionLink(name string) string {
 	name = strings.ToLower(name)
-	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ReplaceAll(name, " ", "-")
 	return name
 }
 
@@ -120,7 +120,7 @@ func parseDocumentationFrom(srcs []string) []KubeTypes {
 				for _, field := range structType.Fields.List {
 					// Skip fields that are not tagged.
 					if field.Tag == nil {
-						os.Stderr.WriteString(fmt.Sprintf("Tag is nil, skipping field: %v of type %v\n", field, field.Type))
+						_, _ = fmt.Fprintf(os.Stderr, "Tag is nil, skipping field: %v of type %v\n", field, field.Type)
 						continue
 					}
 					// Treat inlined fields separately as we don't want the original types to appear in the doc.
@@ -158,7 +158,7 @@ func astFrom(filePath string) *doc.Package {
 	}
 
 	m[filePath] = f
-	apkg, _ := ast.NewPackage(fset, m, nil, nil)
+	apkg, _ := ast.NewPackage(fset, m, nil, nil) //nolint:all
 
 	return doc.New(apkg, "", 0)
 }
@@ -174,7 +174,7 @@ func fmtRawDoc(rawDoc string) string {
 	// Ignore all lines after ---
 	rawDoc = strings.Split(rawDoc, "---")[0]
 
-	for _, line := range strings.Split(rawDoc, "\n") {
+	for line := range strings.SplitSeq(rawDoc, "\n") {
 		line = strings.TrimRight(line, " ")
 		leading := strings.TrimLeft(line, " ")
 		switch {
@@ -195,11 +195,11 @@ func fmtRawDoc(rawDoc string) string {
 	}
 
 	postDoc := strings.TrimRight(buffer.String(), "\n")
-	postDoc = strings.Replace(postDoc, "\\\"", "\"", -1) // replace user's \" to "
-	postDoc = strings.Replace(postDoc, "\"", "\\\"", -1) // Escape "
-	postDoc = strings.Replace(postDoc, "\n", "\\n", -1)
-	postDoc = strings.Replace(postDoc, "\t", "\\t", -1)
-	postDoc = strings.Replace(postDoc, "|", "\\|", -1)
+	postDoc = strings.ReplaceAll(postDoc, "\\\"", "\"") // replace user's \" to "
+	postDoc = strings.ReplaceAll(postDoc, "\"", "\\\"") // Escape "
+	postDoc = strings.ReplaceAll(postDoc, "\n", "\\n")
+	postDoc = strings.ReplaceAll(postDoc, "\t", "\\t")
+	postDoc = strings.ReplaceAll(postDoc, "|", "\\|")
 
 	return postDoc
 }

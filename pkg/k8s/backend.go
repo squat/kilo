@@ -162,7 +162,7 @@ func (nb *nodeBackend) Init(ctx context.Context) error {
 	}); !ok {
 		return errors.New("failed to sync node cache")
 	}
-	nb.informer.AddEventHandler(
+	_, err := nb.informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				n, ok := obj.(*v1.Node)
@@ -195,7 +195,7 @@ func (nb *nodeBackend) Init(ctx context.Context) error {
 			},
 		},
 	)
-	return nil
+	return err
 }
 
 // List gets all the Nodes in the cluster.
@@ -218,29 +218,29 @@ func (nb *nodeBackend) Set(ctx context.Context, name string, node *mesh.Node) er
 		return fmt.Errorf("failed to find node: %v", err)
 	}
 	n := old.DeepCopy()
-	n.ObjectMeta.Annotations[endpointAnnotationKey] = node.Endpoint.String()
+	n.Annotations[endpointAnnotationKey] = node.Endpoint.String()
 	if node.InternalIP == nil {
-		n.ObjectMeta.Annotations[internalIPAnnotationKey] = ""
+		n.Annotations[internalIPAnnotationKey] = ""
 	} else {
-		n.ObjectMeta.Annotations[internalIPAnnotationKey] = node.InternalIP.String()
+		n.Annotations[internalIPAnnotationKey] = node.InternalIP.String()
 	}
-	n.ObjectMeta.Annotations[keyAnnotationKey] = node.Key.String()
-	n.ObjectMeta.Annotations[lastSeenAnnotationKey] = strconv.FormatInt(node.LastSeen, 10)
+	n.Annotations[keyAnnotationKey] = node.Key.String()
+	n.Annotations[lastSeenAnnotationKey] = strconv.FormatInt(node.LastSeen, 10)
 	if node.WireGuardIP == nil {
-		n.ObjectMeta.Annotations[wireGuardIPAnnotationKey] = ""
+		n.Annotations[wireGuardIPAnnotationKey] = ""
 	} else {
-		n.ObjectMeta.Annotations[wireGuardIPAnnotationKey] = node.WireGuardIP.String()
+		n.Annotations[wireGuardIPAnnotationKey] = node.WireGuardIP.String()
 	}
 	if node.DiscoveredEndpoints == nil {
-		n.ObjectMeta.Annotations[discoveredEndpointsKey] = ""
+		n.Annotations[discoveredEndpointsKey] = ""
 	} else {
 		discoveredEndpoints, err := json.Marshal(node.DiscoveredEndpoints)
 		if err != nil {
 			return err
 		}
-		n.ObjectMeta.Annotations[discoveredEndpointsKey] = string(discoveredEndpoints)
+		n.Annotations[discoveredEndpointsKey] = string(discoveredEndpoints)
 	}
-	n.ObjectMeta.Annotations[granularityKey] = string(node.Granularity)
+	n.Annotations[granularityKey] = string(node.Granularity)
 	oldData, err := json.Marshal(old)
 	if err != nil {
 		return err
@@ -275,37 +275,37 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	if err != nil {
 		subnet = nil
 	}
-	_, leader := node.ObjectMeta.Annotations[leaderAnnotationKey]
+	_, leader := node.Annotations[leaderAnnotationKey]
 	// Allow the region to be overridden by an explicit location.
-	location, ok := node.ObjectMeta.Annotations[locationAnnotationKey]
+	location, ok := node.Annotations[locationAnnotationKey]
 	if !ok {
-		location = node.ObjectMeta.Labels[topologyLabel]
+		location = node.Labels[topologyLabel]
 	}
 	// Allow the endpoint to be overridden.
-	endpoint := wireguard.ParseEndpoint(node.ObjectMeta.Annotations[forceEndpointAnnotationKey])
+	endpoint := wireguard.ParseEndpoint(node.Annotations[forceEndpointAnnotationKey])
 	if endpoint == nil {
-		endpoint = wireguard.ParseEndpoint(node.ObjectMeta.Annotations[endpointAnnotationKey])
+		endpoint = wireguard.ParseEndpoint(node.Annotations[endpointAnnotationKey])
 	}
 	// Allow the internal IP to be overridden.
-	internalIP := normalizeIP(node.ObjectMeta.Annotations[forceInternalIPAnnotationKey])
+	internalIP := normalizeIP(node.Annotations[forceInternalIPAnnotationKey])
 	if internalIP == nil {
-		internalIP = normalizeIP(node.ObjectMeta.Annotations[internalIPAnnotationKey])
+		internalIP = normalizeIP(node.Annotations[internalIPAnnotationKey])
 	}
 	// Set the ForceInternalIP flag, if force-internal-ip annotation was set to "".
 	noInternalIP := false
-	if s, ok := node.ObjectMeta.Annotations[forceInternalIPAnnotationKey]; ok && (s == "" || s == "-") {
+	if s, ok := node.Annotations[forceInternalIPAnnotationKey]; ok && (s == "" || s == "-") {
 		noInternalIP = true
 		internalIP = nil
 	}
 	// Set Wireguard PersistentKeepalive setting for the node.
 	var persistentKeepalive time.Duration
-	if keepAlive, ok := node.ObjectMeta.Annotations[persistentKeepaliveKey]; ok {
+	if keepAlive, ok := node.Annotations[persistentKeepaliveKey]; ok {
 		// We can ignore the error, because p will be set to 0 if an error occures.
 		p, _ := strconv.ParseInt(keepAlive, 10, 64)
 		persistentKeepalive = time.Duration(p) * time.Second
 	}
 	var lastSeen int64
-	if ls, ok := node.ObjectMeta.Annotations[lastSeenAnnotationKey]; !ok {
+	if ls, ok := node.Annotations[lastSeenAnnotationKey]; !ok {
 		lastSeen = 0
 	} else {
 		if lastSeen, err = strconv.ParseInt(ls, 10, 64); err != nil {
@@ -313,7 +313,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		}
 	}
 	var discoveredEndpoints map[string]*net.UDPAddr
-	if de, ok := node.ObjectMeta.Annotations[discoveredEndpointsKey]; ok {
+	if de, ok := node.Annotations[discoveredEndpointsKey]; ok {
 		err := json.Unmarshal([]byte(de), &discoveredEndpoints)
 		if err != nil {
 			discoveredEndpoints = nil
@@ -321,7 +321,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	}
 	// Set allowed IPs for a location.
 	var allowedLocationIPs []net.IPNet
-	if str, ok := node.ObjectMeta.Annotations[allowedLocationIPsKey]; ok {
+	if str, ok := node.Annotations[allowedLocationIPsKey]; ok {
 		for _, ip := range strings.Split(str, ",") {
 			if ipnet := normalizeIP(ip); ipnet != nil {
 				allowedLocationIPs = append(allowedLocationIPs, *ipnet)
@@ -329,7 +329,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		}
 	}
 	var meshGranularity mesh.Granularity
-	if gr, ok := node.ObjectMeta.Annotations[granularityKey]; ok {
+	if gr, ok := node.Annotations[granularityKey]; ok {
 		meshGranularity = mesh.Granularity(gr)
 		switch meshGranularity {
 		case mesh.LogicalGranularity:
@@ -340,7 +340,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	}
 
 	// TODO log some error or warning.
-	key, _ := wgtypes.ParseKey(node.ObjectMeta.Annotations[keyAnnotationKey])
+	key, _ := wgtypes.ParseKey(node.Annotations[keyAnnotationKey])
 
 	return &mesh.Node{
 		// Endpoint and InternalIP should only ever fail to parse if the
@@ -362,7 +362,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		// WireGuardIP can fail to parse if the node is not a leader or if
 		// the node's agent has not yet reconciled. In either case, the IP
 		// will parse as nil.
-		WireGuardIP:         normalizeIP(node.ObjectMeta.Annotations[wireGuardIPAnnotationKey]),
+		WireGuardIP:         normalizeIP(node.Annotations[wireGuardIPAnnotationKey]),
 		DiscoveredEndpoints: discoveredEndpoints,
 		AllowedLocationIPs:  allowedLocationIPs,
 		Granularity:         meshGranularity,
@@ -403,7 +403,7 @@ func translatePeer(peer *v1alpha1.Peer) *mesh.Peer {
 
 	key, err := wgtypes.ParseKey(peer.Spec.PublicKey)
 	if err != nil {
-		level.Error(logger).Log("msg", "failed to parse public key", "peer", peer.Name, "err", err.Error())
+		_ = level.Error(logger).Log("msg", "failed to parse public key", "peer", peer.Name, "err", err.Error())
 	}
 	var psk *wgtypes.Key
 	if k, err := wgtypes.ParseKey(peer.Spec.PresharedKey); err != nil {
@@ -458,7 +458,7 @@ func (pb *peerBackend) Init(ctx context.Context) error {
 	}); !ok {
 		return errors.New("failed to sync peer cache")
 	}
-	pb.informer.AddEventHandler(
+	_, err := pb.informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				p, ok := obj.(*v1alpha1.Peer)
@@ -491,7 +491,7 @@ func (pb *peerBackend) Init(ctx context.Context) error {
 			},
 		},
 	)
-	return nil
+	return err
 }
 
 // List gets all the Peers in the cluster.

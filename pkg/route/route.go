@@ -109,7 +109,7 @@ func (t *Table) Run(stop <-chan struct{}) (<-chan error, error) {
 			// Watch for deleted routes to reconcile this table's routes.
 			case unix.RTM_DELROUTE:
 				// Filter out invalid routes.
-				if e.Route.Dst == nil {
+				if e.Dst == nil {
 					continue
 				}
 				t.mu.Lock()
@@ -118,7 +118,7 @@ func (t *Table) Run(stop <-chan struct{}) (<-chan error, error) {
 					case *netlink.Route:
 						// If any deleted route's destination matches a destination
 						// in the table, reset the corresponding route just in case.
-						if r.Dst.IP.Equal(e.Route.Dst.IP) && r.Dst.Mask.String() == e.Route.Dst.Mask.String() {
+						if r.Dst.IP.Equal(e.Dst.IP) && r.Dst.Mask.String() == e.Dst.Mask.String() {
 							if err := t.addRoute(r); err != nil {
 								nonBlockingSend(t.errors, fmt.Errorf("failed add route: %v", err))
 							}

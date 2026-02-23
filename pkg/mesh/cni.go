@@ -52,13 +52,13 @@ func (m *Mesh) updateCNIConfig() {
 	n := m.nodes[m.hostname]
 	m.mu.Unlock()
 	if n == nil || n.Subnet == nil {
-		level.Debug(m.logger).Log("msg", "local node does not have a valid subnet assigned")
+		_ = level.Debug(m.logger).Log("msg", "local node does not have a valid subnet assigned")
 		return
 	}
 
 	cidr, err := getCIDRFromCNI(m.cniPath)
 	if err != nil {
-		level.Warn(m.logger).Log("msg", "failed to get CIDR from CNI file; overwriting it", "err", err.Error())
+		_ = level.Warn(m.logger).Log("msg", "failed to get CIDR from CNI file; overwriting it", "err", err.Error())
 	}
 
 	if ipNetsEqual(cidr, n.Subnet) {
@@ -66,14 +66,14 @@ func (m *Mesh) updateCNIConfig() {
 	}
 
 	if cidr == nil {
-		level.Info(m.logger).Log("msg", "CIDR in CNI file is empty")
+		_ = level.Info(m.logger).Log("msg", "CIDR in CNI file is empty")
 	} else {
-		level.Info(m.logger).Log("msg", "CIDR in CNI file is not empty; overwriting", "old", cidr.String(), "new", n.Subnet.String())
+		_ = level.Info(m.logger).Log("msg", "CIDR in CNI file is not empty; overwriting", "old", cidr.String(), "new", n.Subnet.String())
 	}
 
-	level.Info(m.logger).Log("msg", "setting CIDR in CNI file", "CIDR", n.Subnet.String())
+	_ = level.Info(m.logger).Log("msg", "setting CIDR in CNI file", "CIDR", n.Subnet.String())
 	if err := setCIDRInCNI(m.cniPath, n.Subnet); err != nil {
-		level.Warn(m.logger).Log("msg", "failed to set CIDR in CNI file", "err", err.Error())
+		_ = level.Warn(m.logger).Log("msg", "failed to set CIDR in CNI file", "err", err.Error())
 	}
 }
 

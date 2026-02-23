@@ -35,7 +35,7 @@ func ipv6Disabled() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	disabled := make([]byte, 1)
 	if _, err = io.ReadFull(f, disabled); err != nil {
 		return false, err
@@ -145,7 +145,7 @@ func (r *rule) Append(client Client) error {
 func (r *rule) Delete(client Client) error {
 	// Ignore the returned error as an error likely means
 	// that the rule doesn't exist, which is fine.
-	client.Delete(r.table, r.chain, r.spec...)
+	_ = client.Delete(r.table, r.chain, r.spec...)
 	return nil
 }
 
@@ -210,7 +210,7 @@ func (c *chain) Delete(client Client) error {
 	}
 	// Ignore the returned error as an error likely means
 	// that the chain doesn't exist, which is fine.
-	client.DeleteChain(c.table, c.chain)
+	_ = client.DeleteChain(c.table, c.chain)
 	return nil
 }
 
@@ -223,7 +223,7 @@ func (c *chain) Exists(client Client) (bool, error) {
 	case err == nil:
 		// If there was no error adding a new chain, then it did not exist.
 		// Delete it and return false.
-		client.DeleteChain(c.table, c.chain)
+		_ = client.DeleteChain(c.table, c.chain)
 		return false, nil
 	case ok && se.ExitStatus() == existsErr:
 		return true, nil
@@ -317,7 +317,7 @@ func New(opts ...ControllerOption) (*Controller, error) {
 			return nil, fmt.Errorf("failed to check IPv6 status: %v", err)
 		}
 		if disabled {
-			level.Info(c.logger).Log("msg", "IPv6 is disabled in the kernel; disabling the IPv6 iptables controller")
+			_ = level.Info(c.logger).Log("msg", "IPv6 is disabled in the kernel; disabling the IPv6 iptables controller")
 			c.v6 = &fakeClient{}
 		} else {
 			v6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
@@ -380,7 +380,7 @@ func (c *Controller) reconcileAppendRules(rc ruleCache) error {
 			return fmt.Errorf("failed to check if rule exists: %v", err)
 		}
 		if !ok {
-			level.Info(c.logger).Log("msg", fmt.Sprintf("applying %d iptables rules", len(c.appendRules)-i))
+			_ = level.Info(c.logger).Log("msg", fmt.Sprintf("applying %d iptables rules", len(c.appendRules)-i))
 			if err := c.resetFromIndex(i, c.appendRules); err != nil {
 				return fmt.Errorf("failed to add rule: %v", err)
 			}
@@ -397,7 +397,7 @@ func (c *Controller) reconcilePrependRules(rc ruleCache) error {
 			return fmt.Errorf("failed to check if rule exists: %v", err)
 		}
 		if !ok {
-			level.Info(c.logger).Log("msg", "prepending iptables rule")
+			_ = level.Info(c.logger).Log("msg", "prepending iptables rule")
 			if err := r.Prepend(c.client(r.Proto())); err != nil {
 				return fmt.Errorf("failed to prepend rule: %v", err)
 			}

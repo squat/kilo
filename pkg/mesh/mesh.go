@@ -100,7 +100,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	privateB = bytes.Trim(privateB, "\n")
 	private, err := wgtypes.ParseKey(string(privateB))
 	if err != nil {
-		level.Warn(logger).Log("msg", "no private key found on disk; generating one now")
+		_ = level.Warn(logger).Log("msg", "no private key found on disk; generating one now")
 		if private, err = wgtypes.GeneratePrivateKey(); err != nil {
 			return nil, err
 		}
@@ -150,10 +150,10 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 				return nil, fmt.Errorf("failed to initialize encapsulator: %v", err)
 			}
 		}
-		level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the private IP address", privateIP.String()))
+		_ = level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the private IP address", privateIP.String()))
 	} else {
 		enc = encapsulation.Noop(enc.Strategy())
-		level.Debug(logger).Log("msg", "running without a private IP address")
+		_ = level.Debug(logger).Log("msg", "running without a private IP address")
 	}
 	var externalIP *net.IPNet
 	if prioritisePrivateAddr && privateIP != nil {
@@ -161,7 +161,7 @@ func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularit
 	} else {
 		externalIP = publicIP
 	}
-	level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the public IP address", publicIP.String()))
+	_ = level.Debug(logger).Log("msg", fmt.Sprintf("using %s as the public IP address", publicIP.String()))
 	ipTables, err := iptables.New(iptables.WithRegisterer(registerer), iptables.WithLogger(log.With(logger, "component", "iptables")), iptables.WithResyncPeriod(resyncPeriod))
 	if err != nil {
 		return nil, fmt.Errorf("failed to IP tables controller: %v", err)
@@ -235,7 +235,7 @@ func (m *Mesh) Run(ctx context.Context) error {
 			m.nodes[m.hostname] = n
 			m.updateCNIConfig()
 		} else {
-			level.Warn(m.logger).Log("error", fmt.Errorf("failed to get node %q: %v", m.hostname, err))
+			_ = level.Warn(m.logger).Log("error", fmt.Errorf("failed to get node %q: %v", m.hostname, err))
 		}
 	}
 	if err := m.Peers().Init(ctx); err != nil {
@@ -259,7 +259,7 @@ func (m *Mesh) Run(ctx context.Context) error {
 				return
 			}
 			if err != nil {
-				level.Error(m.logger).Log("error", err)
+				_ = level.Error(m.logger).Log("error", err)
 				m.errorCounter.WithLabelValues("run").Inc()
 			}
 		}
@@ -296,9 +296,9 @@ func (m *Mesh) Run(ctx context.Context) error {
 
 func (m *Mesh) syncNodes(ctx context.Context, e *NodeEvent) {
 	logger := log.With(m.logger, "event", e.Type)
-	level.Debug(logger).Log("msg", "syncing nodes", "event", e.Type)
+	_ = level.Debug(logger).Log("msg", "syncing nodes", "event", e.Type)
 	if isSelf(m.hostname, e.Node) {
-		level.Debug(logger).Log("msg", "processing local node", "node", e.Node)
+		_ = level.Debug(logger).Log("msg", "processing local node", "node", e.Node)
 		m.handleLocal(ctx, e.Node)
 		return
 	}
@@ -307,7 +307,7 @@ func (m *Mesh) syncNodes(ctx context.Context, e *NodeEvent) {
 	if !e.Node.Ready() {
 		// Trace non ready nodes with their presence in the mesh.
 		_, ok := m.nodes[e.Node.Name]
-		level.Debug(logger).Log("msg", "received non ready node", "node", e.Node, "in-mesh", ok)
+		_ = level.Debug(logger).Log("msg", "received non ready node", "node", e.Node, "in-mesh", ok)
 	}
 	switch e.Type {
 	case AddEvent:
@@ -325,14 +325,14 @@ func (m *Mesh) syncNodes(ctx context.Context, e *NodeEvent) {
 	}
 	m.mu.Unlock()
 	if diff {
-		level.Info(logger).Log("node", e.Node)
+		_ = level.Info(logger).Log("node", e.Node)
 		m.applyTopology()
 	}
 }
 
 func (m *Mesh) syncPeers(e *PeerEvent) {
 	logger := log.With(m.logger, "event", e.Type)
-	level.Debug(logger).Log("msg", "syncing peers", "event", e.Type)
+	_ = level.Debug(logger).Log("msg", "syncing peers", "event", e.Type)
 	var diff bool
 	m.mu.Lock()
 	// Peers are indexed by public key.
@@ -340,7 +340,7 @@ func (m *Mesh) syncPeers(e *PeerEvent) {
 	if !e.Peer.Ready() {
 		// Trace non ready peer with their presence in the mesh.
 		_, ok := m.peers[key]
-		level.Debug(logger).Log("msg", "received non ready peer", "peer", e.Peer, "in-mesh", ok)
+		_ = level.Debug(logger).Log("msg", "received non ready peer", "peer", e.Peer, "in-mesh", ok)
 	}
 	switch e.Type {
 	case AddEvent:
@@ -360,7 +360,7 @@ func (m *Mesh) syncPeers(e *PeerEvent) {
 	}
 	m.mu.Unlock()
 	if diff {
-		level.Info(logger).Log("peer", e.Peer)
+		_ = level.Info(logger).Log("peer", e.Peer)
 		m.applyTopology()
 	}
 }
@@ -372,26 +372,26 @@ func (m *Mesh) checkIn(ctx context.Context) {
 	defer m.mu.Unlock()
 	n := m.nodes[m.hostname]
 	if n == nil {
-		level.Debug(m.logger).Log("msg", "no local node found in backend")
+		_ = level.Debug(m.logger).Log("msg", "no local node found in backend")
 		return
 	}
 	oldTime := n.LastSeen
 	n.LastSeen = time.Now().Unix()
 	if err := m.Nodes().Set(ctx, m.hostname, n); err != nil {
-		level.Error(m.logger).Log("error", fmt.Sprintf("failed to set local node: %v", err), "node", n)
+		_ = level.Error(m.logger).Log("error", fmt.Sprintf("failed to set local node: %v", err), "node", n)
 		m.errorCounter.WithLabelValues("checkin").Inc()
 		// Revert time.
 		n.LastSeen = oldTime
 		return
 	}
-	level.Debug(m.logger).Log("msg", "successfully checked in local node in backend")
+	_ = level.Debug(m.logger).Log("msg", "successfully checked in local node in backend")
 }
 
 func (m *Mesh) handleLocal(ctx context.Context, n *Node) {
 	// Allow the IPs to be overridden.
 	if !n.Endpoint.Ready() {
 		e := wireguard.NewEndpoint(m.externalIP.IP, m.port)
-		level.Info(m.logger).Log("msg", "overriding endpoint", "node", m.hostname, "old endpoint", n.Endpoint.String(), "new endpoint", e.String())
+		_ = level.Info(m.logger).Log("msg", "overriding endpoint", "node", m.hostname, "old endpoint", n.Endpoint.String(), "new endpoint", e.String())
 		n.Endpoint = e
 	}
 	if n.InternalIP == nil && !n.NoInternalIP {
@@ -417,13 +417,13 @@ func (m *Mesh) handleLocal(ctx context.Context, n *Node) {
 		Granularity:         m.granularity,
 	}
 	if !nodesAreEqual(n, local) {
-		level.Debug(m.logger).Log("msg", "local node differs from backend")
+		_ = level.Debug(m.logger).Log("msg", "local node differs from backend")
 		if err := m.Nodes().Set(ctx, m.hostname, local); err != nil {
-			level.Error(m.logger).Log("error", fmt.Sprintf("failed to set local node: %v", err), "node", local)
+			_ = level.Error(m.logger).Log("error", fmt.Sprintf("failed to set local node: %v", err), "node", local)
 			m.errorCounter.WithLabelValues("local").Inc()
 			return
 		}
-		level.Debug(m.logger).Log("msg", "successfully reconciled local node against backend")
+		_ = level.Debug(m.logger).Log("msg", "successfully reconciled local node against backend")
 	}
 	m.mu.Lock()
 
@@ -446,7 +446,7 @@ func (m *Mesh) applyTopology() {
 	defer m.mu.Unlock()
 	// If we can't resolve an endpoint, then fail and retry later.
 	if err := m.resolveEndpoints(); err != nil {
-		level.Error(m.logger).Log("error", err)
+		_ = level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
@@ -482,23 +482,23 @@ func (m *Mesh) applyTopology() {
 	// Find the Kilo interface name.
 	link, err := linkByIndex(m.kiloIface)
 	if err != nil {
-		level.Error(m.logger).Log("error", err)
+		_ = level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
 
 	wgClient, err := wgctrl.New()
 	if err != nil {
-		level.Error(m.logger).Log("error", err)
+		_ = level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
-	defer wgClient.Close()
+	defer func() { _ = wgClient.Close() }()
 
 	// wgDevice is the current configuration of the wg interface.
 	wgDevice, err := wgClient.Device(m.kiloIfaceName)
 	if err != nil {
-		level.Error(m.logger).Log("error", err)
+		_ = level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
@@ -507,7 +507,7 @@ func (m *Mesh) applyTopology() {
 	nodes[m.hostname].DiscoveredEndpoints = natEndpoints
 	t, err := NewTopology(nodes, peers, m.granularity, m.hostname, nodes[m.hostname].Endpoint.Port(), m.priv, m.subnet, m.serviceCIDRs, nodes[m.hostname].PersistentKeepalive, m.logger)
 	if err != nil {
-		level.Error(m.logger).Log("error", err)
+		_ = level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
@@ -541,20 +541,20 @@ func (m *Mesh) applyTopology() {
 		// If we are handling local routes, ensure the local
 		// tunnel has an IP address.
 		if err := m.enc.Set(oneAddressCIDR(newAllocator(*nodes[m.hostname].Subnet).next().IP)); err != nil {
-			level.Error(m.logger).Log("error", err)
+			_ = level.Error(m.logger).Log("error", err)
 			m.errorCounter.WithLabelValues("apply").Inc()
 			return
 		}
 	}
 	if err := m.ipTables.Set(ipRules); err != nil {
-		level.Error(m.logger).Log("error", err)
+		_ = level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 		return
 	}
 	if t.leader {
 		m.leaderGuage.Set(1)
 		if err := iproute.SetAddress(m.kiloIface, t.wireGuardCIDR); err != nil {
-			level.Error(m.logger).Log("error", err)
+			_ = level.Error(m.logger).Log("error", err)
 			m.errorCounter.WithLabelValues("apply").Inc()
 			return
 		}
@@ -563,24 +563,24 @@ func (m *Mesh) applyTopology() {
 		conf := t.Conf()
 		equal, diff := conf.Equal(wgDevice)
 		if !equal {
-			level.Info(m.logger).Log("msg", "WireGuard configurations are different", "diff", diff)
-			level.Debug(m.logger).Log("msg", "changing wg config", "config", conf.WGConfig())
+			_ = level.Info(m.logger).Log("msg", "WireGuard configurations are different", "diff", diff)
+			_ = level.Debug(m.logger).Log("msg", "changing wg config", "config", conf.WGConfig())
 			if err := wgClient.ConfigureDevice(m.kiloIfaceName, conf.WGConfig()); err != nil {
-				level.Error(m.logger).Log("error", err)
+				_ = level.Error(m.logger).Log("error", err)
 				m.errorCounter.WithLabelValues("apply").Inc()
 				return
 			}
 		}
 		if err := iproute.Set(m.kiloIface, true); err != nil {
-			level.Error(m.logger).Log("error", err)
+			_ = level.Error(m.logger).Log("error", err)
 			m.errorCounter.WithLabelValues("apply").Inc()
 			return
 		}
 	} else {
 		m.leaderGuage.Set(0)
-		level.Debug(m.logger).Log("msg", "local node is not the leader")
+		_ = level.Debug(m.logger).Log("msg", "local node is not the leader")
 		if err := iproute.Set(m.kiloIface, false); err != nil {
-			level.Error(m.logger).Log("error", err)
+			_ = level.Error(m.logger).Log("error", err)
 			m.errorCounter.WithLabelValues("apply").Inc()
 			return
 		}
@@ -589,23 +589,23 @@ func (m *Mesh) applyTopology() {
 	// on the WireGuard interface.
 	routes, rules := t.Routes(link.Attrs().Name, m.kiloIface, m.privIface, m.enc.Index(), m.local, m.enc)
 	if err := m.table.Set(routes, rules); err != nil {
-		level.Error(m.logger).Log("error", err)
+		_ = level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
 	}
 }
 
 func (m *Mesh) cleanUp() {
 	if err := m.ipTables.CleanUp(); err != nil {
-		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up IP tables: %v", err))
+		_ = level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up IP tables: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
 	if err := m.table.CleanUp(); err != nil {
-		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up routes: %v", err))
+		_ = level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up routes: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
 	if m.cleanUpIface {
 		if err := iproute.RemoveInterface(m.kiloIface); err != nil {
-			level.Error(m.logger).Log("error", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
+			_ = level.Error(m.logger).Log("error", fmt.Sprintf("failed to remove WireGuard interface: %v", err))
 			m.errorCounter.WithLabelValues("cleanUp").Inc()
 		}
 	}
@@ -613,7 +613,7 @@ func (m *Mesh) cleanUp() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := m.Nodes().CleanUp(ctx, m.hostname); err != nil {
-			level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up node backend: %v", err))
+			_ = level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up node backend: %v", err))
 			m.errorCounter.WithLabelValues("cleanUp").Inc()
 		}
 	}
@@ -621,12 +621,12 @@ func (m *Mesh) cleanUp() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := m.Peers().CleanUp(ctx, m.hostname); err != nil {
-			level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up peer backend: %v", err))
+			_ = level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up peer backend: %v", err))
 			m.errorCounter.WithLabelValues("cleanUp").Inc()
 		}
 	}
 	if err := m.enc.CleanUp(); err != nil {
-		level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up encapsulator: %v", err))
+		_ = level.Error(m.logger).Log("error", fmt.Sprintf("failed to clean up encapsulator: %v", err))
 		m.errorCounter.WithLabelValues("cleanUp").Inc()
 	}
 }
@@ -694,7 +694,7 @@ func nodesAreEqual(a, b *Node) bool {
 }
 
 func peersAreEqual(a, b *Peer) bool {
-	if !(a != nil) == (b != nil) {
+	if (a != nil) != (b != nil) {
 		return false
 	}
 	if a == b {
@@ -813,7 +813,7 @@ func discoverNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *
 	}
 	for _, n := range nodes {
 		if peer, ok := keys[n.Key.String()]; ok && n.PersistentKeepalive != time.Duration(0) {
-			level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", peer.Endpoint.String() == n.Endpoint.String(), "latest-handshake", peer.LastHandshakeTime)
+			_ = level.Debug(logger).Log("msg", "WireGuard Update NAT Endpoint", "node", n.Name, "endpoint", peer.Endpoint, "former-endpoint", n.Endpoint, "same", peer.Endpoint.String() == n.Endpoint.String(), "latest-handshake", peer.LastHandshakeTime)
 			// Don't update the endpoint, if there was never any handshake.
 			if !peer.LastHandshakeTime.Equal(time.Time{}) {
 				natEndpoints[n.Key.String()] = peer.Endpoint
@@ -827,6 +827,6 @@ func discoverNATEndpoints(nodes map[string]*Node, peers map[string]*Peer, conf *
 			}
 		}
 	}
-	level.Debug(logger).Log("msg", "Discovered WireGuard NAT Endpoints", "DiscoveredEndpoints", natEndpoints)
+	_ = level.Debug(logger).Log("msg", "Discovered WireGuard NAT Endpoints", "DiscoveredEndpoints", natEndpoints)
 	return natEndpoints
 }

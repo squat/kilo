@@ -1,4 +1,4 @@
-// Copyright 2024 the Kilo authors
+// Copyright 2026 the Kilo authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	v1alpha1 "github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -33,9 +32,9 @@ type FakePeers struct {
 	Fake *FakeKiloV1alpha1
 }
 
-var peersResource = schema.GroupVersionResource{Group: "kilo.squat.ai", Version: "v1alpha1", Resource: "peers"}
+var peersResource = v1alpha1.SchemeGroupVersion.WithResource("peers")
 
-var peersKind = schema.GroupVersionKind{Group: "kilo.squat.ai", Version: "v1alpha1", Kind: "Peer"}
+var peersKind = v1alpha1.SchemeGroupVersion.WithKind("Peer")
 
 // Get takes name of the peer, and returns the corresponding peer object, and an error if there is any.
 func (c *FakePeers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Peer, err error) {

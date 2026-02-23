@@ -101,6 +101,20 @@ func showConfNode() *cobra.Command {
 		Short: "Show the WireGuard configuration for a node in the Kilo network",
 		RunE:  runShowConfNode,
 		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+			ns, err := opts.backend.Nodes().List()
+			if err != nil {
+				cobra.CompError(err.Error())
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			completions := make([]string, 0, len(ns))
+			for _, n := range ns {
+				if n.Ready() {
+					completions = append(completions, n.Name)
+				}
+			}
+			return completions, cobra.ShellCompDirectiveNoFileComp
+		},
 	}
 }
 
@@ -110,6 +124,20 @@ func showConfPeer() *cobra.Command {
 		Short: "Show the WireGuard configuration for a peer in the Kilo network",
 		RunE:  runShowConfPeer,
 		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+			ps, err := opts.backend.Peers().List()
+			if err != nil {
+				cobra.CompError(err.Error())
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			completions := make([]string, 0, len(ps))
+			for _, p := range ps {
+				if p.Ready() {
+					completions = append(completions, p.Name)
+				}
+			}
+			return completions, cobra.ShellCompDirectiveNoFileComp
+		},
 	}
 }
 
@@ -165,7 +193,7 @@ func runShowConfNode(_ *cobra.Command, args []string) error {
 		}
 	}
 	if !found {
-		_, err := os.Stderr.WriteString(fmt.Sprintf("Node %q is not a leader node\n", hostname))
+		_, err := fmt.Fprintf(os.Stderr, "Node %q is not a leader node\n", hostname)
 		return err
 	}
 

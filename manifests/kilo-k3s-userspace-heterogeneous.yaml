@@ -75,9 +75,9 @@ roleRef:
   kind: ClusterRole
   name: kilo
 subjects:
-  - kind: ServiceAccount
-    name: kilo
-    namespace: kube-system
+- kind: ServiceAccount
+  name: kilo
+  namespace: kube-system
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -189,7 +189,8 @@ spec:
         command:
         - /bin/sh
         - -c
-        - set -e -x;
+        - |
+          set -e -x;
           cp /opt/cni/bin/* /host/opt/cni/bin/;
           TMP_CONF="$CNI_CONF_NAME".tmp;
           echo "$CNI_NETWORK_CONFIG" > $TMP_CONF;
@@ -297,10 +298,10 @@ spec:
         - name: wireguard
           mountPath: /var/run/wireguard
           readOnly: false
-      - name: boringtun
-        image: leonnicolas/boringtun:cc19859
+      - name: wireguard
+        image: masipcat/wireguard-go:0.0.20230223:cc19859
         args:
-        - --disable-drop-privileges
+        - wireguard-go
         - --foreground
         - kilo0
         securityContext:
@@ -336,7 +337,8 @@ spec:
         command:
         - /bin/sh
         - -c
-        - set -e -x;
+        - |
+          set -e -x;
           cp /opt/cni/bin/* /host/opt/cni/bin/;
           TMP_CONF="$CNI_CONF_NAME".tmp;
           echo "$CNI_NETWORK_CONFIG" > $TMP_CONF;
