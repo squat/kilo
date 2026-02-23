@@ -43,6 +43,7 @@ Flags:
   -h, --help                           help for kg
       --hostname string                Hostname of the node on which this process is running.
       --interface string               Name of the Kilo interface to use; if it does not exist, it will be created. (default "kilo0")
+      --internal-cidr strings          CIDRs to consider for internal IP auto-detection. If specified, only IPs within these CIDRs will be used. Can be specified multiple times.
       --iptables-forward-rules         Add default accept rules to the FORWARD chain in iptables. Warning: this may break firewalls with a deny all policy and is potentially insecure!
       --kubeconfig string              Path to kubeconfig.
       --listen string                  The address at which to listen for health and metrics. (default ":1107")
