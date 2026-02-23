@@ -263,11 +263,11 @@ CheckIPs:
 				}
 			}
 			// Check if allowed location IPs intersect with the allowed IPs.
-			// If the allowed location IP fully contains an allowed IP, that's fine -
-			// the more specific route will be used. Only warn if it's a partial overlap
-			// where the allowed IP contains the allowed location IP.
+			// If the allowed location IP strictly contains an allowed IP, that's
+			// fine - the more specific route will be used. Reject if the allowed
+			// IP contains or equals the allowed location IP.
 			for _, i := range s.allowedIPs {
-				if i.Contains(ip.IP) && !ip.Contains(i.IP) {
+				if i.Contains(ip.IP) {
 					_ = level.Warn(t.logger).Log("msg", "overlapping allowed location IPnet with allowed IPnets", "IP", ip.String(), "IP2", i.String(), "segment-location", s.location)
 					continue CheckIPs
 				}
