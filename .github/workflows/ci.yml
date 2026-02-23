@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: |
           go mod tidy
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix build
 
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - name: Build docs
         run: |
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix build .#kilo-cross-linux-amd64 .#kilo-cross-linux-arm64 .#kilo-cross-linux-arm
 
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix build .#kgctl-cross-darwin-amd64 .#kgctl-cross-darwin-arm64
 
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix build .#kgctl-cross-windows-amd64
 
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix develop . --command go test -mod=vendor --race ./...
 
@@ -95,7 +95,7 @@ jobs:
           load: "true"
           build-args: |
             VERSION=${{ github.sha }}
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - env:
           E2E_SKIP_TEARDOWN_ON_FAILURE: "true"
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.15.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix flake check -L --show-trace
 
