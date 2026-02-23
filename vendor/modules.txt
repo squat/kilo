@@ -198,10 +198,10 @@ github.com/prometheus/procfs/internal/util
 # github.com/safchain/ethtool v0.0.0-20210803160452-9aa261dae9b1
 ## explicit
 github.com/safchain/ethtool
-# github.com/spf13/cobra v1.8.0
+# github.com/spf13/cobra v1.10.2
 ## explicit; go 1.15
 github.com/spf13/cobra
-# github.com/spf13/pflag v1.0.5
+# github.com/spf13/pflag v1.0.9
 ## explicit; go 1.12
 github.com/spf13/pflag
 # github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
