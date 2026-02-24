@@ -49,9 +49,9 @@ type Encapsulator interface {
 	Gw(net.IP, net.IP, net.IP, *net.IPNet) net.IP
 	Index() int
 	Init(int) error
-	// LocalIP returns the local overlay IP that should be advertised
-	// to other nodes. For Cilium, this is the IP of the cilium_host interface.
-	LocalIP() net.IP
+	// CNICompatibilityIP returns the local overlay IP that should be
+	// advertised to other nodes for CNI-compatible routing.
+	CNICompatibilityIP() *net.IPNet
 	Rules([]*net.IPNet) iptables.RuleSet
 	Set(*net.IPNet) error
 	Strategy() Strategy

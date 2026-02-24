@@ -86,8 +86,8 @@ type segment struct {
 	leader int
 	// privateIPs is a slice of private IPs of all peers in the segment.
 	privateIPs []net.IP
-	// ciliumInternalIPs is a slice of Cilium internal IPs of all peers in the segment.
-	ciliumInternalIPs []net.IP
+	// cniCompatibilityIPs is a slice of CNI compatibility IPs of all peers in the segment.
+	cniCompatibilityIPs []*net.IPNet
 	// wireGuardIP is the allocated IP address of the WireGuard
 	// interface on the leader of the segment.
 	wireGuardIP net.IP
@@ -157,7 +157,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		var cidrs []*net.IPNet
 		var hostnames []string
 		var privateIPs []net.IP
-		var ciliumInternalIPs []net.IP
+		var cniCompatibilityIPs []*net.IPNet
 		for _, node := range topoMap[location] {
 			// Allowed IPs should include:
 			// - the node's allocated subnet
@@ -177,7 +177,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 				allowedIPs = append(allowedIPs, *oneAddressCIDR(node.InternalIP.IP))
 				privateIPs = append(privateIPs, node.InternalIP.IP)
 			}
-			ciliumInternalIPs = append(ciliumInternalIPs, node.CiliumInternalIP)
+			cniCompatibilityIPs = append(cniCompatibilityIPs, node.CNICompatibilityIP)
 			cidrs = append(cidrs, node.Subnet)
 			hostnames = append(hostnames, node.Name)
 		}
@@ -195,7 +195,7 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 			hostnames:           hostnames,
 			leader:              leader,
 			privateIPs:          privateIPs,
-			ciliumInternalIPs:   ciliumInternalIPs,
+			cniCompatibilityIPs: cniCompatibilityIPs,
 			allowedLocationIPs:  allowedLocationIPs,
 		})
 		_ = level.Debug(t.logger).Log("msg", "generated segment", "location", location, "allowedIPs", allowedIPs, "endpoint", topoMap[location][leader].Endpoint, "cidrs", cidrs, "hostnames", hostnames, "leader", leader, "privateIPs", privateIPs, "allowedLocationIPs", allowedLocationIPs)
@@ -412,6 +412,14 @@ func (t *Topology) PeerConf(name string) *wireguard.Conf {
 // that contains only that address.
 func oneAddressCIDR(ip net.IP) *net.IPNet {
 	return &net.IPNet{IP: ip, Mask: net.CIDRMask(len(ip)*8, len(ip)*8)}
+}
+
+// ipFromIPNet extracts the IP from a *net.IPNet, returning nil if the IPNet is nil.
+func ipFromIPNet(n *net.IPNet) net.IP {
+	if n == nil {
+		return nil
+	}
+	return n.IP
 }
 
 // findLeader selects a leader for the nodes in a segment;

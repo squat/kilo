@@ -45,8 +45,8 @@ func (i *ipip) Gw(_, internal, _ net.IP, _ *net.IPNet) net.IP {
 	return internal
 }
 
-// LocalIP is a no-op for IPIP.
-func (i *ipip) LocalIP() net.IP {
+// CNICompatibilityIP is a no-op for IPIP.
+func (i *ipip) CNICompatibilityIP() *net.IPNet {
 	return nil
 }
 

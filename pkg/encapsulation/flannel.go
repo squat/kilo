@@ -54,8 +54,8 @@ func (f *flannel) Gw(_, _, _ net.IP, subnet *net.IPNet) net.IP {
 	return subnet.IP
 }
 
-// LocalIP is a no-op for Flannel.
-func (f *flannel) LocalIP() net.IP {
+// CNICompatibilityIP is a no-op for Flannel.
+func (f *flannel) CNICompatibilityIP() *net.IPNet {
 	return nil
 }
 

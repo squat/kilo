@@ -58,28 +58,33 @@ func (c *cilium) CleanUp() error {
 // Gw returns the correct gateway IP associated with the given node.
 // It returns the Cilium internal IP so that the IPIP outer packets are routed
 // through Cilium's VxLAN overlay rather than the host network.
-func (c *cilium) Gw(_, _, ciliumIP net.IP, subnet *net.IPNet) net.IP {
-	if ciliumIP != nil {
-		return ciliumIP
+func (c *cilium) Gw(_, _, cniIP net.IP, subnet *net.IPNet) net.IP {
+	if cniIP != nil {
+		return cniIP
 	}
 	return subnet.IP
 }
 
-// LocalIP returns the IP address of the cilium_host interface.
+// CNICompatibilityIP returns the IP address of the cilium_host interface.
 // This IP is advertised to other nodes so they can route IPIP outer
 // packets through Cilium's overlay.
-func (c *cilium) LocalIP() net.IP {
+func (c *cilium) CNICompatibilityIP() *net.IPNet {
 	iface, err := net.InterfaceByName(ciliumHostIface)
 	if err != nil {
+		// cilium_host does not exist; Cilium may not be running.
 		return nil
 	}
 	addrs, err := iface.Addrs()
 	if err != nil {
+		// Unable to list addresses; safe to skip since the
+		// CNI compatibility IP is only used for optimization.
 		return nil
 	}
 	for _, a := range addrs {
+		// IPIP tunnels use IPv4 encapsulation, so only IPv4
+		// addresses are usable as the outer header source/destination.
 		if ipNet, ok := a.(*net.IPNet); ok && ipNet.IP.To4() != nil {
-			return ipNet.IP
+			return ipNet
 		}
 	}
 	return nil

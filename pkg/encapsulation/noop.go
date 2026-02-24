@@ -33,8 +33,8 @@ func (n Noop) Gw(_, _, _ net.IP, _ *net.IPNet) net.IP {
 	return nil
 }
 
-// LocalIP will also do nothing.
-func (n Noop) LocalIP() net.IP {
+// CNICompatibilityIP will also do nothing.
+func (n Noop) CNICompatibilityIP() *net.IPNet {
 	return nil
 }
 

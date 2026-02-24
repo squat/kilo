@@ -49,21 +49,21 @@ import (
 
 const (
 	// Backend is the name of this mesh backend.
-	Backend                       = "kubernetes"
-	endpointAnnotationKey         = "kilo.squat.ai/endpoint"
-	forceEndpointAnnotationKey    = "kilo.squat.ai/force-endpoint"
-	forceInternalIPAnnotationKey  = "kilo.squat.ai/force-internal-ip"
-	internalIPAnnotationKey       = "kilo.squat.ai/internal-ip"
-	keyAnnotationKey              = "kilo.squat.ai/key"
-	lastSeenAnnotationKey         = "kilo.squat.ai/last-seen"
-	leaderAnnotationKey           = "kilo.squat.ai/leader"
-	locationAnnotationKey         = "kilo.squat.ai/location"
-	persistentKeepaliveKey        = "kilo.squat.ai/persistent-keepalive"
-	wireGuardIPAnnotationKey      = "kilo.squat.ai/wireguard-ip"
-	discoveredEndpointsKey        = "kilo.squat.ai/discovered-endpoints"
-	allowedLocationIPsKey         = "kilo.squat.ai/allowed-location-ips"
-	granularityKey                = "kilo.squat.ai/granularity"
-	ciliumInternalIPAnnotationKey = "kilo.squat.ai/cilium-internal-ip"
+	Backend                         = "kubernetes"
+	endpointAnnotationKey           = "kilo.squat.ai/endpoint"
+	forceEndpointAnnotationKey      = "kilo.squat.ai/force-endpoint"
+	forceInternalIPAnnotationKey    = "kilo.squat.ai/force-internal-ip"
+	internalIPAnnotationKey         = "kilo.squat.ai/internal-ip"
+	keyAnnotationKey                = "kilo.squat.ai/key"
+	lastSeenAnnotationKey           = "kilo.squat.ai/last-seen"
+	leaderAnnotationKey             = "kilo.squat.ai/leader"
+	locationAnnotationKey           = "kilo.squat.ai/location"
+	persistentKeepaliveKey          = "kilo.squat.ai/persistent-keepalive"
+	wireGuardIPAnnotationKey        = "kilo.squat.ai/wireguard-ip"
+	discoveredEndpointsKey          = "kilo.squat.ai/discovered-endpoints"
+	allowedLocationIPsKey           = "kilo.squat.ai/allowed-location-ips"
+	granularityKey                  = "kilo.squat.ai/granularity"
+	cniCompatibilityIPAnnotationKey = "kilo.squat.ai/cni-compatibility-ip"
 	// RegionLabelKey is the key for the well-known Kubernetes topology region label.
 	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
@@ -242,10 +242,10 @@ func (nb *nodeBackend) Set(ctx context.Context, name string, node *mesh.Node) er
 		n.Annotations[discoveredEndpointsKey] = string(discoveredEndpoints)
 	}
 	n.Annotations[granularityKey] = string(node.Granularity)
-	if node.CiliumInternalIP != nil {
-		n.Annotations[ciliumInternalIPAnnotationKey] = node.CiliumInternalIP.String()
+	if node.CNICompatibilityIP != nil {
+		n.Annotations[cniCompatibilityIPAnnotationKey] = node.CNICompatibilityIP.String()
 	} else {
-		n.Annotations[ciliumInternalIPAnnotationKey] = ""
+		n.Annotations[cniCompatibilityIPAnnotationKey] = ""
 	}
 	oldData, err := json.Marshal(old)
 	if err != nil {
@@ -348,10 +348,10 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	// TODO log some error or warning.
 	key, _ := wgtypes.ParseKey(node.Annotations[keyAnnotationKey])
 
-	// Parse the Cilium internal IP if present.
-	var ciliumInternalIP net.IP
-	if cipStr, ok := node.Annotations[ciliumInternalIPAnnotationKey]; ok && cipStr != "" {
-		ciliumInternalIP = net.ParseIP(cipStr)
+	// Parse the CNI compatibility IP if present.
+	var cniCompatibilityIP *net.IPNet
+	if cipStr, ok := node.Annotations[cniCompatibilityIPAnnotationKey]; ok && cipStr != "" {
+		cniCompatibilityIP = normalizeIP(cipStr)
 	}
 
 	return &mesh.Node{
@@ -364,7 +364,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		Endpoint:            endpoint,
 		NoInternalIP:        noInternalIP,
 		InternalIP:          internalIP,
-		CiliumInternalIP:    ciliumInternalIP,
+		CNICompatibilityIP:  cniCompatibilityIP,
 		Key:                 key,
 		LastSeen:            lastSeen,
 		Leader:              leader,
