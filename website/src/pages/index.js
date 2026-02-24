@@ -9,7 +9,7 @@ import styles from './styles.module.css';
 const features = [
   {
     title: <>Runs on Kubernetes</>,
-    imageUrl: 'https://kubernetes.io/images/nav_logo.svg',
+    imageUrl: 'https://github.com/kubernetes/kubernetes/raw/master/logo/logo.png',
     description: (
       <>
         Kilo can be installed on any Kubernetes cluster, allowing nodes located in different clouds or in different countries to form a single cluster.
