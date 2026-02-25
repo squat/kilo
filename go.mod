@@ -3,7 +3,7 @@ module github.com/squat/kilo
 go 1.25.0
 
 require (
-	github.com/awalterschulze/gographviz v0.0.0-20181013152038-b2885df04310
+	github.com/awalterschulze/gographviz v2.0.3+incompatible
 	github.com/containernetworking/cni v1.3.0
 	github.com/containernetworking/plugins v1.1.1
 	github.com/coreos/go-iptables v0.8.0

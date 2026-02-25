@@ -21,12 +21,14 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/awalterschulze/gographviz/internal/token"
 )
 
 var (
-	r = rand.New(rand.NewSource(1234))
+	r        = rand.New(rand.NewSource(1234))
+	randLock sync.Mutex
 )
 
 type Visitor interface {
@@ -183,17 +185,26 @@ type SubGraph struct {
 	StmtList StmtList
 }
 
-func NewSubGraph(id, l Attrib) (*SubGraph, error) {
-	g := &SubGraph{ID: ID(fmt.Sprintf("anon%d", r.Int63()))}
-	if id != nil {
-		if len(id.(ID)) > 0 {
-			g.ID = id.(ID)
-		}
+func NewSubGraph(maybeId, l Attrib) (*SubGraph, error) {
+	g := &SubGraph{}
+	if id, ok := maybeId.(ID); maybeId == nil || (ok && len(id) == 0) {
+		g.ID = ID(fmt.Sprintf("anon%d", randInt63()))
+	} else if ok && (len(id) > 0) {
+		g.ID = id
+	} else {
+		return nil, fmt.Errorf("expected maybeId.(ID) got=%v", maybeId)
 	}
 	if l != nil {
 		g.StmtList = l.(StmtList)
 	}
 	return g, nil
+}
+
+func randInt63() int64 {
+	randLock.Lock()
+	result := r.Int63()
+	randLock.Unlock()
+	return result
 }
 
 func (this *SubGraph) GetID() ID {
