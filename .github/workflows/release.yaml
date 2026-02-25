@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3.16.1
+      - uses: DeterminateSystems/determinate-nix-action@v3.16.3
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: |
           nix build .#kgctl-cross-linux-amd64 .#kgctl-cross-linux-arm64 .#kgctl-cross-linux-arm .#kgctl-cross-darwin-amd64 .#kgctl-cross-darwin-arm64 .#kgctl-cross-windows-amd64
