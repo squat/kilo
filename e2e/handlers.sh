@@ -3,9 +3,7 @@
 . lib.sh
 
 setup_suite() {
-	# shellcheck disable=SC2016
 	block_until_ready_by_name kube-system kilo-userspace 
-	_kubectl wait pod -l app.kubernetes.io/name=adjacency --for=condition=Ready --timeout 3m
 }
 
 test_graph_handler() {
