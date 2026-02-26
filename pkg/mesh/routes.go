@@ -334,6 +334,7 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) iptables.RuleSet {
 	rules.AddToAppend(iptables.NewIPv6Chain("nat", "KILO-NAT"))
 	if cni {
 		rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(t.subnet.IP), "nat", "POSTROUTING", "-s", t.subnet.String(), "-m", "comment", "--comment", "Kilo: jump to KILO-NAT chain", "-j", "KILO-NAT"))
+		rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(t.privateIP.IP), "nat", "POSTROUTING", "-s", t.privateIP.String(), "-m", "comment", "--comment", "Kilo: jump to KILO-NAT chain", "-j", "KILO-NAT"))
 		// Some linux distros or docker will set forward DROP in the filter table.
 		// To still be able to have pod to pod communication we need to ALLOW packets from and to pod CIDRs within a location.
 		// Leader nodes will forward packets from all nodes within a location because they act as a gateway for them.
