@@ -33,20 +33,20 @@
             let
               _version = builtins.getEnv "VERSION";
               homepage = "https://github.com/squat/kilo";
-              base = pkgs.buildGoModule rec {
+              base = pkgs.buildGoModule (finallAttrs: {
                 pname = "kilo";
                 version = if _version != "" then _version else toString (self.rev or self.dirtyRev or "unknown");
                 src = ./.;
                 vendorHash = null;
                 env.CGO_ENABLED = 0;
                 ldflags = [
-                  "-X github.com/squat/kilo/pkg/version.Version=${version}"
+                  "-X github.com/squat/kilo/pkg/version.Version=${finallAttrs.version}"
                 ];
                 nativeBuildInputs = [ pkgs.installShellFiles ];
                 meta = {
                   inherit homepage;
                 };
-              };
+              });
               kg = base.overrideAttrs {
                 pname = "kg";
                 subPackages = [
@@ -99,13 +99,17 @@
               map
                 (target: {
                   name = "kg-cross-${target.os}-${target.arch}";
-                  value = kg.overrideAttrs {
-                    env.GOOS = target.os;
-                    env.GOARCH = target.arch;
-                    env.CGO_ENABLED = 0;
-                    checkPhase = false;
-                    postInstall = "";
-                  };
+                  value = kg.overrideAttrs (
+                    _: oldAttrs: {
+                      env = oldAttrs.env // {
+                        GOOS = target.os;
+                        GOARCH = target.arch;
+                        CGO_ENABLED = 0;
+                      };
+                      checkPhase = false;
+                      postInstall = "";
+                    }
+                  );
                 })
                 [
                   {
@@ -126,13 +130,17 @@
               map
                 (target: {
                   name = "kgctl-cross-${target.os}-${target.arch}";
-                  value = kgctl.overrideAttrs {
-                    env.GOOS = target.os;
-                    env.GOARCH = target.arch;
-                    env.CGO_ENABLED = 0;
-                    checkPhase = false;
-                    postInstall = "";
-                  };
+                  value = kgctl.overrideAttrs (
+                    _: oldAttrs: {
+                      env = oldAttrs.env // {
+                        GOOS = target.os;
+                        GOARCH = target.arch;
+                        CGO_ENABLED = 0;
+                      };
+                      checkPhase = false;
+                      postInstall = "";
+                    }
+                  );
                 })
                 [
                   {
@@ -274,13 +282,13 @@
                 with pkgs;
                 [
                   bash_unit
-                  (config.packages.kgctl.overrideAttrs rec {
+                  (config.packages.kgctl.overrideAttrs (finallAttrs: {
                     version = "dev";
                     __intentionallyOverridingVersion = true;
                     ldflags = [
-                      "-X github.com/squat/kilo/pkg/version.Version=${version}"
+                      "-X github.com/squat/kilo/pkg/version.Version=${finallAttrs.version}"
                     ];
-                  })
+                  }))
                   gettext # provides envsubst
                   go
                   kind
