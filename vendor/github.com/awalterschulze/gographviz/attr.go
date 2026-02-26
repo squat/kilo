@@ -141,6 +141,8 @@ const (
 	Image Attr = "image"
 	// ImagePath http://graphviz.gitlab.io/_pages/doc/info/attrs.html#d:imagepath
 	ImagePath Attr = "imagepath"
+	// ImagePos https://graphviz.org/doc/info/attrs.html#d:imagepos
+	ImagePos Attr = "imagepos"
 	// ImageScale http://graphviz.gitlab.io/_pages/doc/info/attrs.html#d:imagescale
 	ImageScale Attr = "imagescale"
 	// InputScale http://graphviz.gitlab.io/_pages/doc/info/attrs.html#d:inputscale
@@ -437,6 +439,7 @@ var validAttrs = map[string]Attr{
 	string(ID):                 ID,
 	string(Image):              Image,
 	string(ImagePath):          ImagePath,
+	string(ImagePos):           ImagePos,
 	string(ImageScale):         ImageScale,
 	string(InputScale):         InputScale,
 	string(Label):              Label,
