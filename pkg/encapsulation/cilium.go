@@ -17,95 +17,140 @@ package encapsulation
 import (
 	"fmt"
 	"net"
-	"sync"
 
 	"github.com/vishvananda/netlink"
 
+	"github.com/squat/kilo/pkg/iproute"
 	"github.com/squat/kilo/pkg/iptables"
 )
 
-const ciliumDeviceName = "cilium_host"
+const (
+	ciliumHostIface = "cilium_host"
+	// ciliumTunlIface is the kernel's default IPIP tunnel (tunl0) renamed
+	// by Cilium when enable-ipip-termination is enabled.
+	ciliumTunlIface = "cilium_tunl"
+)
 
 type cilium struct {
-	iface    int
-	strategy Strategy
-	ch       chan netlink.LinkUpdate
-	done     chan struct{}
-	// mu guards updates to the iface field.
-	mu sync.Mutex
+	iface      int
+	strategy   Strategy
+	ownsTunnel bool
 }
 
-// NewCilium returns an encapsulator that uses Cilium.
+// NewCilium returns an encapsulator that uses IPIP tunnels
+// routed through Cilium's VxLAN overlay.
 func NewCilium(strategy Strategy) Encapsulator {
-	return &cilium{
-		ch:       make(chan netlink.LinkUpdate),
-		done:     make(chan struct{}),
-		strategy: strategy,
-	}
+	return &cilium{strategy: strategy}
 }
 
-// CleanUp close done channel
-func (f *cilium) CleanUp() error {
-	close(f.done)
-	return nil
+// CleanUp will remove any created IPIP devices.
+// If the tunnel is owned by Cilium, skip removal.
+func (c *cilium) CleanUp() error {
+	if !c.ownsTunnel {
+		return nil
+	}
+	if err := iproute.DeleteAddresses(c.iface); err != nil {
+		return err
+	}
+	return iproute.RemoveInterface(c.iface)
 }
 
 // Gw returns the correct gateway IP associated with the given node.
-func (f *cilium) Gw(_, _ net.IP, subnet *net.IPNet) net.IP {
+// It returns the Cilium internal IP so that the IPIP outer packets are routed
+// through Cilium's VxLAN overlay rather than the host network.
+func (c *cilium) Gw(_, _, cniIP net.IP, subnet *net.IPNet) net.IP {
+	if cniIP != nil {
+		return cniIP
+	}
 	return subnet.IP
 }
 
-// Index returns the index of the Cilium interface.
-func (f *cilium) Index() int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.iface
-}
-
-// Init finds the Cilium interface index.
-func (f *cilium) Init(_ int) error {
-	if err := netlink.LinkSubscribe(f.ch, f.done); err != nil {
-		return fmt.Errorf("failed to subscribe to updates to %s: %v", ciliumDeviceName, err)
-	}
-	go func() {
-		var lu netlink.LinkUpdate
-		for {
-			select {
-			case lu = <-f.ch:
-				if lu.Attrs().Name == ciliumDeviceName {
-					f.mu.Lock()
-					f.iface = lu.Attrs().Index
-					f.mu.Unlock()
-				}
-			case <-f.done:
-				return
-			}
-		}
-	}()
-	i, err := netlink.LinkByName(ciliumDeviceName)
-	if _, ok := err.(netlink.LinkNotFoundError); ok {
+// CNICompatibilityIP returns the IP address of the cilium_host interface.
+// This IP is advertised to other nodes so they can route IPIP outer
+// packets through Cilium's overlay.
+func (c *cilium) CNICompatibilityIP() *net.IPNet {
+	iface, err := net.InterfaceByName(ciliumHostIface)
+	if err != nil {
+		// cilium_host does not exist; Cilium may not be running.
 		return nil
 	}
+	addrs, err := iface.Addrs()
 	if err != nil {
-		return fmt.Errorf("failed to query for Cilium interface: %v", err)
+		// Unable to list addresses; safe to skip since the
+		// CNI compatibility IP is only used for optimization.
+		return nil
 	}
-	f.mu.Lock()
-	f.iface = i.Attrs().Index
-	f.mu.Unlock()
+	for _, a := range addrs {
+		// IPIP tunnels use IPv4 encapsulation, so only IPv4
+		// addresses are usable as the outer header source/destination.
+		if ipNet, ok := a.(*net.IPNet); ok && ipNet.IP.To4() != nil {
+			return ipNet
+		}
+	}
 	return nil
 }
 
-// Rules is a no-op.
-func (f *cilium) Rules(_ []*net.IPNet) iptables.RuleSet {
-	return iptables.RuleSet{}
+// Index returns the index of the IPIP tunnel interface.
+func (c *cilium) Index() int {
+	return c.iface
 }
 
-// Set is a no-op.
-func (f *cilium) Set(_ *net.IPNet) error {
+// Init initializes the IPIP tunnel interface.
+// If Cilium is running with enable-ipip-termination, it renames the kernel's
+// tunl0 to cilium_tunl. In that case we reuse the existing cilium_tunl.
+// Otherwise we create the standard tunl0 ourselves.
+func (c *cilium) Init(base int) error {
+	// If Cilium created cilium_tunl (enable-ipip-termination), reuse it.
+	if link, err := netlink.LinkByName(ciliumTunlIface); err == nil {
+		c.iface = link.Attrs().Index
+		c.ownsTunnel = false
+		// Ensure the interface is UP — Cilium may leave it DOWN.
+		if link.Attrs().Flags&net.FlagUp == 0 {
+			if err := iproute.Set(c.iface, true); err != nil {
+				return fmt.Errorf("failed to set %s up: %v", ciliumTunlIface, err)
+			}
+		}
+		return nil
+	}
+	// No cilium_tunl — create standard tunl0.
+	iface, err := iproute.NewIPIP(base)
+	if err != nil {
+		return fmt.Errorf("failed to create tunnel interface: %v", err)
+	}
+	if err := iproute.Set(iface, true); err != nil {
+		return fmt.Errorf("failed to set tunnel interface up: %v", err)
+	}
+	c.iface = iface
+	c.ownsTunnel = true
 	return nil
+}
+
+// Rules returns a set of iptables rules that are necessary
+// when traffic between nodes must be encapsulated.
+func (c *cilium) Rules(nodes []*net.IPNet) iptables.RuleSet {
+	rules := iptables.RuleSet{}
+	proto := ipipProtocolName()
+	rules.AddToAppend(iptables.NewIPv4Chain("filter", "KILO-IPIP"))
+	rules.AddToAppend(iptables.NewIPv6Chain("filter", "KILO-IPIP"))
+	rules.AddToAppend(iptables.NewIPv4Rule("filter", "INPUT", "-p", proto, "-m", "comment", "--comment", "Kilo: jump to IPIP chain", "-j", "KILO-IPIP"))
+	rules.AddToAppend(iptables.NewIPv6Rule("filter", "INPUT", "-p", proto, "-m", "comment", "--comment", "Kilo: jump to IPIP chain", "-j", "KILO-IPIP"))
+	for _, n := range nodes {
+		// Accept encapsulated traffic from peers.
+		rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(n.IP), "filter", "KILO-IPIP", "-s", n.String(), "-m", "comment", "--comment", "Kilo: allow IPIP traffic", "-j", "ACCEPT"))
+	}
+	// Drop all other IPIP traffic.
+	rules.AddToAppend(iptables.NewIPv4Rule("filter", "INPUT", "-p", proto, "-m", "comment", "--comment", "Kilo: reject other IPIP traffic", "-j", "DROP"))
+	rules.AddToAppend(iptables.NewIPv6Rule("filter", "INPUT", "-p", proto, "-m", "comment", "--comment", "Kilo: reject other IPIP traffic", "-j", "DROP"))
+
+	return rules
+}
+
+// Set sets the IP address of the IPIP tunnel interface.
+func (c *cilium) Set(cidr *net.IPNet) error {
+	return iproute.SetAddress(c.iface, cidr)
 }
 
 // Strategy returns the configured strategy for encapsulation.
-func (f *cilium) Strategy() Strategy {
-	return f.strategy
+func (c *cilium) Strategy() Strategy {
+	return c.strategy
 }

@@ -46,9 +46,12 @@ const (
 // * clean up any changes applied to the backend.
 type Encapsulator interface {
 	CleanUp() error
-	Gw(net.IP, net.IP, *net.IPNet) net.IP
+	Gw(net.IP, net.IP, net.IP, *net.IPNet) net.IP
 	Index() int
 	Init(int) error
+	// CNICompatibilityIP returns the local overlay IP that should be
+	// advertised to other nodes for CNI-compatible routing.
+	CNICompatibilityIP() *net.IPNet
 	Rules([]*net.IPNet) iptables.RuleSet
 	Set(*net.IPNet) error
 	Strategy() Strategy

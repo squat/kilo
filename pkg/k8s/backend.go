@@ -49,20 +49,21 @@ import (
 
 const (
 	// Backend is the name of this mesh backend.
-	Backend                      = "kubernetes"
-	endpointAnnotationKey        = "kilo.squat.ai/endpoint"
-	forceEndpointAnnotationKey   = "kilo.squat.ai/force-endpoint"
-	forceInternalIPAnnotationKey = "kilo.squat.ai/force-internal-ip"
-	internalIPAnnotationKey      = "kilo.squat.ai/internal-ip"
-	keyAnnotationKey             = "kilo.squat.ai/key"
-	lastSeenAnnotationKey        = "kilo.squat.ai/last-seen"
-	leaderAnnotationKey          = "kilo.squat.ai/leader"
-	locationAnnotationKey        = "kilo.squat.ai/location"
-	persistentKeepaliveKey       = "kilo.squat.ai/persistent-keepalive"
-	wireGuardIPAnnotationKey     = "kilo.squat.ai/wireguard-ip"
-	discoveredEndpointsKey       = "kilo.squat.ai/discovered-endpoints"
-	allowedLocationIPsKey        = "kilo.squat.ai/allowed-location-ips"
-	granularityKey               = "kilo.squat.ai/granularity"
+	Backend                         = "kubernetes"
+	endpointAnnotationKey           = "kilo.squat.ai/endpoint"
+	forceEndpointAnnotationKey      = "kilo.squat.ai/force-endpoint"
+	forceInternalIPAnnotationKey    = "kilo.squat.ai/force-internal-ip"
+	internalIPAnnotationKey         = "kilo.squat.ai/internal-ip"
+	keyAnnotationKey                = "kilo.squat.ai/key"
+	lastSeenAnnotationKey           = "kilo.squat.ai/last-seen"
+	leaderAnnotationKey             = "kilo.squat.ai/leader"
+	locationAnnotationKey           = "kilo.squat.ai/location"
+	persistentKeepaliveKey          = "kilo.squat.ai/persistent-keepalive"
+	wireGuardIPAnnotationKey        = "kilo.squat.ai/wireguard-ip"
+	discoveredEndpointsKey          = "kilo.squat.ai/discovered-endpoints"
+	allowedLocationIPsKey           = "kilo.squat.ai/allowed-location-ips"
+	granularityKey                  = "kilo.squat.ai/granularity"
+	cniCompatibilityIPAnnotationKey = "kilo.squat.ai/cni-compatibility-ip"
 	// RegionLabelKey is the key for the well-known Kubernetes topology region label.
 	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
@@ -241,6 +242,11 @@ func (nb *nodeBackend) Set(ctx context.Context, name string, node *mesh.Node) er
 		n.Annotations[discoveredEndpointsKey] = string(discoveredEndpoints)
 	}
 	n.Annotations[granularityKey] = string(node.Granularity)
+	if node.CNICompatibilityIP != nil {
+		n.Annotations[cniCompatibilityIPAnnotationKey] = node.CNICompatibilityIP.String()
+	} else {
+		n.Annotations[cniCompatibilityIPAnnotationKey] = ""
+	}
 	oldData, err := json.Marshal(old)
 	if err != nil {
 		return err
@@ -342,6 +348,12 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 	// TODO log some error or warning.
 	key, _ := wgtypes.ParseKey(node.Annotations[keyAnnotationKey])
 
+	// Parse the CNI compatibility IP if present.
+	var cniCompatibilityIP *net.IPNet
+	if cipStr, ok := node.Annotations[cniCompatibilityIPAnnotationKey]; ok && cipStr != "" {
+		cniCompatibilityIP = normalizeIP(cipStr)
+	}
+
 	return &mesh.Node{
 		// Endpoint and InternalIP should only ever fail to parse if the
 		// remote node's agent has not yet set its IP address;
@@ -352,6 +364,7 @@ func translateNode(node *v1.Node, topologyLabel string) *mesh.Node {
 		Endpoint:            endpoint,
 		NoInternalIP:        noInternalIP,
 		InternalIP:          internalIP,
+		CNICompatibilityIP:  cniCompatibilityIP,
 		Key:                 key,
 		LastSeen:            lastSeen,
 		Leader:              leader,

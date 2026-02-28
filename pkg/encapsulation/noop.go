@@ -29,7 +29,12 @@ func (n Noop) CleanUp() error {
 }
 
 // Gw will also do nothing.
-func (n Noop) Gw(_ net.IP, _ net.IP, _ *net.IPNet) net.IP {
+func (n Noop) Gw(_, _, _ net.IP, _ *net.IPNet) net.IP {
+	return nil
+}
+
+// CNICompatibilityIP will also do nothing.
+func (n Noop) CNICompatibilityIP() *net.IPNet {
 	return nil
 }
 

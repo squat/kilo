@@ -41,8 +41,13 @@ func (i *ipip) CleanUp() error {
 }
 
 // Gw returns the correct gateway IP associated with the given node.
-func (i *ipip) Gw(_, internal net.IP, _ *net.IPNet) net.IP {
+func (i *ipip) Gw(_, internal, _ net.IP, _ *net.IPNet) net.IP {
 	return internal
+}
+
+// CNICompatibilityIP is a no-op for IPIP.
+func (i *ipip) CNICompatibilityIP() *net.IPNet {
+	return nil
 }
 
 // Index returns the index of the IPIP interface.

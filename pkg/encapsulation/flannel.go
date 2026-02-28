@@ -50,8 +50,13 @@ func (f *flannel) CleanUp() error {
 }
 
 // Gw returns the correct gateway IP associated with the given node.
-func (f *flannel) Gw(_, _ net.IP, subnet *net.IPNet) net.IP {
+func (f *flannel) Gw(_, _, _ net.IP, subnet *net.IPNet) net.IP {
 	return subnet.IP
+}
+
+// CNICompatibilityIP is a no-op for Flannel.
+func (f *flannel) CNICompatibilityIP() *net.IPNet {
+	return nil
 }
 
 // Index returns the index of the Flannel interface.
