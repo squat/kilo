@@ -172,14 +172,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ env.IMAGE_NAME }},docker.io/${{ env.IMAGE_NAME }}
-          tags: type=sha,prefix=
-          flavor: latest=true
+          tags: |
+            type=sha
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+          flavor: |
+            latest=false
+            prefix=
       - name: Build and push
         id: push
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+          push: ${{ github.event_name != 'pull_request' }}
           platforms: linux/amd64, linux/arm64, linux/arm
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
