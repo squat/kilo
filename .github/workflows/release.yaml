@@ -12,7 +12,7 @@ jobs:
       - run: |
           nix build .#kgctl-cross-linux-amd64 .#kgctl-cross-linux-arm64 .#kgctl-cross-linux-arm .#kgctl-cross-darwin-amd64 .#kgctl-cross-darwin-arm64 .#kgctl-cross-windows-amd64
           for result in $(find -L . -name 'kgctl*' | grep result); do
-            cp "$result" "$(echo "$result" | sed 's|.*bin/\(.\+\)_\(.\+\)/kgctl\(.*\)|kgctl-\1-\2\3|g' | sed 's|.*bin/kgctl|kgctl-amd64|g')"
+            cp "$result" "$(echo "$result" | sed 's|.*bin/\(.\+\)_\(.\+\)/kgctl\(.*\)|kgctl-\1-\2\3|g; s|.*bin/kgctl|kgctl-linux-amd64|g')"
           done
       - name: Publish Release
         uses: skx/github-action-publish-binaries@master
