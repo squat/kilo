@@ -1,6 +1,6 @@
 on:
   release:
-    types: [created]
+    types: [created, published]
 name: Handle Release
 jobs:
   kgctl:
