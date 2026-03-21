@@ -33,14 +33,14 @@
             let
               _version = builtins.getEnv "VERSION";
               homepage = "https://github.com/squat/kilo";
-              base = pkgs.buildGoModule (finallAttrs: {
+              base = pkgs.buildGoModule (finalAttrs: {
                 pname = "kilo";
                 version = if _version != "" then _version else toString (self.rev or self.dirtyRev or "unknown");
                 src = ./.;
                 vendorHash = null;
                 env.CGO_ENABLED = 0;
                 ldflags = [
-                  "-X github.com/squat/kilo/pkg/version.Version=${finallAttrs.version}"
+                  "-X github.com/squat/kilo/pkg/version.Version=${finalAttrs.version}"
                 ];
                 nativeBuildInputs = [ pkgs.installShellFiles ];
                 meta = {
@@ -282,13 +282,10 @@
                 with pkgs;
                 [
                   bash_unit
-                  (config.packages.kgctl.overrideAttrs (finallAttrs: {
+                  (config.packages.kgctl.overrideAttrs {
                     version = "dev";
                     __intentionallyOverridingVersion = true;
-                    ldflags = [
-                      "-X github.com/squat/kilo/pkg/version.Version=${finallAttrs.version}"
-                    ];
-                  }))
+                  })
                   gettext # provides envsubst
                   go
                   kind
