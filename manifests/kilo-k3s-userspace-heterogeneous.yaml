@@ -299,7 +299,7 @@ spec:
           mountPath: /var/run/wireguard
           readOnly: false
       - name: wireguard
-        image: masipcat/wireguard-go:0.0.20230223:cc19859
+        image: ghcr.io/masipcat/wireguard-go-docker:0.0.20230223
         args:
         - wireguard-go
         - --foreground
@@ -411,7 +411,7 @@ spec:
       serviceAccountName: kilo
       containers:
       - name: nkml
-        image: leonnicolas/nkml
+        image: ghcr.io/leonnicolas/nkml:0.1.2
         args:
         - --hostname=$(NODE_NAME)
         - --label-mod=wireguard

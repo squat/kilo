@@ -20,6 +20,6 @@ spec:
         - /bin/sh
         - -c
         - while [ 1 -eq 1 ] ; do sleep 10; done
-        image: curlimages/curl
+        image: ghcr.io/curl/curl-container/curl:master
         name: curl
       restartPolicy: Always

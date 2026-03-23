@@ -101,7 +101,7 @@ spec:
       hostNetwork: true
       containers:
       - name: wireguard
-        image: masipcat/wireguard-go:0.0.20230223:cc19859
+        image: ghcr.io/masipcat/wireguard-go-docker:0.0.20230223
         imagePullPolicy: IfNotPresent
         args:
         - wireguard-go

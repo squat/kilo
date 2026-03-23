@@ -141,7 +141,7 @@ spec:
           mountPath: /etc/kubernetes
           readOnly: true
       - name: wireguard
-        image: masipcat/wireguard-go:0.0.20230223
+        image: ghcr.io/masipcat/wireguard-go-docker:0.0.20230223
         args:
         - wireguard-go
         - --foreground
