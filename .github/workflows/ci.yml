@@ -160,7 +160,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ env.IMAGE_NAME }},docker.io/${{ env.IMAGE_NAME }}
           tags: |
