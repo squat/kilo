@@ -50,6 +50,17 @@ The [arkade](https://github.com/alexellis/arkade) CLI can be used to install `kg
 arkade get kgctl
 ```
 
+#### mise
+
+Users of [mise](https://mise.jdx.dev/) can install with:
+
+```bash
+mise use -g github:squat/kilo@latest
+```
+
+Any updates will be installed automatically as part of your normal `mise up` updates.
+
+
 ## Commands
 
 |Command|Syntax|Description|
