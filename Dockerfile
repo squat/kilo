@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM docker.io/nixos/nix:2.34.1 AS builder
+FROM --platform=$BUILDPLATFORM docker.io/nixos/nix:2.34.3 AS builder
 
 COPY . /tmp/build
 WORKDIR /tmp/build
