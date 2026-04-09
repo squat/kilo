@@ -16,12 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
-      - uses: DeterminateSystems/update-flake-lock@v28
+      - uses: DeterminateSystems/update-flake-lock@ff43f160ef7014ae1a1fd85699fb6a44f436135b
         with:
           pr-title: Update Nix flake inputs
-          pr-labels: |
-            dependencies
-            automated
           sign-commits: true
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           token: ${{ secrets.GH_TOKEN_FOR_FLAKE_LOCK_UPDATES }}
+          push-to-fork: pinguibot/kilo
