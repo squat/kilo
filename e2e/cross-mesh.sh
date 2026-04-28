@@ -2,6 +2,14 @@
 # shellcheck disable=SC1091
 . lib.sh
 
+# This suite exercises --mesh-granularity=cross on the bridge-CNI test
+# cluster. Cross drops the WireGuard tunnel between nodes that share a
+# location and expects the underlying CNI to handle intra-location
+# traffic over its own overlay (e.g. Cilium VXLAN). The Kilo bridge CNI
+# used by this kind cluster has no such overlay, so cross-location peer
+# topology can be validated here but pod-to-pod connectivity cannot —
+# that lives in the Cilium-CNI suite (e2e/cilium-cross-mesh.sh).
+
 setup_suite() {
 	# Place control-plane and the first worker into one location, and the
 	# second worker into another, so that "cross" produces tunnels only
@@ -14,12 +22,13 @@ setup_suite() {
 	block_until_ready_by_name kube-system kilo-userspace
 }
 
-test_cross_mesh_connectivity() {
-	assert "retry 30 5 '' check_ping" "should be able to ping all Pods"
-	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 3" "adjacency should return the right number of successful pings"
-	echo "sleep for 30s (one reconciliation period) and try again..."
-	sleep 30
-	assert "retry 10 5 'the adjacency matrix is not complete yet' check_adjacent 3" "adjacency should return the right number of successful pings after reconciling"
+# Restore the cluster to a clean state for the suites that follow
+# (multi-cluster.sh, handlers.sh, kgctl.sh) by removing the location
+# annotations this suite added.
+teardown_suite() {
+	_kubectl annotate node "$KIND_CLUSTER-control-plane" kilo.squat.ai/location- 2>/dev/null || true
+	_kubectl annotate node "$KIND_CLUSTER-worker"        kilo.squat.ai/location- 2>/dev/null || true
+	_kubectl annotate node "$KIND_CLUSTER-worker2"       kilo.squat.ai/location- 2>/dev/null || true
 }
 
 test_cross_mesh_peer() {
