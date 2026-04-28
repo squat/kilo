@@ -107,6 +107,41 @@ jobs:
           duration: 15m
           authorized-users: squat, leonnicolas, kvaps
 
+  e2e-cilium:
+    runs-on:
+      - nscloud-ubuntu-22.04-amd64-8x16-with-features
+      - namespace-features:kernel.release-channel=bleeding-edge
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          tags: squat/kilo:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: "true"
+          build-args: |
+            VERSION=${{ github.sha }}
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.0
+      - uses: DeterminateSystems/determinate-nix-action@v3.17.2
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - env:
+          E2E_SKIP_TEARDOWN_ON_FAILURE: "true"
+        run: nix develop . --command make e2e-cilium
+      - name: Breakpoint if tests failed
+        if: failure()
+        uses: namespacelabs/breakpoint-action@v0
+        with:
+          duration: 15m
+          authorized-users: squat, leonnicolas, kvaps
+
   lint:
     runs-on: ubuntu-latest
     steps:
