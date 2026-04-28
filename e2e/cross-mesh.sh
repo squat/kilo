@@ -23,12 +23,17 @@ setup_suite() {
 }
 
 # Restore the cluster to a clean state for the suites that follow
-# (multi-cluster.sh, handlers.sh, kgctl.sh) by removing the location
-# annotations this suite added.
+# (multi-cluster.sh, handlers.sh, kgctl.sh): remove the location
+# annotations this suite added and roll the DaemonSet back to
+# --mesh-granularity=location, matching the state location-mesh.sh
+# leaves behind.
 teardown_suite() {
 	_kubectl annotate node "$KIND_CLUSTER-control-plane" kilo.squat.ai/location- 2>/dev/null || true
 	_kubectl annotate node "$KIND_CLUSTER-worker"        kilo.squat.ai/location- 2>/dev/null || true
 	_kubectl annotate node "$KIND_CLUSTER-worker2"       kilo.squat.ai/location- 2>/dev/null || true
+	# shellcheck disable=SC2016
+	_kubectl patch ds -n kube-system kilo -p '{"spec": {"template":{"spec":{"containers":[{"name":"kilo","args":["--hostname=$(NODE_NAME)","--create-interface=false","--kubeconfig=/etc/kubernetes/kubeconfig","--mesh-granularity=location"]}]}}}}'
+	block_until_ready_by_name kube-system kilo-userspace
 }
 
 test_cross_mesh_peer() {
