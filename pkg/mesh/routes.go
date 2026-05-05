@@ -402,9 +402,12 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) iptables.RuleSet {
 		// Make sure packets to allowed location IPs go through the KILO-NAT chain, so they can be MASQUERADEd,
 		// Otherwise packets to these destinations will reach the destination, but never find their way back.
 		// We only want to NAT in locations of the corresponding allowed location IPs.
+		// Skip the jump when the source is in the same allowed-location CIDR: that traffic is local L2
+		// (e.g. node-to-VIP) and must not be MASQUERADEd, otherwise floating IPs / VIPs whose addresses
+		// have no explicit RETURN rule fall through to MASQUERADE and break etcd / control-plane HA.
 		if t.location == s.location {
 			for _, alip := range s.allowedLocationIPs {
-				rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(alip.IP), "nat", "POSTROUTING", "-d", alip.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"))
+				rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(alip.IP), "nat", "POSTROUTING", "-d", alip.String(), "!", "-s", alip.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"))
 			}
 		}
 	}
