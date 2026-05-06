@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
-      - uses: DeterminateSystems/update-flake-lock@ff43f160ef7014ae1a1fd85699fb6a44f436135b
+      - uses: DeterminateSystems/update-flake-lock@203e2eb079eca40abff70ea3189192e9adeca500
         with:
           pr-title: Update Nix flake inputs
           sign-commits: true
