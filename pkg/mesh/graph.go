@@ -44,6 +44,7 @@ func (t *Topology) Dot() (string, error) {
 		return "", fmt.Errorf("failed to set direction")
 	}
 	leaders := make([]string, len(t.segments))
+	nodeLocations := make([]string, len(t.segments))
 	nodeAttrs := map[string]string{
 		string(gographviz.Shape): "ellipse",
 	}
@@ -86,10 +87,24 @@ func (t *Topology) Dot() (string, error) {
 				return "", fmt.Errorf("failed to add label to node")
 			}
 		}
-		meshSubGraph(g, g.Relations.SortedChildren(subGraphName(location)), s.leader, plainConnection, nil)
+		if s.nodeLocation == "" {
+			meshSubGraph(g, g.Relations.SortedChildren(subGraphName(location)), s.leader, plainConnection, nil)
+		}
+		nodeLocations[i] = s.nodeLocation
 		leaders[i] = graphEscape(s.hostnames[s.leader])
 	}
-	meshGraph(g, leaders, nil)
+
+	seen := make(map[string]bool)
+	for _, s := range t.segments {
+		if s.nodeLocation == "" || seen[s.nodeLocation] {
+			continue
+		}
+		seen[s.nodeLocation] = true
+		children := g.Relations.SortedChildren(subGraphName(s.nodeLocation))
+		meshSubGraph(g, children, 0, true, nil)
+	}
+
+	meshGraph(g, leaders, nodeLocations, nil)
 
 	if err := g.AddSubGraph("kilo", graphEscape("cluster_peers"), nil); err != nil {
 		return "", fmt.Errorf("failed to add peer subgraph")
@@ -113,7 +128,7 @@ func (t *Topology) Dot() (string, error) {
 	return g.String(), nil
 }
 
-func meshGraph(g *gographviz.Graph, nodes []string, attrs gographviz.Attrs) {
+func meshGraph(g *gographviz.Graph, nodes []string, nodeLocations []string, attrs gographviz.Attrs) {
 	if attrs == nil {
 		attrs = make(gographviz.Attrs)
 		attrs[gographviz.Dir] = "both"
@@ -121,6 +136,9 @@ func meshGraph(g *gographviz.Graph, nodes []string, attrs gographviz.Attrs) {
 	for i := range nodes {
 		for j := i + 1; j < len(nodes); j++ {
 			if i == j {
+				continue
+			}
+			if nodeLocations != nil && nodeLocations[i] != "" && nodeLocations[i] == nodeLocations[j] {
 				continue
 			}
 			dsts := g.Edges.SrcToDsts[nodes[i]]
