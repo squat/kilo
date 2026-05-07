@@ -41,6 +41,7 @@ var (
 	key3 = wgtypes.Key{'k', 'e', 'y', '3'}
 	key4 = wgtypes.Key{'k', 'e', 'y', '4'}
 	key5 = wgtypes.Key{'k', 'e', 'y', '5'}
+	key6 = wgtypes.Key{'k', 'e', 'y', '6'}
 )
 
 func setup(t *testing.T) (map[string]*Node, map[string]*Peer, wgtypes.Key, int) {
@@ -835,6 +836,208 @@ func TestNewTopology(t *testing.T) {
 						privateIPs:          nil,
 						cniCompatibilityIPs: []*net.IPNet{nil},
 						wireGuardIP:         w4,
+					},
+				},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
+			},
+		},
+	} {
+		tc.result.key = key
+		tc.result.port = port
+		topo, err := NewTopology(nodes, peers, tc.granularity, tc.hostname, port, key, DefaultKiloSubnet, nil, 0, nil)
+		if err != nil {
+			t.Errorf("test case %q: failed to generate Topology: %v", tc.name, err)
+		}
+		if diff := pretty.Compare(topo, tc.result); diff != "" {
+			t.Errorf("test case %q: got diff: %v", tc.name, diff)
+		}
+	}
+}
+
+func TestNewTopologyEmptyLocation(t *testing.T) {
+	nodes, peers, key, port := setup(t)
+
+	e5 := &net.IPNet{IP: net.ParseIP("10.1.0.5").To4(), Mask: net.CIDRMask(16, 32)}
+	i5 := &net.IPNet{IP: net.ParseIP("10.1.0.5").To4(), Mask: net.CIDRMask(32, 32)}
+	nodes["e"] = &Node{
+		Name:       "e",
+		Endpoint:   wireguard.NewEndpoint(e5.IP, DefaultKiloPort),
+		InternalIP: i5,
+		Location:   "",
+		Subnet:     &net.IPNet{IP: net.ParseIP("10.2.5.0"), Mask: net.CIDRMask(24, 32)},
+		Key:        key6,
+	}
+
+	// LogicalGranularity: node e has empty Location and a valid InternalIP.
+	// Because Location == "", it is grouped under "location:" (logicalLocationPrefix + "").
+	//
+	// Segment sort order (location string):
+	//   location:   → node e        → w1  (Location="" with InternalIP set)
+	//   location:1  → node a        → w2
+	//   location:2  → nodes b, c    → w3
+	//   node:d      → node d        → w4  (Location="1" but InternalIP==nil)
+	w1 := net.ParseIP("10.4.0.1").To4()
+	w2 := net.ParseIP("10.4.0.2").To4()
+	w3 := net.ParseIP("10.4.0.3").To4()
+	w4 := net.ParseIP("10.4.0.4").To4()
+	w5 := net.ParseIP("10.4.0.5").To4()
+
+	for _, tc := range []struct {
+		name        string
+		granularity Granularity
+		hostname    string
+		result      *Topology
+	}{
+		{
+			name:        "logical from e (empty location)",
+			granularity: LogicalGranularity,
+			hostname:    nodes["e"].Name,
+			result: &Topology{
+				hostname:      nodes["e"].Name,
+				leader:        true,
+				location:      logicalLocationPrefix + nodes["e"].Location,
+				subnet:        nodes["e"].Subnet,
+				privateIP:     nodes["e"].InternalIP,
+				wireGuardCIDR: &net.IPNet{IP: w1, Mask: net.CIDRMask(16, 32)},
+				segments: []*segment{
+					{
+						allowedIPs:          []net.IPNet{*nodes["e"].Subnet, *nodes["e"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["e"].Endpoint,
+						key:                 nodes["e"].Key,
+						persistentKeepalive: nodes["e"].PersistentKeepalive,
+						location:            logicalLocationPrefix + nodes["e"].Location,
+						cidrs:               []*net.IPNet{nodes["e"].Subnet},
+						hostnames:           []string{"e"},
+						privateIPs:          []net.IP{nodes["e"].InternalIP.IP},
+						cniCompatibilityIPs: []*net.IPNet{nil},
+						wireGuardIP:         w1,
+					},
+					{
+						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["a"].Endpoint,
+						key:                 nodes["a"].Key,
+						persistentKeepalive: nodes["a"].PersistentKeepalive,
+						location:            logicalLocationPrefix + nodes["a"].Location,
+						cidrs:               []*net.IPNet{nodes["a"].Subnet},
+						hostnames:           []string{"a"},
+						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
+						cniCompatibilityIPs: []*net.IPNet{nil},
+						wireGuardIP:         w2,
+					},
+					{
+						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, *nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["b"].Endpoint,
+						key:                 nodes["b"].Key,
+						persistentKeepalive: nodes["b"].PersistentKeepalive,
+						location:            logicalLocationPrefix + nodes["b"].Location,
+						cidrs:               []*net.IPNet{nodes["b"].Subnet, nodes["c"].Subnet},
+						hostnames:           []string{"b", "c"},
+						privateIPs:          []net.IP{nodes["b"].InternalIP.IP, nodes["c"].InternalIP.IP},
+						cniCompatibilityIPs: []*net.IPNet{nil, nil},
+						wireGuardIP:         w3,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
+					},
+					{
+						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["d"].Endpoint,
+						key:                 nodes["d"].Key,
+						persistentKeepalive: nodes["d"].PersistentKeepalive,
+						location:            nodeLocationPrefix + nodes["d"].Name,
+						cidrs:               []*net.IPNet{nodes["d"].Subnet},
+						hostnames:           []string{"d"},
+						privateIPs:          nil,
+						cniCompatibilityIPs: []*net.IPNet{nil},
+						wireGuardIP:         w4,
+					},
+				},
+				peers:  []*Peer{peers["a"], peers["b"]},
+				logger: log.NewNopLogger(),
+			},
+		},
+		{
+			// CrossGranularity: every node gets its own segment keyed by node name.
+			// For node e with empty Location, nodeLocation must be "location:" (logicalLocationPrefix + "").
+			//
+			// Segment sort order (location = node:<name>):
+			//   node:a → w1, node:b → w2, node:c → w3, node:d → w4, node:e → w5
+			name:        "cross from e (empty location)",
+			granularity: CrossGranularity,
+			hostname:    nodes["e"].Name,
+			result: &Topology{
+				hostname:      nodes["e"].Name,
+				leader:        true,
+				location:      nodeLocationPrefix + nodes["e"].Name,
+				nodeLocation:  logicalLocationPrefix + nodes["e"].Location,
+				subnet:        nodes["e"].Subnet,
+				privateIP:     nodes["e"].InternalIP,
+				wireGuardCIDR: &net.IPNet{IP: w5, Mask: net.CIDRMask(16, 32)},
+				segments: []*segment{
+					{
+						allowedIPs:          []net.IPNet{*nodes["a"].Subnet, *nodes["a"].InternalIP, {IP: w1, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["a"].Endpoint,
+						key:                 nodes["a"].Key,
+						persistentKeepalive: nodes["a"].PersistentKeepalive,
+						location:            nodeLocationPrefix + nodes["a"].Name,
+						nodeLocation:        logicalLocationPrefix + nodes["a"].Location,
+						cidrs:               []*net.IPNet{nodes["a"].Subnet},
+						hostnames:           []string{"a"},
+						privateIPs:          []net.IP{nodes["a"].InternalIP.IP},
+						cniCompatibilityIPs: []*net.IPNet{nil},
+						wireGuardIP:         w1,
+					},
+					{
+						allowedIPs:          []net.IPNet{*nodes["b"].Subnet, *nodes["b"].InternalIP, {IP: w2, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["b"].Endpoint,
+						key:                 nodes["b"].Key,
+						persistentKeepalive: nodes["b"].PersistentKeepalive,
+						location:            nodeLocationPrefix + nodes["b"].Name,
+						nodeLocation:        logicalLocationPrefix + nodes["b"].Location,
+						cidrs:               []*net.IPNet{nodes["b"].Subnet},
+						hostnames:           []string{"b"},
+						privateIPs:          []net.IP{nodes["b"].InternalIP.IP},
+						cniCompatibilityIPs: []*net.IPNet{nil},
+						wireGuardIP:         w2,
+						allowedLocationIPs:  nodes["b"].AllowedLocationIPs,
+					},
+					{
+						allowedIPs:          []net.IPNet{*nodes["c"].Subnet, *nodes["c"].InternalIP, {IP: w3, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["c"].Endpoint,
+						key:                 nodes["c"].Key,
+						persistentKeepalive: nodes["c"].PersistentKeepalive,
+						location:            nodeLocationPrefix + nodes["c"].Name,
+						nodeLocation:        logicalLocationPrefix + nodes["c"].Location,
+						cidrs:               []*net.IPNet{nodes["c"].Subnet},
+						hostnames:           []string{"c"},
+						privateIPs:          []net.IP{nodes["c"].InternalIP.IP},
+						cniCompatibilityIPs: []*net.IPNet{nil},
+						wireGuardIP:         w3,
+					},
+					{
+						allowedIPs:          []net.IPNet{*nodes["d"].Subnet, {IP: w4, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["d"].Endpoint,
+						key:                 nodes["d"].Key,
+						persistentKeepalive: nodes["d"].PersistentKeepalive,
+						location:            nodeLocationPrefix + nodes["d"].Name,
+						nodeLocation:        logicalLocationPrefix + nodes["d"].Location,
+						cidrs:               []*net.IPNet{nodes["d"].Subnet},
+						hostnames:           []string{"d"},
+						privateIPs:          nil,
+						cniCompatibilityIPs: []*net.IPNet{nil},
+						wireGuardIP:         w4,
+					},
+					{
+						allowedIPs:          []net.IPNet{*nodes["e"].Subnet, *nodes["e"].InternalIP, {IP: w5, Mask: net.CIDRMask(32, 32)}},
+						endpoint:            nodes["e"].Endpoint,
+						key:                 nodes["e"].Key,
+						persistentKeepalive: nodes["e"].PersistentKeepalive,
+						location:            nodeLocationPrefix + nodes["e"].Name,
+						nodeLocation:        logicalLocationPrefix + nodes["e"].Location,
+						cidrs:               []*net.IPNet{nodes["e"].Subnet},
+						hostnames:           []string{"e"},
+						privateIPs:          []net.IP{nodes["e"].InternalIP.IP},
+						cniCompatibilityIPs: []*net.IPNet{nil},
+						wireGuardIP:         w5,
 					},
 				},
 				peers:  []*Peer{peers["a"], peers["b"]},

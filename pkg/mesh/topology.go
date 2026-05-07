@@ -132,8 +132,6 @@ func NewTopology(nodes map[string]*Node, peers map[string]*Peer, granularity Gra
 		switch granularity {
 		case LogicalGranularity:
 			location = logicalLocationPrefix + node.Location
-			// Put node in a different location, if no private
-			// IP was found.
 			if node.InternalIP == nil {
 				location = nodeLocationPrefix + node.Name
 			}
