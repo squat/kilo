@@ -162,11 +162,19 @@ func meshSubGraph(g *gographviz.Graph, nodes []string, leader int, plainConnecti
 			attrs[gographviz.ArrowTail] = "none"
 		}
 	}
-	for i := range nodes {
-		if i == leader {
-			continue
+	if plainConnection {
+		for i := range nodes {
+			for j := i + 1; j < len(nodes); j++ {
+				g.Edges.Add(&gographviz.Edge{Src: nodes[i], Dst: nodes[j], Dir: true, Attrs: attrs})
+			}
 		}
-		g.Edges.Add(&gographviz.Edge{Src: nodes[leader], Dst: nodes[i], Dir: true, Attrs: attrs})
+	} else {
+		for i := range nodes {
+			if i == leader {
+				continue
+			}
+			g.Edges.Add(&gographviz.Edge{Src: nodes[leader], Dst: nodes[i], Dir: true, Attrs: attrs})
+		}
 	}
 }
 
