@@ -89,11 +89,11 @@ data:
     cat > /etc/kubernetes/kubeconfig <<EOF
         apiVersion: v1
         kind: Config
-        name: kilo
         clusters:
         - cluster:
             server: $(sed -n 's/.*server: \(.*\)/\1/p' /var/lib/rancher/k3s/agent/kubelet.kubeconfig)
             certificate-authority: /var/lib/rancher/k3s/agent/server-ca.crt
+          name: kilo
         users:
         - name: kilo
           user:
