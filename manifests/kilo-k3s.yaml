@@ -158,6 +158,9 @@ spec:
         - name: xtables-lock
           mountPath: /run/xtables.lock
           readOnly: false
+        - name: k3s-agent
+          mountPath: /var/lib/rancher/k3s/agent/
+          readOnly: true
       initContainers:
       - name: generate-kubeconfig
         image: squat/kilo:0.7.0

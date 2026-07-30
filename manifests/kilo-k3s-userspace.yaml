@@ -165,6 +165,9 @@ spec:
         - name: wireguard
           mountPath: /var/run/wireguard
           readOnly: false
+        - name: k3s-agent
+          mountPath: /var/lib/rancher/k3s/agent/
+          readOnly: true
       - name: wireguard
         image: ghcr.io/masipcat/wireguard-go-docker:0.0.20230223
         args:
