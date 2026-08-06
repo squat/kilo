@@ -49,6 +49,7 @@ var (
 	availableGranularities = []string{
 		string(mesh.LogicalGranularity),
 		string(mesh.FullGranularity),
+		string(mesh.CrossGranularity),
 		string(mesh.AutoGranularity),
 	}
 	availableLogLevels = []string{
@@ -91,6 +92,7 @@ func runRoot(c *cobra.Command, _ []string) error {
 	switch opts.granularity {
 	case mesh.LogicalGranularity:
 	case mesh.FullGranularity:
+	case mesh.CrossGranularity:
 	case mesh.AutoGranularity:
 	default:
 		return fmt.Errorf("mesh granularity %s unknown; posible values are: %s", granularity, availableGranularities)
@@ -164,8 +166,9 @@ func determineGranularity(gr mesh.Granularity, ns []*mesh.Node) (mesh.Granularit
 		switch ret {
 		case mesh.LogicalGranularity:
 		case mesh.FullGranularity:
+		case mesh.CrossGranularity:
 		default:
-			return ret, fmt.Errorf("mesh granularity %s is not supported", opts.granularity)
+			return ret, fmt.Errorf("mesh granularity %s is not supported", ret)
 		}
 		return ret, nil
 	}
