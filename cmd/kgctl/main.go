@@ -93,7 +93,7 @@ func runRoot(c *cobra.Command, _ []string) error {
 	case mesh.FullGranularity:
 	case mesh.AutoGranularity:
 	default:
-		return fmt.Errorf("mesh granularity %s unknown; posible values are: %s", granularity, availableGranularities)
+		return fmt.Errorf("mesh granularity %s unknown; possible values are: %s", granularity, availableGranularities)
 	}
 
 	switch backend {
@@ -107,7 +107,7 @@ func runRoot(c *cobra.Command, _ []string) error {
 		ec := apiextensions.NewForConfigOrDie(config)
 		opts.backend = k8s.New(c, opts.kc, ec, topologyLabel, log.NewNopLogger())
 	default:
-		return fmt.Errorf("backend %s unknown; posible values are: %s", backend, availableBackends)
+		return fmt.Errorf("backend %s unknown; possible values are: %s", backend, availableBackends)
 	}
 
 	if err := opts.backend.Nodes().Init(c.Context()); err != nil {
