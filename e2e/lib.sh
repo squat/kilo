@@ -142,6 +142,55 @@ delete_cluster () {
 	_kind delete clusters $KIND_CLUSTER
 }
 
+# install_cilium installs Cilium via Helm into the current kind cluster
+# using a minimal config: VXLAN overlay, Kubernetes IPAM, host firewall off.
+# Kube-proxy replacement is intentionally left at the default (off) to
+# keep the e2e harness focused on Kilo's --compatibility=cilium path
+# rather than Cilium's eBPF service LB; KPR coverage can be added in a
+# follow-up.
+install_cilium() {
+	local CILIUM_VERSION="${CILIUM_VERSION:-1.16.5}"
+	helm repo add cilium https://helm.cilium.io/ >/dev/null 2>&1 || true
+	helm repo update cilium >/dev/null 2>&1 || true
+	helm --kubeconfig="$KUBECONFIG" install cilium cilium/cilium \
+		--namespace kube-system \
+		--version "$CILIUM_VERSION" \
+		--set ipam.mode=kubernetes \
+		--set tunnelProtocol=vxlan \
+		--set hostFirewall.enabled=false \
+		--set image.pullPolicy=IfNotPresent \
+		--set rollOutCiliumPods=true \
+		--wait
+}
+
+# create_cilium_cluster launches a kind cluster, installs Cilium as the CNI,
+# deploys Kilo in --compatibility=cilium mode, and brings up Adjacency +
+# the curl helper, mirroring create_cluster.
+create_cilium_cluster() {
+	# shellcheck disable=SC2119
+	local CONFIG="${1:-$(build_kind_config)}"
+	_kind delete clusters $KIND_CLUSTER > /dev/null
+	_kind create cluster --name $KIND_CLUSTER --config <(echo "$CONFIG")
+	# Cilium needs to be installed before any pod that requires CNI networking
+	# can become Ready, so install it first.
+	install_cilium
+	block_until_ready kube-system k8s-app=cilium
+	_kubectl wait nodes --all --for=condition=Ready --timeout=120s
+	block_until_ready kube_system k8s-app=kube-dns
+	# Load the Kilo image into kind and apply the Cilium-mode manifest.
+	docker tag "$KILO_IMAGE" squat/kilo:test
+	$KIND_BINARY load docker-image squat/kilo:test --name $KIND_CLUSTER
+	_kubectl create secret generic kubeconfig --from-file=kubeconfig="$KUBECONFIG" -n kube-system
+	_kubectl apply -f ../manifests/crds.yaml
+	_kubectl apply -f kilo-kind-cilium.yaml
+	if ! block_until_ready_by_name kube-system kilo-userspace; then return 1; fi
+	_kubectl apply -f helper-curl.yaml
+	block_until_ready_by_name default curl || return 1
+	_kubectl taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/control-plane:NoSchedule-
+	_kubectl apply -f https://raw.githubusercontent.com/kilo-io/adjacency/main/example.yaml
+	block_until_ready_by_name default adjacency
+}
+
 curl_pod() {
 	_kubectl get pods -l app.kubernetes.io/name=curl -o name | xargs -I{} "$KUBECTL_BINARY" --kubeconfig="$KUBECONFIG" exec {} -- /usr/bin/curl "$@"
 }
