@@ -21,24 +21,25 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/containernetworking/cni/pkg/types"
 	current "github.com/containernetworking/cni/pkg/types/100"
-	"github.com/vishvananda/netlink"
+	"github.com/containernetworking/plugins/pkg/netlinksafe"
 )
 
 func ValidateExpectedInterfaceIPs(ifName string, resultIPs []*current.IPConfig) error {
-
 	// Ensure ips
 	for _, ips := range resultIPs {
 		ourAddr := netlink.Addr{IPNet: &ips.Address}
 		match := false
 
-		link, err := netlink.LinkByName(ifName)
+		link, err := netlinksafe.LinkByName(ifName)
 		if err != nil {
 			return fmt.Errorf("Cannot find container link %v", ifName)
 		}
 
-		addrList, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+		addrList, err := netlinksafe.AddrList(link, netlink.FAMILY_ALL)
 		if err != nil {
 			return fmt.Errorf("Cannot obtain List of IP Addresses")
 		}
@@ -49,12 +50,15 @@ func ValidateExpectedInterfaceIPs(ifName string, resultIPs []*current.IPConfig) 
 				break
 			}
 		}
-		if match == false {
+		if !match {
 			return fmt.Errorf("Failed to match addr %v on interface %v", ourAddr, ifName)
 		}
 
 		// Convert the host/prefixlen to just prefix for route lookup.
 		_, ourPrefix, err := net.ParseCIDR(ourAddr.String())
+		if err != nil {
+			return err
+		}
 
 		findGwy := &netlink.Route{Dst: ourPrefix}
 		routeFilter := netlink.RT_FILTER_DST
@@ -64,7 +68,7 @@ func ValidateExpectedInterfaceIPs(ifName string, resultIPs []*current.IPConfig) 
 			family = netlink.FAMILY_V4
 		}
 
-		gwy, err := netlink.RouteListFiltered(family, findGwy, routeFilter)
+		gwy, err := netlinksafe.RouteListFiltered(family, findGwy, routeFilter)
 		if err != nil {
 			return fmt.Errorf("Error %v trying to find Gateway %v for interface %v", err, ips.Gateway, ifName)
 		}
@@ -77,11 +81,13 @@ func ValidateExpectedInterfaceIPs(ifName string, resultIPs []*current.IPConfig) 
 }
 
 func ValidateExpectedRoute(resultRoutes []*types.Route) error {
-
 	// Ensure that each static route in prevResults is found in the routing table
 	for _, route := range resultRoutes {
 		find := &netlink.Route{Dst: &route.Dst, Gw: route.GW}
-		routeFilter := netlink.RT_FILTER_DST | netlink.RT_FILTER_GW
+		routeFilter := netlink.RT_FILTER_DST
+		if route.GW != nil {
+			routeFilter |= netlink.RT_FILTER_GW
+		}
 		var family int
 
 		switch {
@@ -103,7 +109,7 @@ func ValidateExpectedRoute(resultRoutes []*types.Route) error {
 			return fmt.Errorf("Invalid static route found %v", route)
 		}
 
-		wasFound, err := netlink.RouteListFiltered(family, find, routeFilter)
+		wasFound, err := netlinksafe.RouteListFiltered(family, find, routeFilter)
 		if err != nil {
 			return fmt.Errorf("Expected Route %v not route table lookup error %v", route, err)
 		}
