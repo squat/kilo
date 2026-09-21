@@ -90,11 +90,16 @@ delete_peer() {
 	_kubectl delete peer "$1"
 }
 
+is_scheduled() {
+	for _ in $(_kubectl -n "$1" get pods -o name -l "$2" --field-selector=status.phase!=Running,status.phase!=Pending); do
+		return 1;
+	done
+	return 0
+}
+
 is_ready() {
-	for pod in $(_kubectl -n "$1" get pods -o name -l "$2"); do
-		if ! _kubectl -n "$1" get "$pod" | tail -n 1 | grep -q Running; then
-			return 1;
-		fi
+	for _ in $(_kubectl -n "$1" get pods -o name -l "$2" --field-selector=status.phase!=Running); do
+		return 1;
 	done
 	return 0
 }
@@ -126,15 +131,18 @@ create_cluster() {
 	# Apply Kilo the the cluster.
 	_kubectl apply -f ../manifests/crds.yaml
 	_kubectl apply -f kilo-kind-userspace.yaml
-	if ! block_until_ready_by_name kube-system kilo-userspace; then return 1; fi
-	_kubectl wait nodes --all --for=condition=Ready
-	# Wait for CoreDNS.
-	block_until_ready kube_system k8s-app=kube-dns
+	block_until_ready_by_name kube-system kilo-userspace || return 1
+	_kubectl wait nodes --all --for=condition=Ready --timeout=30s || return 1
 	# Ensure the curl helper is not scheduled on a control-plane node.
+	# Apply the before the node is untainted.
 	_kubectl apply -f helper-curl.yaml
-	block_until_ready_by_name default curl || return 1
+	# Ensure the pod is scheduled before untainting.
+	retry 30 5 "some curl pods are not scheduled yet" is_scheduled default curl
 	_kubectl taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/control-plane:NoSchedule-
 	_kubectl apply -f https://raw.githubusercontent.com/kilo-io/adjacency/main/example.yaml
+	# Wait for workloads.
+	block_until_ready kube_system k8s-app=kube-dns || return 1
+	block_until_ready_by_name default curl || return 1
 	block_until_ready_by_name default adjacency
 }
 
