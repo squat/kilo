@@ -135,7 +135,14 @@ create_cluster() {
 	block_until_ready_by_name default curl || return 1
 	_kubectl taint node $KIND_CLUSTER-control-plane node-role.kubernetes.io/control-plane:NoSchedule-
 	_kubectl apply -f https://raw.githubusercontent.com/kilo-io/adjacency/main/example.yaml
-	block_until_ready_by_name default adjacency
+	block_until_ready_by_name default adjacency || return 1
+	# Install node-local-dns
+	# shellcheck disable=SC2155
+	local kubedns=$(_kubectl get svc kube-dns -n kube-system -o jsonpath='{.spec.clusterIP}')
+	local localdns=169.254.20.10
+	local domain=cluster.local
+	curl -L https://raw.githubusercontent.com/kubernetes/kubernetes/82a636f1f3c27f511221642d13d91dd09d111fb3/cluster/addons/dns/nodelocaldns/nodelocaldns.yaml | sed "s/__PILLAR__LOCAL__DNS__/$localdns/g; s/__PILLAR__DNS__DOMAIN__/$domain/g; s/__PILLAR__DNS__SERVER__/$kubedns/g" | _kubectl apply -f -
+	block_until_ready kube_system k8s-app=node-local-dns
 }
 
 delete_cluster () {
