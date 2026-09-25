@@ -15,6 +15,8 @@
 package mesh
 
 import (
+	"net"
+	"strings"
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
@@ -22,6 +24,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/squat/kilo/pkg/encapsulation"
+	"github.com/squat/kilo/pkg/iptables"
 )
 
 func TestRoutes(t *testing.T) {
@@ -1204,4 +1207,66 @@ func TestRoutes(t *testing.T) {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}
 	}
+}
+
+func TestRulesDoNotNATBetweenAllowedLocationIPs(t *testing.T) {
+	allowedLocationIPs := []net.IPNet{
+		mustParseCIDR("192.168.102.0/23"),
+		mustParseCIDR("10.10.0.0/16"),
+	}
+	topology := &Topology{
+		location: "same-location",
+		segments: []*segment{
+			{
+				location:           "same-location",
+				wireGuardIP:        net.ParseIP("10.4.0.1"),
+				allowedLocationIPs: allowedLocationIPs,
+			},
+		},
+	}
+	client := &recordingIPTablesClient{}
+	controller, err := iptables.New(iptables.WithClients(client, client))
+	if err != nil {
+		t.Fatalf("failed to create iptables controller: %v", err)
+	}
+	if err := controller.Set(topology.Rules(false, false)); err != nil {
+		t.Fatalf("failed to apply topology rules: %v", err)
+	}
+
+	for _, expected := range []string{
+		"nat KILO-NAT -s 10.10.0.0/16 -d 192.168.102.0/23 -m comment --comment Kilo: do not NAT between allowed location IPs -j RETURN",
+		"nat KILO-NAT -s 192.168.102.0/23 -d 10.10.0.0/16 -m comment --comment Kilo: do not NAT between allowed location IPs -j RETURN",
+	} {
+		if !containsString(client.inserted, expected) {
+			t.Errorf("expected rule %q, got %q", expected, client.inserted)
+		}
+	}
+}
+
+type recordingIPTablesClient struct {
+	inserted []string
+}
+
+func (c *recordingIPTablesClient) AppendUnique(string, string, ...string) error { return nil }
+func (c *recordingIPTablesClient) InsertUnique(table, chain string, _ int, rule ...string) error {
+	c.inserted = append(c.inserted, strings.Join(append([]string{table, chain}, rule...), " "))
+	return nil
+}
+func (c *recordingIPTablesClient) Delete(string, string, ...string) error { return nil }
+func (c *recordingIPTablesClient) Exists(string, string, ...string) (bool, error) {
+	return false, nil
+}
+func (c *recordingIPTablesClient) List(string, string) ([]string, error) { return nil, nil }
+func (c *recordingIPTablesClient) ClearChain(string, string) error       { return nil }
+func (c *recordingIPTablesClient) DeleteChain(string, string) error      { return nil }
+func (c *recordingIPTablesClient) NewChain(string, string) error         { return nil }
+func (c *recordingIPTablesClient) ListChains(string) ([]string, error)   { return nil, nil }
+
+func containsString(haystack []string, needle string) bool {
+	for _, value := range haystack {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }

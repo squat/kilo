@@ -400,11 +400,18 @@ func (t *Topology) Rules(cni, iptablesForwardRule bool) iptables.RuleSet {
 			rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(aip.IP), "nat", "KILO-NAT", "-d", aip.String(), "-m", "comment", "--comment", "Kilo: do not NAT packets destined for known IPs", "-j", "RETURN"))
 		}
 		// Make sure packets to allowed location IPs go through the KILO-NAT chain, so they can be MASQUERADEd,
-		// Otherwise packets to these destinations will reach the destination, but never find their way back.
-		// We only want to NAT in locations of the corresponding allowed location IPs.
+		// otherwise packets to these destinations will reach the destination, but never find their way back.
+		// We only want to NAT in locations of the corresponding allowed location IPs, and never between
+		// allowed location IPs in the same location.
 		if t.location == s.location {
-			for _, alip := range s.allowedLocationIPs {
-				rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(alip.IP), "nat", "POSTROUTING", "-d", alip.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"))
+			for _, destination := range s.allowedLocationIPs {
+				rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(destination.IP), "nat", "POSTROUTING", "-d", destination.String(), "-m", "comment", "--comment", "Kilo: jump to NAT chain", "-j", "KILO-NAT"))
+				for _, source := range s.allowedLocationIPs {
+					if iptables.GetProtocol(source.IP) != iptables.GetProtocol(destination.IP) {
+						continue
+					}
+					rules.AddToPrepend(iptables.NewRule(iptables.GetProtocol(destination.IP), "nat", "KILO-NAT", "-s", source.String(), "-d", destination.String(), "-m", "comment", "--comment", "Kilo: do not NAT between allowed location IPs", "-j", "RETURN"))
+				}
 			}
 		}
 	}
