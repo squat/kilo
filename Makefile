@@ -87,7 +87,7 @@ unit:
 test: lint unit e2e
 
 e2e:
-	KILO_IMAGE=squat/kilo:test bash_unit $(BASH_UNIT_FLAGS) ./e2e/setup.sh ./e2e/full-mesh.sh ./e2e/location-mesh.sh ./e2e/multi-cluster.sh ./e2e/handlers.sh ./e2e/kgctl.sh ./e2e/teardown.sh
+	KILO_IMAGE=squat/kilo:test bash_unit $(BASH_UNIT_FLAGS) ./e2e/setup.sh ./e2e/full-mesh.sh ./e2e/location-mesh.sh ./e2e/cross-mesh.sh ./e2e/multi-cluster.sh ./e2e/handlers.sh ./e2e/kgctl.sh ./e2e/teardown.sh
 
 docs/kg.md:
 	go run ./cmd/kg/... --help | head -n -2 > help.txt
