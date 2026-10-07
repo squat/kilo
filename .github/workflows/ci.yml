@@ -17,7 +17,7 @@ jobs:
   vendor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: |
@@ -28,7 +28,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix build
@@ -36,7 +36,7 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - name: Build docs
@@ -47,7 +47,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix build .#kilo-cross-linux-amd64 .#kilo-cross-linux-arm64 .#kilo-cross-linux-arm
@@ -55,7 +55,7 @@ jobs:
   darwin:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix build .#kgctl-cross-darwin-amd64 .#kgctl-cross-darwin-arm64
@@ -63,7 +63,7 @@ jobs:
   windows:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix build .#kgctl-cross-windows-amd64
@@ -71,7 +71,7 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix develop . --command go test -mod=vendor --race ./...
@@ -81,7 +81,7 @@ jobs:
       - nscloud-ubuntu-22.04-amd64-8x16-with-features
       - namespace-features:kernel.release-channel=bleeding-edge
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Build
@@ -110,7 +110,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/determinate-nix-action@v3.17.2
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix flake check -L --show-trace
@@ -118,7 +118,7 @@ jobs:
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Build
@@ -144,7 +144,7 @@ jobs:
       - container
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Login to GitHub Container Registry
