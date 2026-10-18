@@ -15,6 +15,9 @@
 package k8s
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -22,6 +25,13 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	v1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/squat/kilo/pkg/k8s/apis/kilo/v1alpha1"
 	"github.com/squat/kilo/pkg/mesh"
@@ -543,4 +553,305 @@ func TestTranslatePeer(t *testing.T) {
 			t.Errorf("test case %q: got diff: %v", tc.name, diff)
 		}
 	}
+}
+
+func TestSetNetworkUnavailable(t *testing.T) {
+	pastTime := metav1.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	for _, tc := range []struct {
+		name                   string
+		initialNode            *v1.Node
+		targetUnavailable      bool
+		expectedStatus         v1.ConditionStatus
+		expectedReason         string
+		expectedMessage        string
+		expectNoPatch          bool
+		checkPreserveCondition bool
+		checkTransitionTime    bool
+		expectError            bool
+	}{
+		{
+			name: "set false on node with no conditions",
+			initialNode: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+				},
+			},
+			targetUnavailable: false,
+			expectedStatus:    v1.ConditionFalse,
+			expectedReason:    nodeNetworkUnavailableReason,
+			expectedMessage:   nodeNetworkUnavailableMessage,
+		},
+		{
+			name: "reproduce issue 547: calico leaves NetworkUnavailable=true, kilo updates to false",
+			initialNode: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:               v1.NodeReady,
+							Status:             v1.ConditionTrue,
+							Reason:             "KubeletReady",
+							Message:            "kubelet is posting ready status",
+							LastHeartbeatTime:  pastTime,
+							LastTransitionTime: pastTime,
+						},
+						{
+							Type:               v1.NodeNetworkUnavailable,
+							Status:             v1.ConditionTrue,
+							Reason:             "CalicoIsDown",
+							Message:            "Calico is not running on this node",
+							LastHeartbeatTime:  pastTime,
+							LastTransitionTime: pastTime,
+						},
+					},
+				},
+			},
+			targetUnavailable:      false,
+			expectedStatus:         v1.ConditionFalse,
+			expectedReason:         nodeNetworkUnavailableReason,
+			expectedMessage:        nodeNetworkUnavailableMessage,
+			checkPreserveCondition: true,
+		},
+		{
+			name: "idempotent when already false with KiloIsUp",
+			initialNode: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:               v1.NodeNetworkUnavailable,
+							Status:             v1.ConditionFalse,
+							Reason:             nodeNetworkUnavailableReason,
+							Message:            nodeNetworkUnavailableMessage,
+							LastHeartbeatTime:  pastTime,
+							LastTransitionTime: pastTime,
+						},
+					},
+				},
+			},
+			targetUnavailable: false,
+			expectedStatus:    v1.ConditionFalse,
+			expectedReason:    nodeNetworkUnavailableReason,
+			expectedMessage:   nodeNetworkUnavailableMessage,
+			expectNoPatch:     true,
+		},
+		{
+			name: "preserve transition time if status unchanged but reason updated",
+			initialNode: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:               v1.NodeNetworkUnavailable,
+							Status:             v1.ConditionFalse,
+							Reason:             "RouteCreated",
+							Message:            "RouteController created a route",
+							LastHeartbeatTime:  pastTime,
+							LastTransitionTime: pastTime,
+						},
+					},
+				},
+			},
+			targetUnavailable:   false,
+			expectedStatus:      v1.ConditionFalse,
+			expectedReason:      nodeNetworkUnavailableReason,
+			expectedMessage:     nodeNetworkUnavailableMessage,
+			checkTransitionTime: true,
+		},
+		{
+			name: "set true updates condition to KiloIsDown",
+			initialNode: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:               v1.NodeNetworkUnavailable,
+							Status:             v1.ConditionFalse,
+							Reason:             nodeNetworkUnavailableReason,
+							Message:            nodeNetworkUnavailableMessage,
+							LastHeartbeatTime:  pastTime,
+							LastTransitionTime: pastTime,
+						},
+					},
+				},
+			},
+			targetUnavailable: true,
+			expectedStatus:    v1.ConditionTrue,
+			expectedReason:    nodeNetworkUnavailableDownReason,
+			expectedMessage:   nodeNetworkUnavailableDownMessage,
+		},
+		{
+			name: "error when node does not exist",
+			initialNode: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "other-node",
+				},
+			},
+			targetUnavailable: false,
+			expectError:       true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			currentNode := tc.initialNode.DeepCopy()
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			if tc.initialNode.Name == "node1" {
+				if err := indexer.Add(currentNode); err != nil {
+					t.Fatalf("failed to add node to indexer: %v", err)
+				}
+			}
+			lister := v1listers.NewNodeLister(indexer)
+
+			patchCalled := 0
+			var patchedData []byte
+			var patchedSubresources []string
+			var patchedType types.PatchType
+
+			mockNodes := &mockNodeInterface{
+				getFunc: func(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Node, error) {
+					if name == currentNode.Name {
+						return currentNode, nil
+					}
+					return nil, errors.New("node not found")
+				},
+				patchFunc: func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.Node, error) {
+					patchCalled++
+					patchedData = data
+					patchedSubresources = subresources
+					patchedType = pt
+
+					oldData, err := json.Marshal(currentNode)
+					if err != nil {
+						return nil, err
+					}
+					merged, err := strategicpatch.StrategicMergePatch(oldData, data, &v1.Node{})
+					if err != nil {
+						return nil, err
+					}
+					if err := json.Unmarshal(merged, currentNode); err != nil {
+						return nil, err
+					}
+					return currentNode, nil
+				},
+			}
+			client := &mockClient{
+				coreV1: &mockCoreV1{
+					nodeInterface: mockNodes,
+				},
+			}
+			nb := &nodeBackend{
+				client:        client,
+				events:        make(chan *mesh.NodeEvent),
+				lister:        lister,
+				topologyLabel: RegionLabelKey,
+			}
+
+			err := nb.SetNetworkUnavailable(context.Background(), "node1", tc.targetUnavailable)
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if tc.expectNoPatch && patchCalled != 0 {
+				t.Errorf("expected 0 patch calls, got %d", patchCalled)
+			}
+			if !tc.expectNoPatch && patchCalled == 0 {
+				t.Errorf("expected patch call, got 0")
+			}
+			if !tc.expectNoPatch && patchCalled > 0 {
+				if patchedType != types.StrategicMergePatchType {
+					t.Errorf("expected StrategicMergePatchType, got %v", patchedType)
+				}
+				if len(patchedSubresources) != 1 || patchedSubresources[0] != "status" {
+					t.Errorf("expected subresource ['status'], got %v", patchedSubresources)
+				}
+				var patchObj nodeStatusPatch
+				if err := json.Unmarshal(patchedData, &patchObj); err != nil {
+					t.Fatalf("failed to unmarshal patch data: %v", err)
+				}
+			}
+
+			var cond *v1.NodeCondition
+			var readyCond *v1.NodeCondition
+			for i := range currentNode.Status.Conditions {
+				c := &currentNode.Status.Conditions[i]
+				if c.Type == v1.NodeNetworkUnavailable {
+					cond = c
+				}
+				if c.Type == v1.NodeReady {
+					readyCond = c
+				}
+			}
+
+			if cond == nil {
+				t.Fatalf("expected NetworkUnavailable condition to be present")
+			}
+			if cond.Status != tc.expectedStatus {
+				t.Errorf("expected status %v, got %v", tc.expectedStatus, cond.Status)
+			}
+			if cond.Reason != tc.expectedReason {
+				t.Errorf("expected reason %q, got %q", tc.expectedReason, cond.Reason)
+			}
+			if cond.Message != tc.expectedMessage {
+				t.Errorf("expected message %q, got %q", tc.expectedMessage, cond.Message)
+			}
+			if tc.checkPreserveCondition && readyCond == nil {
+				t.Errorf("expected NodeReady condition to be preserved")
+			}
+			if tc.checkTransitionTime && cond.LastTransitionTime.Unix() != pastTime.Unix() {
+				t.Errorf("expected LastTransitionTime to be preserved, got %v, want %v", cond.LastTransitionTime, pastTime)
+			}
+		})
+	}
+}
+
+type mockClient struct {
+	kubernetes.Interface
+	coreV1 *mockCoreV1
+}
+
+func (m *mockClient) CoreV1() corev1.CoreV1Interface {
+	return m.coreV1
+}
+
+type mockCoreV1 struct {
+	corev1.CoreV1Interface
+	nodeInterface *mockNodeInterface
+}
+
+func (m *mockCoreV1) Nodes() corev1.NodeInterface {
+	return m.nodeInterface
+}
+
+type mockNodeInterface struct {
+	corev1.NodeInterface
+	getFunc   func(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Node, error)
+	patchFunc func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.Node, error)
+}
+
+func (m *mockNodeInterface) Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Node, error) {
+	if m.getFunc != nil {
+		return m.getFunc(ctx, name, opts)
+	}
+	return nil, nil
+}
+
+func (m *mockNodeInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.Node, error) {
+	if m.patchFunc != nil {
+		return m.patchFunc(ctx, name, pt, data, opts, subresources...)
+	}
+	return nil, nil
 }
