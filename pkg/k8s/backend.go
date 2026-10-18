@@ -68,7 +68,20 @@ const (
 	RegionLabelKey  = "topology.kubernetes.io/region"
 	jsonPatchSlash  = "~1"
 	jsonRemovePatch = `{"op": "remove", "path": "%s"}`
+
+	nodeNetworkUnavailableReason      = "KiloIsUp"
+	nodeNetworkUnavailableMessage     = "Kilo is running on this node"
+	nodeNetworkUnavailableDownReason  = "KiloIsDown"
+	nodeNetworkUnavailableDownMessage = "Kilo is not running on this node"
 )
+
+type nodeStatusPatch struct {
+	Status nodeStatusConditionsPatch `json:"status"`
+}
+
+type nodeStatusConditionsPatch struct {
+	Conditions []v1.NodeCondition `json:"conditions"`
+}
 
 var logger = log.NewNopLogger()
 
@@ -261,6 +274,67 @@ func (nb *nodeBackend) Set(ctx context.Context, name string, node *mesh.Node) er
 	}
 	if _, err = nb.client.CoreV1().Nodes().Patch(ctx, name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("failed to patch node: %v", err)
+	}
+	return nil
+}
+
+// SetNetworkUnavailable sets the NodeNetworkUnavailable condition of a node.
+func (nb *nodeBackend) SetNetworkUnavailable(ctx context.Context, name string, unavailable bool) error {
+	status := v1.ConditionFalse
+	reason := nodeNetworkUnavailableReason
+	message := nodeNetworkUnavailableMessage
+	if unavailable {
+		status = v1.ConditionTrue
+		reason = nodeNetworkUnavailableDownReason
+		message = nodeNetworkUnavailableDownMessage
+	}
+
+	old, err := nb.lister.Get(name)
+	if err != nil {
+		old, err = nb.client.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to find node %q: %v", name, err)
+		}
+	}
+
+	var lastTransitionTime *metav1.Time
+	for _, c := range old.Status.Conditions {
+		if c.Type == v1.NodeNetworkUnavailable {
+			if c.Status == status && c.Reason == reason {
+				return nil
+			}
+			if c.Status == status {
+				t := c.LastTransitionTime
+				lastTransitionTime = &t
+			}
+			break
+		}
+	}
+
+	now := metav1.Now()
+	condition := v1.NodeCondition{
+		Type:               v1.NodeNetworkUnavailable,
+		Status:             status,
+		Reason:             reason,
+		Message:            message,
+		LastHeartbeatTime:  now,
+		LastTransitionTime: now,
+	}
+	if lastTransitionTime != nil {
+		condition.LastTransitionTime = *lastTransitionTime
+	}
+
+	patch := nodeStatusPatch{
+		Status: nodeStatusConditionsPatch{
+			Conditions: []v1.NodeCondition{condition},
+		},
+	}
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal node status patch: %v", err)
+	}
+	if _, err = nb.client.CoreV1().Nodes().Patch(ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+		return fmt.Errorf("failed to patch node %q status: %v", name, err)
 	}
 	return nil
 }

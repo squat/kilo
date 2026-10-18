@@ -609,6 +609,13 @@ func (m *Mesh) applyTopology() {
 	if err := m.table.Set(routes, rules); err != nil {
 		_ = level.Error(m.logger).Log("error", err)
 		m.errorCounter.WithLabelValues("apply").Inc()
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := m.Nodes().SetNetworkUnavailable(ctx, m.hostname, false); err != nil {
+		_ = level.Error(m.logger).Log("error", fmt.Errorf("failed to set node NetworkUnavailable condition: %v", err))
+		m.errorCounter.WithLabelValues("apply").Inc()
 	}
 }
 

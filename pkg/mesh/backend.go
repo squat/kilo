@@ -145,6 +145,7 @@ type Backend interface {
 // NodeBackend can get nodes by name, init itself,
 // list the nodes that should be meshed,
 // set Kilo properties for a node,
+// set the NetworkUnavailable condition of a node,
 // clean up any changes applied to the backend,
 // and watch for changes to nodes.
 type NodeBackend interface {
@@ -153,6 +154,7 @@ type NodeBackend interface {
 	Init(context.Context) error
 	List() ([]*Node, error)
 	Set(context.Context, string, *Node) error
+	SetNetworkUnavailable(context.Context, string, bool) error
 	Watch() <-chan *NodeEvent
 }
 
