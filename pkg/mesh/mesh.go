@@ -91,7 +91,10 @@ type Mesh struct {
 }
 
 // New returns a new Mesh instance.
-func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, autoMTU bool, resyncPeriod time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, allowedInternalCIDRs []*net.IPNet, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
+func New(backend Backend, enc encapsulation.Encapsulator, granularity Granularity, hostname string, port int, subnet *net.IPNet, local, cni bool, cniPath, iface string, cleanup bool, cleanUpIface bool, createIface bool, mtu uint, autoMTU bool, resyncPeriod time.Duration, checkIn time.Duration, prioritisePrivateAddr, iptablesForwardRule bool, allowedInternalCIDRs []*net.IPNet, serviceCIDRs []*net.IPNet, logger log.Logger, registerer prometheus.Registerer) (*Mesh, error) {
+	if checkIn > 0 {
+		checkInPeriod = checkIn
+	}
 	if err := os.MkdirAll(kiloPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory to store configuration: %v", err)
 	}

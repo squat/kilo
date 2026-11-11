@@ -124,6 +124,7 @@ var (
 	internalCIDRsRaw      []string
 	subnet                string
 	resyncPeriod          time.Duration
+	checkInPeriod         time.Duration
 	iptablesForwardRule   bool
 	prioritisePrivateAddr bool
 
@@ -157,6 +158,7 @@ func init() {
 	cmd.Flags().StringSliceVar(&internalCIDRsRaw, "internal-cidr", nil, "CIDRs to consider for internal IP auto-detection. If specified, only IPs within these CIDRs will be used. Can be specified multiple times.")
 	cmd.Flags().StringVar(&subnet, "subnet", mesh.DefaultKiloSubnet.String(), "CIDR from which to allocate addresses for WireGuard interfaces.")
 	cmd.Flags().DurationVar(&resyncPeriod, "resync-period", 30*time.Second, "How often should the Kilo controllers reconcile?")
+	cmd.Flags().DurationVar(&checkInPeriod, "check-in-period", mesh.DefaultCheckInPeriod, "How often should Kilo nodes refresh their last-seen annotation? A node is considered ready while its last-seen is within twice this value. Increase on large clusters where the default causes Ready-set churn and WireGuard IP collisions.")
 	cmd.Flags().BoolVar(&iptablesForwardRule, "iptables-forward-rules", false, "Add default accept rules to the FORWARD chain in iptables. Warning: this may break firewalls with a deny all policy and is potentially insecure!")
 	cmd.Flags().BoolVar(&prioritisePrivateAddr, "prioritise-private-addresses", false, "Prefer to assign a private IP address to the node's endpoint.")
 
@@ -291,7 +293,7 @@ func runRoot(_ *cobra.Command, _ []string) error {
 		mtu = uint(v)
 	}
 
-	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUp, cleanUpIface, createIface, mtu, autoMTU, resyncPeriod, prioritisePrivateAddr, iptablesForwardRule, internalCIDRs, serviceCIDRs, log.With(logger, "component", "kilo"), registry)
+	m, err := mesh.New(b, enc, gr, hostname, port, s, local, cni, cniPath, iface, cleanUp, cleanUpIface, createIface, mtu, autoMTU, resyncPeriod, checkInPeriod, prioritisePrivateAddr, iptablesForwardRule, internalCIDRs, serviceCIDRs, log.With(logger, "component", "kilo"), registry)
 	if err != nil {
 		return fmt.Errorf("failed to create Kilo mesh: %v", err)
 	}

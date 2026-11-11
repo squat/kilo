@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	// checkInPeriod is how often nodes should check-in.
-	checkInPeriod = 30 * time.Second
+	// DefaultCheckInPeriod is the default check-in period: nodes refresh their
+	// last-seen annotation this often, and a node is considered Ready while its
+	// last-seen is within twice this value.
+	DefaultCheckInPeriod = 30 * time.Second
 	// DefaultKiloInterface is the default interface created and used by Kilo.
 	DefaultKiloInterface = "kilo0"
 	// DefaultKiloPort is the default UDP port Kilo uses.
@@ -34,6 +36,15 @@ const (
 	// DefaultCNIPath is the default path to the CNI config file.
 	DefaultCNIPath = "/etc/cni/net.d/10-kilo.conflist"
 )
+
+// checkInPeriod is how often nodes should check in. It defaults to
+// DefaultCheckInPeriod and may be overridden at startup through New (the
+// --check-in-period flag). On large clusters the per-node last-seen writes
+// create enough watch churn that liveness cannot propagate within the default
+// window, which shrinks every agent's Ready set; a longer period widens the
+// freshness window so the Ready set stays close to the full node set. See
+// https://github.com/squat/kilo/issues/549.
+var checkInPeriod = DefaultCheckInPeriod
 
 // DefaultKiloSubnet is the default CIDR for Kilo.
 var DefaultKiloSubnet = &net.IPNet{IP: []byte{10, 4, 0, 0}, Mask: []byte{255, 255, 0, 0}}
