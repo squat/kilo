@@ -335,9 +335,10 @@ func (c *Conf) Equal(d *wgtypes.Device) (bool, string) {
 			}
 		}
 		if c.Peers[i].Endpoint == nil || d.Peers[i].Endpoint == nil {
-			return c.Peers[i].Endpoint == nil && d.Peers[i].Endpoint == nil, "peer endpoints: nil value"
-		}
-		if c.Peers[i].Endpoint.StringOpt(false) != d.Peers[i].Endpoint.String() {
+			if c.Peers[i].Endpoint != nil || d.Peers[i].Endpoint != nil {
+				return false, "peer endpoints: nil value"
+			}
+		} else if c.Peers[i].Endpoint.StringOpt(false) != d.Peers[i].Endpoint.String() {
 			return false, fmt.Sprintf("Peer %d endpoint: old=%q, new=%q", i, d.Peers[i].Endpoint.String(), c.Peers[i].Endpoint.StringOpt(false))
 		}
 
