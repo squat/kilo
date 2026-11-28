@@ -17,9 +17,105 @@ package wireguard
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/kylelemons/godebug/pretty"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+func TestConfEqualWithNilEndpoints(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		change    func(desired *Conf, actual *wgtypes.Device)
+		wantEqual bool
+	}{
+		{
+			name:      "all peers match",
+			wantEqual: true,
+		},
+		{
+			name: "later peer has different allowed IPs",
+			change: func(_ *Conf, actual *wgtypes.Device) {
+				actual.Peers[1].AllowedIPs = nil
+			},
+		},
+		{
+			name: "nil-endpoint peer has different keepalive",
+			change: func(_ *Conf, actual *wgtypes.Device) {
+				actual.Peers[0].PersistentKeepaliveInterval = 10 * time.Second
+			},
+		},
+		{
+			name: "nil-endpoint peer has different preshared key",
+			change: func(_ *Conf, actual *wgtypes.Device) {
+				actual.Peers[0].PresharedKey = wgtypes.Key{4}
+			},
+		},
+		{
+			name: "only actual endpoint is present",
+			change: func(_ *Conf, actual *wgtypes.Device) {
+				actual.Peers[0].Endpoint = &net.UDPAddr{IP: net.ParseIP("10.0.0.1"), Port: 51820}
+			},
+		},
+		{
+			name: "only desired endpoint is present",
+			change: func(desired *Conf, _ *wgtypes.Device) {
+				desired.Peers[0].Endpoint = ParseEndpoint("10.0.0.1:51820")
+			},
+		},
+		{
+			name: "later peer has different endpoint",
+			change: func(_ *Conf, actual *wgtypes.Device) {
+				actual.Peers[1].Endpoint.Port++
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			port := 51820
+			privateKey := wgtypes.Key{3}
+			// These public keys sort the nil-endpoint peer before the other peer.
+			firstPeerKey := wgtypes.Key{1}
+			secondPeerKey := wgtypes.Key{2}
+			allowedIP := net.IPNet{IP: net.ParseIP("10.0.0.161").To4(), Mask: net.CIDRMask(32, 32)}
+
+			desired := &Conf{
+				Config: wgtypes.Config{ListenPort: &port, PrivateKey: &privateKey},
+				Peers: []Peer{
+					{PeerConfig: wgtypes.PeerConfig{PublicKey: firstPeerKey}},
+					{
+						PeerConfig: wgtypes.PeerConfig{
+							PublicKey:  secondPeerKey,
+							AllowedIPs: []net.IPNet{allowedIP},
+						},
+						Endpoint: ParseEndpoint("10.0.0.150:51820"),
+					},
+				},
+			}
+			actual := &wgtypes.Device{
+				ListenPort: port,
+				PrivateKey: privateKey,
+				Peers: []wgtypes.Peer{
+					{PublicKey: firstPeerKey},
+					{
+						PublicKey:  secondPeerKey,
+						AllowedIPs: []net.IPNet{allowedIP},
+						Endpoint:   &net.UDPAddr{IP: net.ParseIP("10.0.0.150"), Port: 51820},
+					},
+				},
+			}
+			if tc.change != nil {
+				tc.change(desired, actual)
+			}
+			equal, reason := desired.Equal(actual)
+			if equal != tc.wantEqual {
+				t.Fatalf("Conf.Equal(): got %v, want %v (reason: %q)", equal, tc.wantEqual, reason)
+			}
+			if !equal && reason == "" {
+				t.Fatal("Conf.Equal(): expected a reason for the mismatch")
+			}
+		})
+	}
+}
 
 func TestNewEndpoint(t *testing.T) {
 	for i, tc := range []struct {
